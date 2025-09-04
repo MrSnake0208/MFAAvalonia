@@ -678,16 +678,6 @@ rm $0
         // 清理临时文件
         try
         {
-            if (File.Exists(tempZipFilePath))
-            {
-                File.Delete(tempZipFilePath);
-                LoggerHelper.Info($"已删除临时ZIP文件: {tempZipFilePath}");
-            }
-            if (Directory.Exists(tempExtractDir))
-            {
-                Directory.Delete(tempExtractDir, true);
-                LoggerHelper.Info($"已删除临时解压目录: {tempExtractDir}");
-            }
             if (Directory.Exists(tempPath))
             {
                 Directory.Delete(tempPath, true);
@@ -983,16 +973,7 @@ rm $0
             // 清理临时文件
             try
             {
-                if (File.Exists(tempZip))
-                {
-                    File.Delete(tempZip);
-                    LoggerHelper.Info($"已删除临时ZIP文件: {tempZip}");
-                }
-                if (Directory.Exists(extractDir))
-                {
-                    Directory.Delete(extractDir, true);
-                    LoggerHelper.Info($"已删除临时解压目录: {extractDir}");
-                }
+
                 if (Directory.Exists(tempPath))
                 {
                     Directory.Delete(tempPath, true);
