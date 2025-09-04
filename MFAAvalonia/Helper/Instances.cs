@@ -88,7 +88,7 @@ public static partial class Instances
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"重启失败: {ex.Message}");
+            LoggerHelper.Error($"重启失败: {ex.Message}");
         }
     }
 
@@ -114,7 +114,7 @@ public static partial class Instances
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"关机失败: {ex.Message}");
+            LoggerHelper.Error($"关机失败: {ex.Message}");
         }
     }
     /// <summary>
@@ -156,7 +156,7 @@ public static partial class Instances
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"重启失败: {ex.Message}");
+            LoggerHelper.Error($"重启失败: {ex.Message}");
             // 备用方案：尝试通用POSIX命令
             TryFallbackReboot();
         }
@@ -189,7 +189,7 @@ public static partial class Instances
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"备用重启方案失败: {ex.Message}");
+            LoggerHelper.Error($"备用重启方案失败: {ex.Message}");
         }
     }
 

@@ -6,6 +6,7 @@ using MFAAvalonia.Helper;
 using MFAAvalonia.Helper.Converters;
 using MFAAvalonia.ViewModels.Other;
 using MFAAvalonia.ViewModels.Windows;
+using System;
 using System.Collections.ObjectModel;
 
 namespace MFAAvalonia.ViewModels.UsersControls.Settings;
@@ -18,7 +19,21 @@ public partial class VersionUpdateSettingsUserControlModel : ViewModelBase
         Socks5
     }
 
-    [ObservableProperty] private string _maaFwVersion = MaaProcessor.Utility.Version;
+    protected override void Initialize()
+    {
+        try
+        {
+            MaaFwVersion = MaaProcessor.Utility.Version;
+        }
+        catch (Exception e)
+        {
+            MaaFwVersion = "v4.4.1";
+            LoggerHelper.Error(e);
+        }
+        base.Initialize();
+    }
+    
+    [ObservableProperty] private string _maaFwVersion = "";
     [ObservableProperty] private string _mfaVersion = RootViewModel.Version;
     [ObservableProperty] private string _resourceVersion = string.Empty;
     [ObservableProperty] private bool _showResourceVersion;

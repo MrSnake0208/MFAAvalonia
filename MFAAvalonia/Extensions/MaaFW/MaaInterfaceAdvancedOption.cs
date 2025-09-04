@@ -63,7 +63,7 @@ public class MaaInterfaceAdvancedOption
             }
         }
         var result = JsonConvert.SerializeObject(cloned, Formatting.Indented);
-        Console.WriteLine(result);
+       // Console.WriteLine(result);
         return result;
     }
 // 统一处理各种类型的 Token，返回处理后的新 Token

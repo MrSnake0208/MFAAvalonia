@@ -35,6 +35,7 @@ public partial class ChangelogViewModel : ViewModelBase
             var resourcePath = Path.Combine(AppContext.BaseDirectory, "resource");
             var mdPath = Path.Combine(resourcePath, ReleaseFileName);
 
+            
             if (File.Exists(mdPath))
             {
                 var content = File.ReadAllText(mdPath);

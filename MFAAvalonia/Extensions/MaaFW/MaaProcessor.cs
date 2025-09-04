@@ -114,6 +114,7 @@ public class MaaProcessor
             _agentProcess?.Kill();
             _agentProcess?.Dispose();
             _agentProcess = null;
+            Instances.TaskQueueViewModel.SetConnected(false);
         }
         MaaTasker = maaTasker;
     }
@@ -499,7 +500,6 @@ public class MaaProcessor
                 }
             }
         }
-        return null;
     }
 
     async private Task<MaaTasker?> InitializeMaaTasker(CancellationToken token) // 添加 async 和 token
@@ -524,16 +524,24 @@ public class MaaProcessor
                 return new MaaResource(resources);
             }, token, catchException: true, shouldLog: false, handleError: exception => HandleInitializationError(exception, "LoadResourcesFailed".ToLocalization()));
 
-            maaResource.SetOption_InferenceDevice(Instances.PerformanceUserControlModel.GpuOption);
-            LoggerHelper.Info($"GPU acceleration: {Instances.PerformanceUserControlModel.GpuOption}");
+            Instances.PerformanceUserControlModel.ChangeGpuOption(maaResource, Instances.PerformanceUserControlModel.GpuOption);
+
+            LoggerHelper.Info(
+                $"GPU acceleration: {(Instances.PerformanceUserControlModel.GpuOption.IsDirectML ? Instances.PerformanceUserControlModel.GpuOption.Adapter.AdapterName : Instances.PerformanceUserControlModel.GpuOption.Device.ToString())}{(Instances.PerformanceUserControlModel.GpuOption.IsDirectML ? $",Adapter Id: {Instances.PerformanceUserControlModel.GpuOption.Adapter.AdapterId}" : "")}");
+
         }
         catch (OperationCanceledException)
         {
             LoggerHelper.Warning("Resource loading was canceled");
             return null;
         }
-        catch (Exception)
+        catch (MaaException)
         {
+            return null;
+        }
+        catch (Exception e)
+        {
+            LoggerHelper.Error("Initialization resource error", e);
             return null;
         }
 
@@ -557,10 +565,16 @@ public class MaaProcessor
             LoggerHelper.Warning("Controller initialization was canceled");
             return null;
         }
-        catch (Exception)
+        catch (MaaException)
         {
             return null;
         }
+        catch (Exception e)
+        {
+            LoggerHelper.Error("Initialization controller error", e);
+            return null;
+        }
+
         try
         {
             token.ThrowIfCancellationRequested();
@@ -574,7 +588,7 @@ public class MaaProcessor
                 Toolkit = MaaProcessor.Toolkit,
                 DisposeOptions = DisposeOptions.None,
             };
-            
+
             try
             {
                 var tempMFADir = Path.Combine(AppContext.BaseDirectory, "temp_mfa");
@@ -709,11 +723,9 @@ public class MaaProcessor
 
                 if ((args.Message.StartsWith(MaaMsg.Node.Action.Succeeded) || args.Message.StartsWith(MaaMsg.Node.Action.Failed)) && o is MaaTasker tasker)
                 {
-                    Console.WriteLine(jObject);
                     if (jObject["node_id"] != null)
                     {
                         var nodeId = Convert.ToInt64(jObject["node_id"]?.ToString() ?? string.Empty);
-                        Console.WriteLine(nodeId);
                         if (nodeId > 0)
                         {
                             tasker.GetNodeDetail(nodeId, out _, out var recognitionId, out _);
@@ -770,8 +782,13 @@ public class MaaProcessor
             LoggerHelper.Warning("Tasker initialization was canceled");
             return null;
         }
-        catch (Exception)
+        catch (MaaException)
         {
+            return null;
+        }
+        catch (Exception e)
+        {
+            LoggerHelper.Error("Initialization tasker error", e);
             return null;
         }
     }
@@ -991,7 +1008,7 @@ public class MaaProcessor
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            LoggerHelper.Error(e);
             ErrorView.ShowException(e);
             return content;
         }
@@ -1128,9 +1145,29 @@ public class MaaProcessor
         }
         else
         {
+            var defaultValue = new MaaInterface();
             Interface =
-                JsonHelper.LoadJson(Path.Combine(AppContext.BaseDirectory, "interface.json"),
-                    new MaaInterface(), new MaaInterfaceSelectAdvancedConverter(false),
+                JsonHelper.LoadJson(Path.Combine(AppContext.BaseDirectory, "interface.json"), defaultValue
+                    , errorHandle: () =>
+                    {
+                        var @interface = JObject.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "interface.json")));
+                        if (@interface != null)
+                        {
+                            try
+                            {
+                                defaultValue.MFAMinVersion = @interface["mfa_min_version"]?.ToString();
+                                defaultValue.MFAMaxVersion = @interface["mfa_max_version"]?.ToString();
+                                defaultValue.CustomTitle = @interface["custom_title"]?.ToString();
+                                defaultValue.Name = @interface["name"]?.ToString();
+                                defaultValue.Url = @interface["url"]?.ToString();
+                            }
+                            catch (Exception e)
+                            {
+                                LoggerHelper.Warning(e);
+                            }
+                            RootView.AddLog("FileLoadFailed".ToLocalizationFormatted(false, "interface.json"));
+                        }
+                    }, new MaaInterfaceSelectAdvancedConverter(false),
                     new MaaInterfaceSelectOptionConverter(false));
         }
 
@@ -1266,7 +1303,6 @@ public class MaaProcessor
         {
             ToastHelper.Error("PipelineLoadError".ToLocalizationFormatted(false, ex.Message)
             );
-            Console.WriteLine(ex);
             LoggerHelper.Error(ex);
             return false;
         }
@@ -2185,7 +2221,7 @@ public class MaaProcessor
         //
         // var tasks = JsonConvert.DeserializeObject<Dictionary<string, MaaNode>>(json, settings);
         // tasks = tasks.MergeMaaNodes(taskModels);
-        Console.WriteLine(taskParams);
+        // Console.WriteLine(taskParams);
         return new NodeAndParam
         {
             Name = task.InterfaceItem?.Name,
@@ -2467,7 +2503,6 @@ public class MaaProcessor
         try
         {
             var isUpdateRelated = TaskQueue.Any(task => task.IsUpdateRelated);
-            Console.WriteLine("任务相关:" + isUpdateRelated);
             if (!ShouldProcessStop(finished))
             {
                 ToastHelper.Warn("NoTaskToStop".ToLocalization());
@@ -2532,7 +2567,7 @@ public class MaaProcessor
     private MaaJobStatus AbortCurrentTasker()
     {
         if (MaaTasker == null)
-            return  MaaJobStatus.Succeeded;
+            return MaaJobStatus.Succeeded;
         var status = MaaTasker.Stop().Wait();
         LoggerHelper.Info("Stopping tasker, status: " + status);
         return status;
@@ -2654,8 +2689,10 @@ public class MaaProcessor
             }
 
         }
+        Instance.Stop(MFATask.MFATaskStatus.STOPPED);
         action?.Invoke();
     }
+
     public static void CloseSoftwareAndMFA()
     {
         CloseSoftware(Instances.ShutdownApplication);

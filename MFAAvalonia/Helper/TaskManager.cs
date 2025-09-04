@@ -20,7 +20,7 @@ public static class TaskManager
         string prompt = ">>> ",
         bool catchException = true)
     {
-        Console.WriteLine($"{prompt}任务 {name} 开始.");
+        LoggerHelper.Info($"{prompt}任务 {name} 开始.");
 
         if (catchException)
         {
@@ -35,7 +35,7 @@ public static class TaskManager
         }
         else action();
 
-        Console.WriteLine($"{prompt}任务 {name} 完成.");
+        LoggerHelper.Info($"{prompt}任务 {name} 完成.");
     }
 
     public static void RunTask(
@@ -47,7 +47,7 @@ public static class TaskManager
         bool catchException = true,
         bool shouldLog = true)
     {
-        Console.WriteLine($"异步任务 {name} 开始.");
+        LoggerHelper.Info($"异步任务 {name} 开始.");
         try
         {
             Task.Run(() =>
@@ -68,7 +68,7 @@ public static class TaskManager
         }
         finally
         {
-            Console.WriteLine($"{prompt}异步任务 {name} 已完成.");
+            LoggerHelper.Info($"{prompt}异步任务 {name} 已完成.");
         }
     }
 
@@ -89,7 +89,7 @@ public static class TaskManager
         bool catchException = true,
         bool shouldLog = true)
     {
-        Console.WriteLine($"异步任务 {name} 开始.");
+        LoggerHelper.Info($"异步任务 {name} 开始.");
         if (catchException)
         {
             var task = Task.Run(action);
@@ -105,7 +105,7 @@ public static class TaskManager
         }
         else await Task.Run(action);
 
-        Console.WriteLine($"{prompt}异步任务 {name} 已完成.");
+        LoggerHelper.Info($"{prompt}异步任务 {name} 已完成.");
     }
 
     public async static Task RunTaskAsync(
@@ -117,7 +117,7 @@ public static class TaskManager
         bool catchException = true,
         bool shouldLog = true)
     {
-        Console.WriteLine($"异步任务 {name} 开始.");
+        LoggerHelper.Info($"异步任务 {name} 开始.");
         try
         {
             await Task.Run(() =>
@@ -138,7 +138,7 @@ public static class TaskManager
         }
         finally
         {
-            Console.WriteLine($"{prompt}异步任务 {name} 已完成.");
+            LoggerHelper.Info($"{prompt}异步任务 {name} 已完成.");
         }
     }
 
@@ -171,7 +171,7 @@ public static class TaskManager
         }
         finally
         {
-            Console.WriteLine($">>> 异步任务 {name} 已完成.");
+            LoggerHelper.Info($">>> 异步任务 {name} 已完成.");
         }
     }
 }

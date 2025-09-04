@@ -8,6 +8,7 @@ using MFAAvalonia.ViewModels.Windows;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace MFAAvalonia;
 
@@ -46,6 +47,7 @@ sealed class Program
     {
         try
         {
+            Directory.SetCurrentDirectory(AppContext.BaseDirectory);
             var parsedArgs = ParseArguments(args);
             LoggerHelper.Info("Args: " + JsonConvert.SerializeObject(parsedArgs, Formatting.Indented));
             LoggerHelper.Info("MFA version: " + RootViewModel.Version);

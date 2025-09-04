@@ -84,7 +84,7 @@
                         Classes="Basic"
                         Click="CopyErrorMessage_Click"
                         Content="{markup:I18n {x:Static helper:LangKeys.CopyErrorMessage}}"
-                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.CopiedToClipboard}}" />
+                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.CopyToClipboard}}" />
 
                     <!--  反馈链接  -->
                     <Button

@@ -25,6 +25,8 @@
 		<PackageReference Update="Packaging.Targets">
 		  <Version>0.1.232</Version>
 		</PackageReference>
+		<PackageReference Include="SharpDX" Version="4.2.0" />
+        <PackageReference Include="SharpDX.Direct3D12" Version="4.2.0" />
 	</ItemGroup>
 
     <PropertyGroup>
@@ -36,8 +38,8 @@
         <ApplicationRevision>0</ApplicationRevision>
         <ApplicationVersion>1.1.0</ApplicationVersion>
         <Version>1.1</Version>
-        <FileVersion>1.6.0</FileVersion>
-        <AssemblyVersion>1.6.0</AssemblyVersion>
+        <FileVersion>1.6.5</FileVersion>
+        <AssemblyVersion>1.6.5</AssemblyVersion>
         <InformationalVersion>0.0.1</InformationalVersion>
     </PropertyGroup>
 
@@ -83,7 +85,7 @@
         <PackageReference Include="Maa.Framework.Binding.Extensions" Version="4.4.0-preview.1" />
         <PackageReference Include="Maa.Framework.Binding.Native" Version="4.4.0-preview.1" />
         <PackageReference Include="Maa.Framework.Native" Version="4.4.0-preview.1" />
-        <PackageReference Include="Maa.Framework.Runtimes" Version="4.4.0" />
+        <PackageReference Include="Maa.Framework.Runtimes" Version="4.4.1" />
         <PackageReference Include="MailKit" Version="4.13.0" />
         <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.13.0" />
@@ -105,7 +107,7 @@
         <PackageReference Include="SharpHook" Version="6.2.0" />
 		<PackageReference Include="SkiaSharp" Version="3.119.0" />
 		<PackageReference Include="System.Drawing.Common" Version="9.0.7" />
-        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.6" />
+        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.7" />
         <PackageReference Include="System.Management" Version="10.0.0-preview.2.25163.2" />
 
 		<ProjectReference Include="../LazyStaticGenerator/LazyStaticGenerator.csproj" OutputItemType="Analyzer" ExcludeAssets="runtime;build;native;contentfiles" ReferenceOutputAssembly="false" />
@@ -149,6 +151,9 @@
     </ItemGroup>
 	
 	<ItemGroup>
+		<Content Include="..\cliff.toml">
+		  <Link>cliff.toml</Link>
+		</Content>
 		<Content Include="..\README_en.md">
 		  <Link>README_en.md</Link>
 		</Content>

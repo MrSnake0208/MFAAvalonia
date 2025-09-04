@@ -36,8 +36,10 @@ public static class ConfigurationKeys
 
     #region 性能设置
 
+    public const string UseDirectML = "UseDirectML";
     public const string GPUOption = "GPUOption";
-
+    public const string GPUs = "GPUs";
+    
     #endregion
 
     #region 连接设置

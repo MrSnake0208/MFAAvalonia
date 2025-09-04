@@ -735,7 +735,7 @@
         <value>重新掃描控制器</value>
     </data>
     <data name="ResourceDownloadSource" xml:space="preserve">
-        <value>資源下載源</value>
+        <value>下載源</value>
     </data>
     <data name="ResourceLink" xml:space="preserve">
         <value>資源連結: </value>
@@ -813,7 +813,7 @@
         <value>顯示</value>
     </data>
     <data name="ShowDisclaimerNoMore" xml:space="preserve">
-        <value>下次不再提示</value>
+        <value>下次更新前不再提示</value>
     </data>
     <data name="ShowHitDraw" xml:space="preserve">
         <value>顯示節點命中截圖（用於除錯）</value>
@@ -1180,5 +1180,17 @@
     </data>
     <data name="HashVerificationFailed" xml:space="preserve">
         <value>雜湊驗證失敗！資源可能已損壞，可能是網路波動導致，請嘗試重新下載資源。</value>
+    </data>
+    <data name="FileLoadFailed" xml:space="preserve">
+        <value>文件 {0} 載入失敗！</value>
+    </data>
+    <data name="CopyToClipboard" xml:space="preserve">
+        <value>複製到剪貼簿</value>
+    </data>
+    <data name="UseDirectMLSupportedDevice" xml:space="preserve">
+        <value>Use DirectML-supported devices</value>
+    </data>
+    <data name="SwitchUiUpdateSourceToGithub" xml:space="preserve">
+        <value>因 Mirror 醬無法指定特定版本進行更新，請到更新設定中把更新源切換為 GitHub。</value>
     </data>
 </root>

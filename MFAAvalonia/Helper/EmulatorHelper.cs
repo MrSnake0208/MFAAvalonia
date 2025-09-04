@@ -35,7 +35,9 @@ public static class EmulatorHelper
                 emulatorMode = "XYAZ";
             else if (windowName.Contains("BlueStacks"))
                 emulatorMode = "BlueStacks";
-
+            
+            LoggerHelper.Info("Emulator mode detected: " + emulatorMode);
+            
             return emulatorMode switch
             {
                 "Nox" => KillEmulatorNox(),
@@ -56,6 +58,10 @@ public static class EmulatorHelper
     /// 一个用于调用 MuMu12 模拟器控制台关闭 MuMu12 的方法
     /// </summary>
     /// <returns>是否关闭成功</returns>
+    /// <summary>
+    /// 一个用于调用 MuMu12 模拟器控制台关闭 MuMu12 的方法
+    /// </summary>
+    /// <returns>是否关闭成功</returns>
     private static bool KillEmulatorMuMuEmulator12()
     {
         string address = MaaProcessor.Config.AdbDevice.AdbSerial;
@@ -64,47 +70,86 @@ public static class EmulatorHelper
         {
             emuIndex = 0;
         }
-        else
+        else if (address.Contains(':'))
         {
             string portStr = address.Split(':')[1];
-            int port = int.Parse(portStr);
-            emuIndex = (port - 16384) / 32;
+            if (int.TryParse(portStr, out var port))
+            {
+                emuIndex = (port - 16384) / 32;
+            }
+            else
+            {
+                LoggerHelper.Error($"Failed to parse port from address {address}");
+                return false;
+            }
         }
-
-        var processes = Process.GetProcessesByName("MuMuPlayer");
-        if (processes.Length <= 0)
+        else if (address.StartsWith("emulator-", StringComparison.OrdinalIgnoreCase))
+        {
+            string[] parts = address.Split('-');
+            if (parts.Length >= 2 && int.TryParse(parts[1], out int port))
+            {
+                emuIndex = (port - 5554) / 2;
+            }
+            else
+            {
+                LoggerHelper.Error($"Failed to parse port from emulator style address {address}");
+                return false;
+            }
+        }
+        else
+        {
+            LoggerHelper.Error($"Unsupported address format: {address}");
+            return false;
+        }
+// 尝试找到正在运行的模拟器进程（优先新版，再兼容旧版）
+        Process[] processes = Process.GetProcessesByName("MuMuNxDevice"); // 新版
+        if (processes.Length == 0)
+        {
+            processes = Process.GetProcessesByName("MuMuPlayer"); // 旧版
+        }
+        if (processes.Length == 0)
         {
             return false;
         }
-
-        ProcessModule processModule;
+        ProcessModule? processModule;
         try
         {
             processModule = processes[0].MainModule;
         }
         catch (Exception e)
         {
-            LoggerHelper.Error("Error: Failed to get the main module of the emulator process.");
+            LoggerHelper.Error("Failed to get the main module of the emulator process.");
             LoggerHelper.Error(e.Message);
             return false;
         }
-
-        if (processModule == null)
+        string? emulatorExePath = processModule?.FileName;
+        if (emulatorExePath == null)
         {
             return false;
         }
-
-        var emuLocation = Path.GetDirectoryName(processModule.FileName);
-        if (emuLocation == null)
+// 从 exe 路径回推安装目录
+// 新版路径推导: nx_device\12.0\shell\MuMuNxDevice.exe → 上三级目录 = 安装目录
+// 旧版路径推导: shell\MuMuPlayer.exe → 上一级目录 = 安装目录
+        var installPath = Path.GetFullPath(Path.GetFileName(emulatorExePath).Equals("MuMuNxDevice.exe", StringComparison.OrdinalIgnoreCase)
+            ? Path.Combine(Path.GetDirectoryName(emulatorExePath)!, @"..\..\..")
+            : Path.Combine(Path.GetDirectoryName(emulatorExePath)!, ".."));
+// 新旧路径分别尝试 MuMuManager.exe
+        string newConsolePath = Path.Combine(installPath, @"nx_main\MuMuManager.exe");
+        string oldConsolePath = Path.Combine(installPath, @"shell\MuMuManager.exe");
+        string? consolePath = null;
+        LoggerHelper.Info("New console path: " + newConsolePath);
+        LoggerHelper.Info("Old console path: " + oldConsolePath);
+        if (File.Exists(newConsolePath))
         {
-            return false;
+            consolePath = newConsolePath;
         }
-
-        string consolePath = Path.Combine(emuLocation, "MuMuManager.exe");
-
-        if (File.Exists(consolePath))
+        else if (File.Exists(oldConsolePath))
         {
-            var startInfo = new ProcessStartInfo(consolePath)
+            consolePath = oldConsolePath;
+        }
+        if (consolePath != null)
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo(consolePath)
             {
                 Arguments = $"api -v {emuIndex} shutdown_player",
                 CreateNoWindow = true,
@@ -116,12 +161,10 @@ public static class EmulatorHelper
                 LoggerHelper.Info($"Emulator at index {emuIndex} closed through console. Console path: {consolePath}");
                 return true;
             }
-
             LoggerHelper.Warning($"Console process at index {emuIndex} did not exit within the specified timeout. Killing emulator by window. Console path: {consolePath}");
             return KillEmulatorByWindow();
         }
-
-        LoggerHelper.Error($"Error: `{consolePath}` not found, try to kill emulator by window.");
+        LoggerHelper.Error("MuMuManager.exe not found in expected locations (new or old). Trying to kill emulator by window.");
         return KillEmulatorByWindow();
     }
 
@@ -418,7 +461,8 @@ public static class EmulatorHelper
     {
         var pid = 0;
         var windowName = new[]
-        {
+        { 
+            "MuMu安卓设备",
             "明日方舟",
             "明日方舟 - MuMu模拟器",
             "BlueStacks App Player",

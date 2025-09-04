@@ -59,7 +59,7 @@ public class MaaInterfaceSelectAdvancedConverter(bool serializeAsStringArray) : 
                 return null;
         }
 
-        Console.WriteLine($"Invalid JSON format for MaaInterfaceSelectAdvancedConverter. Unexpected type {objectType}.");
+        LoggerHelper.Error($"Invalid JSON format for MaaInterfaceSelectAdvancedConverter. Unexpected type {objectType}.");
         return null;
     }
 

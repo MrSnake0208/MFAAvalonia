@@ -1028,9 +1028,9 @@ public partial class TaskQueueView : UserControl
                 "LimitWidth"
             },
             Margin = new Thickness(0, 5, 5, 5),
-            ItemsSource = interfaceOption.Cases.Select(caseOption => new LocalizationViewModel
+            ItemsSource = interfaceOption.Cases?.Select(caseOption => new LocalizationViewModel
             {
-                Name = caseOption.Name,
+                Name = caseOption.Name ?? "",
             }).ToList(),
             ItemTemplate = new FuncDataTemplate<LocalizationViewModel>((optionCase, b) =>
             {

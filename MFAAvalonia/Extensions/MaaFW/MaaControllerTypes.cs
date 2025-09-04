@@ -5,8 +5,8 @@ namespace MFAAvalonia.Extensions.MaaFW;
 public enum MaaControllerTypes
 {
     None = 0,
-    Win32,
-    Adb
+    Win32 = 1,
+    Adb = 2,
 }
 
 public static class MaaControllerHelper

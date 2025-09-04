@@ -75,16 +75,25 @@
             <suki:GlassCard Grid.Column="1" Padding="25,15,25,15" Margin="7.5,0,0,0" VerticalContentAlignment="Center">
                 <StackPanel Spacing="20" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <userControls:VersionLabel 
-                        Title="{markup:I18n {x:Static helper:LangKeys.SoftwareVersion}}" 
+                        Title="{markup:I18n {x:Static helper:LangKeys.SoftwareVersion}}"
+                        Cursor="Hand"
+                        PointerPressed="CopyVersion"
+                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.CopyToClipboard}}"
                         Version="{Binding MfaVersion}" />
                     
                     <userControls:VersionLabel 
-                        Title="{markup:I18n {x:Static helper:LangKeys.ResourceVersion}}" 
+                        Title="{markup:I18n {x:Static helper:LangKeys.ResourceVersion}}"
+                        Cursor="Hand"
+                        PointerPressed="CopyVersion"
+                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.CopyToClipboard}}"
                         Version="{Binding ResourceVersion}"
                         IsVisible="{Binding ShowResourceVersion}" />
                     
                     <userControls:VersionLabel 
-                        Title="{markup:I18n {x:Static helper:LangKeys.MaaFWVersion}}" 
+                        Title="{markup:I18n {x:Static helper:LangKeys.MaaFWVersion}}"
+                        Cursor="Hand"
+                        PointerPressed="CopyVersion"
+                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.CopyToClipboard}}"
                         Version="{Binding MaaFwVersion}" />
                 </StackPanel>
             </suki:GlassCard>

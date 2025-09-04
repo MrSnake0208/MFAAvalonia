@@ -39,7 +39,37 @@ public static class JsonHelper
             return defaultValue;
         }
     }
+    public static T LoadJson<T>(string filePath, T defaultValue = default, Action? errorHandle = null, params JsonConverter[] converters)
+    {
 
+        try
+        {
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+                LoggerHelper.Info($"自动创建配置目录：{directory}"); // 可选日志
+            }
+
+            if (!File.Exists(filePath)) return defaultValue;
+
+            var settings = new JsonSerializerSettings();
+            if (converters is { Length: > 0 })
+            {
+                settings.Converters.AddRange(converters);
+            }
+
+            var json = File.ReadAllText(filePath);
+            return JsonConvert.DeserializeObject<T>(json, settings) ?? defaultValue;
+        }
+        catch (Exception ex)
+        {
+            errorHandle?.Invoke();
+            LoggerHelper.Error($"配置加载失败：{Path.GetFileName(filePath)}", ex);
+            return defaultValue;
+        }
+    }
+    
     public static void SaveJson<T>(string filePath, T config, params JsonConverter[] converters)
     {
         try

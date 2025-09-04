@@ -95,7 +95,7 @@ public static class BrushHelper
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            LoggerHelper.Error(e);
             // 忽略转换错误
         }
 

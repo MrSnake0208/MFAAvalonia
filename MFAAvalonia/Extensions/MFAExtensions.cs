@@ -262,7 +262,7 @@ public static class MFAExtensions
             if (useCancel) cts.Cancel();
             cts.Dispose();
         }
-        catch (Exception e) { Console.WriteLine(e); }
+        catch (Exception e) { LoggerHelper.Error(e); }
     }
 
     /// <summary>

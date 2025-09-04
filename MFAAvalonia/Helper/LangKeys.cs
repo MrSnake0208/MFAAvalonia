@@ -397,4 +397,10 @@ public static class LangKeys
 	public static readonly string SaveScreenshot = "SaveScreenshot";
 	public static readonly string AnnouncementEmpty = "AnnouncementEmpty";
 	public static readonly string Execute = "Execute";
+	public static readonly string StoppingInternalTask = "StoppingInternalTask";
+	public static readonly string Verifying = "Verifying";
+	public static readonly string HashVerificationFailed = "HashVerificationFailed";
+	public static readonly string FileLoadFailed = "FileLoadFailed";
+	public static readonly string CopyToClipboard = "CopyToClipboard";
+	public static readonly string UseDirectMLSupportedDevice = "UseDirectMLSupportedDevice";
 }

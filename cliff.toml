@@ -20,7 +20,7 @@ commit_parsers = [
     { message = "^refactor\\(clippy\\)", skip = true },
     { message = "^refactor", group = "重构 | Refactor" },
     { message = "^style", group = "样式 | Style" },
-    { message = "^test", group = "测试 | Test" },
+    { message = "^test", skip = true },
 	{ message = "^revert", group = "回滚 | Revert" },
     { message = "^chore\\(release\\): prepare for", skip = true },
     { message = "^chore\\(deps.*\\)", skip = true },
@@ -38,9 +38,9 @@ filter_commits = false
 # regex for matching git tags
 tag_pattern = "v[0-9].*"
 # regex for skipping tags
-skip_tags = "beta|alpha"
+#skip_tags = "beta|alpha"
 # regex for ignoring tags
-ignore_tags = "rc|v2.1.0|v2.1.1"
+#ignore_tags = "rc|v2.1.0|v2.1.1"
 # sort the tags topologically
 topo_order = false
 # sort the commits inside sections by oldest/newest order

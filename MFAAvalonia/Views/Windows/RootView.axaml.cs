@@ -241,6 +241,7 @@ public partial class RootView : SukiWindow
             GlobalConfiguration.SetValue(ConfigurationKeys.NoAutoStart, bool.FalseString);
 
             Instances.RootViewModel.LockController = (MaaProcessor.Interface?.Controller?.Count ?? 0) < 2;
+
             ConfigurationManager.Current.SetValue(ConfigurationKeys.EnableEdit, ConfigurationManager.Current.GetValue(ConfigurationKeys.EnableEdit, false));
             DragItemViewModel tempTask = null;
             foreach (var task in Instances.TaskQueueViewModel.TaskItemViewModels)

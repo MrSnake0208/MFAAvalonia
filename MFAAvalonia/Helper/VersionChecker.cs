@@ -41,6 +41,8 @@ namespace MFAAvalonia.Helper;
 #pragma warning  disable CS4014 // 由于此调用不会等待，因此在此调用完成之前将会继续执行当前方法。
 public static class VersionChecker
 {
+    private static bool shouldShowToast = false;
+
     public enum VersionType
     {
         Alpha,
@@ -110,7 +112,7 @@ public static class VersionChecker
     {
         Queue.Enqueue(new ValueType.MFATask
         {
-            Action = async () => await UpdateResource(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0, autoUpdateMFA, true),
+            Action = async () => await UpdateResource(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0, autoUpdateMFA, autoUpdateMFA),
             Name = "更新资源"
         });
     }
@@ -218,7 +220,7 @@ public static class VersionChecker
             string latestVersion = string.Empty;
             string sha256 = string.Empty;
             if (isGithub)
-                GetLatestVersionAndDownloadUrlFromGithub(out var downloadUrl, out latestVersion, out sha256);
+                GetLatestVersionAndDownloadUrlFromGithub(out _, out latestVersion, out sha256);
             else
                 GetDownloadUrlFromMirror(localVersion, "YuanMFA", CDK(), out _, out latestVersion, out sha256, isUI: true, onlyCheck: true);
 
@@ -260,6 +262,7 @@ public static class VersionChecker
 
     public async static Task UpdateResource(bool isGithub = true, bool closeDialog = false, bool noDialog = false, Action action = null, string currentVersion = "")
     {
+        shouldShowToast = false;
         Instances.RootViewModel.SetUpdating(true);
         ProgressBar? progress = null;
         TextBlock? textBlock = null;
@@ -426,7 +429,14 @@ public static class VersionChecker
             interfacePath = Path.Combine(tempExtractDir, "assets", "interface.json");
             resourceDirPath = Path.Combine(tempExtractDir, "assets", "resource");
         }
-
+        
+        var file = new FileInfo(interfacePath);
+        if (file.Exists)
+        {
+            var targetPath = Path.Combine(wpfDir, "interface.json");
+            file.CopyTo(targetPath, true);
+        }
+        
         if (isGithub || currentVersion.Equals("v0.0.0", StringComparison.OrdinalIgnoreCase))
         {
             if (Directory.Exists(resourcePath))
@@ -434,14 +444,21 @@ public static class VersionChecker
                 foreach (var rfile in Directory.EnumerateFiles(resourcePath, "*", SearchOption.AllDirectories))
                 {
                     var fileName = Path.GetFileName(rfile);
-                    if (fileName.Equals(ChangelogViewModel.ChangelogFileName, StringComparison.OrdinalIgnoreCase))
+                    if (fileName.Equals(ChangelogViewModel.ChangelogFileName, StringComparison.OrdinalIgnoreCase) || fileName.Contains("interface.json", StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     try
                     {
-                        File.SetAttributes(rfile, FileAttributes.Normal);
-                        LoggerHelper.Info("Deleting file: " + rfile);
-                        File.Delete(rfile);
+                        if (!Path.GetFileName(rfile).Contains("MFAUpdater")
+                            && !Path.GetFileName(rfile).Contains("MFAAvalonia")
+                            && !Path.GetFileName(rfile).Contains("MaaYuan")
+                            && !Path.GetFileName(rfile).Contains("interface.json", StringComparison.OrdinalIgnoreCase)
+                            && !Path.GetFileName(rfile).Contains(Process.GetCurrentProcess().MainModule?.ModuleName ?? string.Empty))
+                        {
+                            File.SetAttributes(rfile, FileAttributes.Normal);
+                            LoggerHelper.Info("Deleting file: " + rfile);
+                            File.Delete(rfile);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -482,6 +499,7 @@ public static class VersionChecker
                             {
                                 if (!Path.GetFileName(delPath).Contains("MFAUpdater")
                                     && !Path.GetFileName(delPath).Contains("MFAAvalonia")
+                                    && !Path.GetFileName(delPath).Contains("interface.json", StringComparison.OrdinalIgnoreCase)
                                     && !Path.GetFileName(delPath).Contains(Process.GetCurrentProcess().MainModule?.ModuleName ?? string.Empty))
                                 {
                                     if (Path.GetExtension(delPath).Equals(".md", StringComparison.OrdinalIgnoreCase) && delPath.Contains(AnnouncementViewModel.AnnouncementFolder))
@@ -495,7 +513,7 @@ public static class VersionChecker
                                         LoggerHelper.Info("Skip file: " + delPath);
                                         continue;
                                     }
-                                    LoggerHelper.Info("Deleting file: " + delPath);
+                                    LoggerHelper.Info("Deleting Deleted file: " + delPath);
                                     File.Delete(delPath);
                                 }
                             }
@@ -517,6 +535,7 @@ public static class VersionChecker
                             {
                                 if (!Path.GetFileName(delPath).Contains("MFAUpdater")
                                     && !Path.GetFileName(delPath).Contains("MFAAvalonia")
+                                    && !Path.GetFileName(delPath).Contains("interface.json", StringComparison.OrdinalIgnoreCase)
                                     && !Path.GetFileName(delPath).Contains(Process.GetCurrentProcess().MainModule?.ModuleName ?? string.Empty))
                                 {
                                     if (Path.GetExtension(delPath).Equals(".dll", StringComparison.OrdinalIgnoreCase) && OperatingSystem.IsWindows()
@@ -526,7 +545,7 @@ public static class VersionChecker
                                         LoggerHelper.Info("Skip file: " + delPath);
                                         continue;
                                     }
-                                    LoggerHelper.Info("Deleting file: " + delPath);
+                                    LoggerHelper.Info("Deleting Modified file: " + delPath);
                                     File.Delete(delPath);
                                 }
                             }
@@ -548,22 +567,16 @@ public static class VersionChecker
                 LoggerHelper.Error("No changes.json found");
             }
         }
-        var file = new FileInfo(interfacePath);
-        if (file.Exists)
-        {
-            var targetPath = Path.Combine(wpfDir, "interface.json");
-            file.CopyTo(targetPath, true);
-        }
 
-        SetProgress(progress, 60);
+
+        SetProgress(progress, 1);
 
         var di = new DirectoryInfo(originPath);
         if (di.Exists)
         {
-            DirectoryMerge(originPath, wpfDir, false, true);
+            await DirectoryMerger.DirectoryMergeAsync(originPath, wpfDir, progress, false, true);
         }
 
-        SetProgress(progress, 70);
 
         // 检查是否存在config文件夹，如果存在，安排程序关闭后更新
         var sourceConfigDir = Path.Combine(tempExtractDir, "config");
@@ -573,11 +586,12 @@ public static class VersionChecker
             Directory.CreateDirectory(configBackupDir);
             
             // 将配置文件复制到备份目录
-            DirectoryMerge(sourceConfigDir, configBackupDir);
+
+            await DirectoryMerger.DirectoryMergeAsync(sourceConfigDir,configBackupDir, overwriteMFA: true);
             
             // 创建更新配置的脚本
             var updaterScriptPath = Path.Combine(AppContext.BaseDirectory, RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
-                ? "update_config.bat" 
+                ? "update_config.bat"
                 : "update_config.sh");
                 
             try
@@ -661,7 +675,7 @@ rm $0
 
         // File.Delete(tempZipFilePath);
         // Directory.Delete(tempExtractDir, true);
-        SetProgress(progress, 80);
+
 
         var newInterfacePath = Path.Combine(wpfDir, "interface.json");
         if (File.Exists(newInterfacePath))
@@ -696,12 +710,16 @@ rm $0
                     }, dismissOnClick: true, "Flat", "Accent")
                     .WithActionButton("No".ToLocalization(), _ =>
                     {
+                        Dismiss(sukiToast);
                     }, dismissOnClick: true).TryShow();
+                shouldShowToast = false;
             }
         });
-
         var tasks = Instances.TaskQueueViewModel.TaskItemViewModels;
         Instances.RootView.ClearTasks(() => MaaProcessor.Instance.InitializeData(dragItem: tasks));
+        if (closeDialog)
+            Dismiss(sukiToast);
+        shouldShowToast = true;
         action?.Invoke();
     }
 
@@ -760,11 +778,16 @@ rm $0
 
             // 版本验证
             SetProgress(progress, 50);
+            var mirrocS = false;
             if (IsNewVersionAvailable(latestVersion, GetMaxVersion()))
             {
                 latestVersion = GetMaxVersion();
                 if (isGithub)
                     GetLatestVersionAndDownloadUrlFromGithub(out downloadUrl, out _, out sha256, targetVersion: latestVersion);
+                else
+                {
+                    mirrocS = true;
+                }
             }
 
             if (!IsNewVersionAvailable(latestVersion, GetLocalVersion()))
@@ -774,6 +797,14 @@ rm $0
                 Instances.RootViewModel.SetUpdating(false);
                 return;
             }
+            else if (mirrocS)
+            {
+                Dismiss(sukiToast);
+                ToastHelper.Warn("Warning".ToLocalization(), "SwitchUiUpdateSourceToGithub".ToLocalization());
+                Instances.RootViewModel.SetUpdating(false);
+                return;
+            }
+
 
             // 准备临时目录
             var tempPath = Path.Combine(AppContext.BaseDirectory, "temp_mfa");
@@ -838,23 +869,56 @@ rm $0
             {
                 if (File.Exists(targetUpdaterPath) && File.Exists(sourceUpdaterPath))
                 {
-
-                    var targetVersionInfo = FileVersionInfo.GetVersionInfo(targetUpdaterPath);
-                    var sourceVersionInfo = FileVersionInfo.GetVersionInfo(sourceUpdaterPath);
-                    var targetVersion = targetVersionInfo.FileVersion; // 或 ProductVersion
-                    var sourceVersion = sourceVersionInfo.FileVersion;
-
-                    // 使用Version类比较版本
-                    var vTarget = new Version(targetVersion);
-                    var vSource = new Version(sourceVersion);
-
-                    int result = vTarget.CompareTo(vSource);
-                    if (result < 0)
+                    // 在非Windows系统上，先为源更新器设置执行权限
+                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                     {
-                        if (File.Exists(sourceUpdaterPath) && !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                        LoggerHelper.Info($"macOS/Linux系统，尝试为源更新器设置执行权限: {sourceUpdaterPath}");
+                        try
                         {
-                            var chmodProcess = Process.Start("/bin/chmod", $"+x {sourceDirectory}");
-                            await chmodProcess?.WaitForExitAsync();
+                            var chmodSourceProcess = Process.Start("/bin/chmod", $"+x \"{sourceUpdaterPath}\"");
+                            if (chmodSourceProcess != null)
+                            {
+                                await chmodSourceProcess.WaitForExitAsync();
+                                LoggerHelper.Info($"为源更新器设置执行权限: {sourceUpdaterPath}");
+                            }
+                        }
+                        catch (Exception chmodEx)
+                        {
+                            LoggerHelper.Warning($"设置源更新器权限失败: {chmodEx.Message}");
+                        }
+                    }
+
+                    var targetVersion = GetVersionFromCommand(targetUpdaterPath);
+                    if (string.IsNullOrWhiteSpace(targetVersion))
+                    {
+                        var targetVersionInfo = FileVersionInfo.GetVersionInfo(targetUpdaterPath);
+                        targetVersion = targetVersionInfo.FileVersion;
+                    }
+                    var sourceVersion = GetVersionFromCommand(sourceUpdaterPath);
+
+                    if (string.IsNullOrWhiteSpace(sourceVersion))
+                    {
+                        var sourceVersionInfo = FileVersionInfo.GetVersionInfo(sourceUpdaterPath);
+                        sourceVersion = sourceVersionInfo.FileVersion;
+                    }
+
+                    LoggerHelper.Info("Target Updater Version: " + targetVersion);
+                    LoggerHelper.Info("Source Updater Version: " + sourceVersion);
+                    // 使用Version类比较版本
+                    if (Version.TryParse(targetVersion, out var vTarget) && Version.TryParse(sourceVersion, out var vSource))
+                    {
+                        int result = vTarget.CompareTo(vSource);
+                        if (result < 0)
+                        {
+                            if (File.Exists(sourceUpdaterPath) && !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                            {
+                                var chmodProcess = Process.Start("/bin/chmod", $"+x {sourceDirectory}");
+                                await chmodProcess?.WaitForExitAsync();
+                            }
+                        }
+                        else if (result > 0)
+                        {
+                            update = false;
                         }
                     }
 
@@ -887,18 +951,6 @@ rm $0
             if (update)
             {
                 File.Copy(sourceUpdaterPath, targetUpdaterPath, overwrite: true);
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    try
-                    {
-                        File.Copy(Path.Combine(sourceDirectory, "MFAUpdater.dll"), Path.Combine(utf8BaseDirectory, "MFAUpdater.dll"), overwrite: true);
-                        LoggerHelper.Info($"成功复制更新器.dll到目标目录: {Path.Combine(utf8BaseDirectory, "MFAUpdater.dll")}");
-                    }
-                    catch (Exception e)
-                    {
-                        LoggerHelper.Error(e);
-                    }
-                }
                 LoggerHelper.Info($"成功复制更新器到目标目录: {targetUpdaterPath}");
             }
             SetProgress(progress, 100);
@@ -912,6 +964,52 @@ rm $0
         {
             Instances.RootViewModel.SetUpdating(false);
             Dismiss(sukiToast);
+            if (shouldShowToast)
+            {
+                DispatcherHelper.PostOnMainThread(() =>
+                {
+                    Instances.DialogManager.CreateDialog().WithContent("GameResourceUpdated".ToLocalization()).WithActionButton("Yes".ToLocalization(), _ =>
+                        {
+                            Process.Start(Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty);
+                            Instances.ShutdownApplication();
+                        }, dismissOnClick: true, "Flat", "Accent")
+                        .WithActionButton("No".ToLocalization(), _ =>
+                        {
+                            Dismiss(sukiToast);
+                        }, dismissOnClick: true).TryShow();
+                });
+                shouldShowToast = false;
+            }
+        }
+    }
+
+    private static string GetVersionFromCommand(string filePath)
+    {
+        try
+        {
+            LoggerHelper.Info($"Target Updater Path: {filePath}, Exists: {File.Exists(filePath)}");
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                WorkingDirectory = AppContext.BaseDirectory,
+                FileName = filePath,
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            if (process != null)
+            {
+                process.WaitForExit();
+                var output = process.StandardOutput.ReadToEnd().Trim();
+                LoggerHelper.Info("获取到的版本信息: " + output);
+                return Version.TryParse(output, out var version) ? version.ToString() : "";
+            }
+            return "";
+        }
+        catch
+        {
+            return "";
         }
     }
 
@@ -974,36 +1072,76 @@ rm $0
             throw new FileNotFoundException("更新程序源文件未找到");
         }
 
-        if (File.Exists(updaterPath) && !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            var chmodProcess = Process.Start("/bin/chmod", $"+x {updaterPath}");
-            await chmodProcess?.WaitForExitAsync();
-        }
-
+        // 仅执行一次chmod（修复重复执行问题）
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             var chmodProcess = Process.Start("/bin/chmod", $"+x {updaterPath}");
-            await chmodProcess?.WaitForExitAsync();
+            // 增强错误处理：检查进程是否启动成功
+            if (chmodProcess == null)
+            {
+                LoggerHelper.Error("无法启动chmod进程，可能缺少权限");
+                throw new InvalidOperationException("设置更新器执行权限失败");
+            }
+            await chmodProcess.WaitForExitAsync();
+            if (chmodProcess.ExitCode != 0)
+            {
+                LoggerHelper.Error($"chmod执行失败，退出码: {chmodProcess.ExitCode}");
+                throw new InvalidOperationException("设置更新器执行权限失败");
+            }
         }
 
-        var psi = new ProcessStartInfo
-        {
-            WorkingDirectory = AppContext.BaseDirectory,
-            FileName = updaterName,
-            Arguments = BuildArguments(source, target, oldName, newName),
-            CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden
-        };
+        // 获取当前进程PID，传递给更新器（关键修改）
+        var currentProcessId = Process.GetCurrentProcess().Id;
 
+        // 构建命令参数
+        var arguments = $"{BuildArguments(source, target, oldName, newName)} {EscapeArgument(currentProcessId.ToString())}";
 
-        LoggerHelper.Info($"{Path.Combine(AppContext.BaseDirectory, updaterName)} {BuildArguments(source, target, oldName, newName)}");
+        LoggerHelper.Info($"准备启动更新器: {updaterPath} {arguments}");
 
         try
         {
-            using var updaterProcess = Process.Start(psi);
-            if (updaterProcess?.HasExited == false)
+            // 专门针对macOS系统的特殊处理
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                LoggerHelper.Info($"更新器已启动(PID:{updaterProcess.Id})");
+                // macOS: 使用nohup启动完全独立的后台进程
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "/bin/sh",
+                    Arguments = $"-c \"cd '{AppContext.BaseDirectory}' && nohup '{updaterPath}' {arguments} > /dev/null 2>&1 &\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = false,
+                    RedirectStandardError = false
+                };
+
+                LoggerHelper.Info($"/bin/sh \"cd '{AppContext.BaseDirectory}' && nohup '{updaterPath}' {arguments} > /dev/null 2>&1 &\"");
+
+                using var shellProcess = Process.Start(psi);
+                if (shellProcess?.HasExited == false)
+                {
+                    LoggerHelper.Info($"更新器已通过macOS shell启动(nohup)(PID:{shellProcess.Id})");
+                }
+            }
+            else
+            {
+                // 其他系统：保持原有逻辑
+
+                var psi = new ProcessStartInfo
+                {
+                    WorkingDirectory = AppContext.BaseDirectory,
+                    FileName = updaterPath, // 使用完整路径
+                    Arguments = $"{BuildArguments(source, target, oldName, newName)} {EscapeArgument(currentProcessId.ToString())}",
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+
+                LoggerHelper.Info($"{Path.Combine(AppContext.BaseDirectory, updaterName)} {BuildArguments(source, target, oldName, newName)} {EscapeArgument(currentProcessId.ToString())}");
+
+                using var updaterProcess = Process.Start(psi);
+                if (updaterProcess?.HasExited == false)
+                {
+                    LoggerHelper.Info($"更新器已启动(PID:{updaterProcess.Id})");
+                }
             }
         }
         catch (Exception ex)
@@ -1013,9 +1151,13 @@ rm $0
         }
         finally
         {
-            Environment.Exit(0);
+            // 给更新器一些时间启动
+            await Task.Delay(1000);
+            DispatcherHelper.PostOnMainThread(Instances.RootView.BeforeClosed);
+            Instances.ShutdownApplication();
         }
     }
+
 
     private static string CreateVersionBackup(string dir)
     {
@@ -1292,13 +1434,180 @@ rm $0
 
         return digest;
     }
+
+    // 标准化操作系统标识
+    private static (string os, string family) GetNormalizedOSInfo()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return ("win", "windows");
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            // macOS/OS X 既属于"osx"具体系统，也属于"unix"家族
+            return ("osx", "unix");
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            // Linux 属于"linux"具体系统，也属于"unix"家族
+            return ("linux", "unix");
+
+        // 其他类Unix系统（如FreeBSD）
+        if (IsUnixLike())
+            return ("unix", "unix");
+
+        return ("unknown", "unknown");
+    }
+
+    // 辅助判断：是否为类Unix系统（非Windows）
+    private static bool IsUnixLike()
+    {
+        var platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? "windows"
+            : RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+                ? "osx"
+                : RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+                    ? "linux"
+                    : "unknown";
+        return platform != "windows" && platform != "unknown";
+    }
+
+    private static string GetNormalizedArchitecture()
+    {
+        return RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "x64", // 保持x64，不强制转为x86_64
+            Architecture.Arm64 => "arm64", // 保持arm64，不强制转为aarch64
+            Architecture.X86 => "x86",
+            Architecture.Arm => "arm",
+            _ => "unknown"
+        };
+    }
+    private static readonly Dictionary<string, List<string>> ArchitectureAliases = new()
+    {
+        {
+            "x64", new List<string>
+            {
+                "x64",
+                "x86_64"
+            }
+        }, // x64支持x86_64别名
+        {
+            "arm64", new List<string>
+            {
+                "arm64",
+                "aarch64"
+            }
+        }, // arm64支持aarch64别名
+        {
+            "x86", new List<string>
+            {
+                "x86"
+            }
+        }, // x86保持默认
+        {
+            "arm", new List<string>
+            {
+                "arm"
+            }
+        } // arm保持默认
+    };
+
+    private static int GetAssetPriority(string fileName, string targetOS, string targetFamily, string targetArch)
+    {
+        if (string.IsNullOrEmpty(fileName)) return 0;
+        fileName = fileName.ToLower();
+
+        // 系统别名映射（保留原有定义）
+        var osAliases = new Dictionary<string, List<string>>
+        {
+            {
+                "osx", new List<string>
+                {
+                    "osx",
+                    "macos",
+                    "mac"
+                }
+            },
+            {
+                "linux", new List<string>
+                {
+                    "linux",
+                    "debian",
+                    "ubuntu"
+                }
+            },
+            {
+                "unix", new List<string>
+                {
+                    "unix",
+                    "bsd",
+                    "freebsd"
+                }
+            },
+            {
+                "win", new List<string>
+                {
+                    "win",
+                    "windows"
+                } // 补充Windows别名，避免遗漏
+            }
+        };
+
+        // 处理架构别名：将目标架构转为包含所有别名的正则模式（如x64→x64|x86_64）
+        string archWithAliases = ArchitectureAliases.TryGetValue(targetArch, out var archAliases)
+            ? string.Join("|", archAliases)
+            : targetArch;
+
+        // 优先级规则：全部通过GetPattern生成，确保复用逻辑
+        var patterns = new List<(string pattern, int priority)>
+        {
+            // 1. 具体系统+架构（含别名）完全匹配（如win-x64、win-x86_64）
+            (GetPattern(targetOS, archWithAliases, osAliases), 100),
+            // 2. 具体系统匹配（任意架构，用.*表示通配符）
+            (GetPattern(targetOS, ".*", osAliases), 80),
+            // 3. 家族+架构（含别名）匹配（如unix-arm64、unix-aarch64）
+            (GetPattern(targetFamily, archWithAliases, osAliases), 60),
+            // 4. 家族匹配（任意架构，用.*表示通配符）
+            (GetPattern(targetFamily, ".*", osAliases), 40),
+            // 5. 仅架构（含别名）匹配（如-x64、-x86_64）
+            ($"-(?:{archWithAliases})", 20)
+        };
+
+        // 遍历规则计算优先级
+        foreach (var (pattern, priority) in patterns)
+        {
+            if (pattern != null && Regex.IsMatch(fileName, pattern, RegexOptions.IgnoreCase))
+            {
+                return priority;
+            }
+        }
+
+        return 0;
+    }
+
+    // 辅助方法：生成匹配模式（支持别名）
+    private static string GetPattern(string osOrFamily, string arch, Dictionary<string, List<string>> aliases)
+    {
+        if (aliases.TryGetValue(osOrFamily, out var aliasList))
+        {
+            var allIdentifiers = new HashSet<string>(aliasList)
+            {
+                osOrFamily
+            };
+            var identifiersPattern = string.Join("|", allIdentifiers);
+            // 关键：用 \b 或 ^ 限定系统标识在开头或 - 之后，避免跨系统匹配
+            return $@"\b(?:{identifiersPattern})-(?:{arch})\b";
+        }
+        return $@"\b{osOrFamily}-{arch}\b";
+    }
+
     private static void GetDownloadUrlFromGitHubRelease(string version, string owner, string repo, out string downloadUrl, out string sha256)
     {
-        // 获取当前运行环境信息
-        var osPlatform = GetNormalizedOSPlatform();
-        var cpuArch = GetNormalizedArchitecture();
         downloadUrl = string.Empty;
         sha256 = string.Empty;
+        // 获取系统信息（具体系统 + 家族）
+        var (osPlatform, osFamily) = GetNormalizedOSInfo();
+        var cpuArch = GetNormalizedArchitecture();
+        LoggerHelper.Info($"目标系统: {osPlatform}（家族: {osFamily}），架构: {cpuArch}");
+
         var releaseUrl = $"https://api.github.com/repos/{owner}/{repo}/releases/tags/{version}";
         using var httpClient = CreateHttpClientWithProxy();
         httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd("MFAComponentUpdater/1.0");
@@ -1328,17 +1637,21 @@ rm $0
                             Name = asset["name"]?.ToString().ToLower(),
                             Sha256 = ExtractSha256FromDigest(asset["digest"]?.ToString())
                         })
-                        .OrderByDescending(a => GetAssetPriority(a.Name, osPlatform, cpuArch))
+                        // 使用新的优先级计算方法（传入系统家族）
+                        .OrderByDescending(a => GetAssetPriority(a.Name, osPlatform, osFamily, cpuArch))
                         .ToList();
-                    var orderAsset = orderedAssets.FirstOrDefault();
-                    downloadUrl = orderAsset?.Url ?? string.Empty;
-                    sha256 = orderAsset?.Sha256 ?? string.Empty;
+
+                    // 输出调试日志（查看每个资产的优先级）
+                    foreach (var asset in orderedAssets)
+                    {
+                        int priority = GetAssetPriority(asset.Name, osPlatform, osFamily, cpuArch);
+                        LoggerHelper.Info($"资产 {asset.Name} 优先级: {priority}");
+                    }
+
+                    var bestAsset = orderedAssets.FirstOrDefault(a => a.Url != null);
+                    downloadUrl = bestAsset?.Url ?? string.Empty;
+                    sha256 = bestAsset?.Sha256 ?? string.Empty;
                 }
-            }
-            else if (response.StatusCode == HttpStatusCode.Forbidden && response.ReasonPhrase.Contains("403"))
-            {
-                LoggerHelper.Error("GitHub API速率限制已超出，请稍后再试。");
-                throw new Exception("GitHub API速率限制已超出，请稍后再试。");
             }
             else
             {
@@ -1349,65 +1662,10 @@ rm $0
         catch (Exception e)
         {
             LoggerHelper.Error($"处理GitHub响应时发生错误: {e.Message}");
-            throw new Exception($"{e.Message}");
+            throw;
         }
     }
 
-// 标准化操作系统标识
-    private static string GetNormalizedOSPlatform()
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return "win";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) || OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
-            return "macos";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            return "linux";
-        return "unknown";
-    }
-
-// 标准化硬件架构标识
-    private static string GetNormalizedArchitecture()
-    {
-        var arch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-        return arch switch
-        {
-            "x64" => "x86_64", // 统一x64和amd64标识
-            "arm64" => "arm64",
-            _ => "unknown"
-        };
-    }
-
-// 资源优先级评分算法
-    private static int GetAssetPriority(string fileName, string targetOS, string targetArch)
-    {
-        if (string.IsNullOrEmpty(fileName)) return 0;
-
-        var patterns = new Dictionary<string, int>
-        {
-            // 完全匹配最高优先级（如：win-x86_64）
-            {
-                $"{targetOS}-{targetArch}", 100
-            },
-
-            // 次优匹配（如：win-amd64或win-x64）
-            {
-                $"{targetOS}-(amd64|x64)", 80
-            },
-            {
-                $"{targetOS}", 60
-            }, // 仅匹配操作系统
-            {
-                $"{targetArch}", 40
-            } // 仅匹配架构
-        };
-
-        foreach (var pattern in patterns)
-        {
-            if (Regex.IsMatch(fileName, pattern.Key, RegexOptions.IgnoreCase))
-                return pattern.Value;
-        }
-        return 0;
-    }
 
     private static void GetDownloadUrlFromMirror(string version,
         string resId,
@@ -1444,9 +1702,10 @@ rm $0
         };
         var channel = versionType.GetName();
         var multiplatformString = multiplatform ? $"os={os}&arch={arch}&" : "";
+        var current_version = version == "v0.0.0" ? "" : $"&current_version={version}";
         var releaseUrl = isUI
-            ? $"https://mirrorchyan.com/api/resources/{resId}/latest?channel={channel}&current_version={version}&{cdkD}os={os}&arch={arch}&user_agent={userAgent}"
-            : $"https://mirrorchyan.com/api/resources/{resId}/latest?channel={channel}&current_version={version}&{cdkD}{multiplatformString}user_agent={userAgent}";
+            ? $"https://mirrorchyan.com/api/resources/{resId}/latest?channel={channel}{current_version}&{cdkD}os={os}&arch={arch}&user_agent={userAgent}"
+            : $"https://mirrorchyan.com/api/resources/{resId}/latest?channel={channel}{current_version}&{cdkD}{multiplatformString}user_agent={userAgent}";
         using var httpClient = CreateHttpClientWithProxy();
         httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd("request");
         httpClient.DefaultRequestHeaders.Accept.TryParseAdd("application/json");
@@ -1823,7 +2082,14 @@ rm $0
     {
         if (toast == null)
             return;
-        DispatcherHelper.RunOnMainThread(() => Instances.ToastManager.Dismiss(toast));
+        try
+        {
+            DispatcherHelper.RunOnMainThread(() => Instances.ToastManager.Dismiss(toast));
+        }
+        catch (Exception e)
+        {
+            LoggerHelper.Warning(e);
+        }
     }
 
     private static void CopyFolder(string sourceFolder, string destinationFolder)
@@ -1845,73 +2111,6 @@ rm $0
             string subDirectoryName = Path.GetFileName(subDirectory);
             string destinationSubDirectory = Path.Combine(destinationFolder, subDirectoryName);
             CopyFolder(subDirectory, destinationSubDirectory);
-        }
-    }
-// 修改 DirectoryMerge 方法中的文件复制逻辑
-    private static void DirectoryMerge(string sourceDirName, string destDirName, bool overwriteMFA = true, bool saveAnnouncement = false)
-    {
-        var dir = new DirectoryInfo(sourceDirName);
-        var dirs = dir.GetDirectories();
-
-        if (!dir.Exists)
-        {
-            throw new DirectoryNotFoundException("Source directory does not exist or could not be found: " + sourceDirName);
-        }
-
-        if (!Directory.Exists(destDirName))
-        {
-            Directory.CreateDirectory(destDirName);
-        }
-
-        foreach (var file in dir.GetFiles())
-        {
-            var tempPath = Path.Combine(destDirName, file.Name);
-            try
-            {
-                if (overwriteMFA
-                    || !Path.GetFileName(tempPath).Contains("MFAUpdater") && !Path.GetFileName(tempPath).Contains("MFAAvalonia") && !Path.GetFileName(tempPath).Contains(Process.GetCurrentProcess().MainModule?.ModuleName ?? string.Empty))
-                {
-                    if (saveAnnouncement && tempPath.Contains(AnnouncementViewModel.AnnouncementFolder) && Path.GetExtension(file.Name).Equals(".md", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (File.Exists(tempPath))
-                        {
-                            var sourceContent = File.ReadAllText(file.FullName);
-                            var destContent = File.ReadAllText(tempPath);
-
-                            if (!string.Equals(sourceContent, destContent, StringComparison.Ordinal))
-                            {
-                                GlobalConfiguration.SetValue(ConfigurationKeys.DoNotShowAnnouncementAgain, bool.FalseString);
-                            }
-                        }
-                        else
-                        {
-                            GlobalConfiguration.SetValue(ConfigurationKeys.DoNotShowAnnouncementAgain, bool.FalseString);
-                        }
-                    }
-                    if (Path.GetExtension(tempPath).Equals(".dll", StringComparison.OrdinalIgnoreCase) && OperatingSystem.IsWindows()
-                        || !Path.GetFileName(tempPath).Contains("minicap.so", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(tempPath).Equals(".so", StringComparison.OrdinalIgnoreCase) && OperatingSystem.IsLinux()
-                        || Path.GetExtension(tempPath).Equals(".dylib", StringComparison.OrdinalIgnoreCase) && (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS()))
-                    {
-                        LoggerHelper.Info("Skip file: " + tempPath);
-                        continue;
-                    }
-                    LoggerHelper.Info("Copying file: " + tempPath);
-                    file.CopyTo(tempPath, true);
-                }
-            }
-            catch (IOException exception)
-            {
-                LoggerHelper.Error(exception);
-            }
-            catch (Exception exception)
-            {
-                LoggerHelper.Error(exception);
-            }
-        }
-        foreach (var subDir in dirs)
-        {
-            string tempPath = Path.Combine(destDirName, subDir.Name);
-            DirectoryMerge(subDir.FullName, tempPath, overwriteMFA, saveAnnouncement);
         }
     }
 
@@ -2026,7 +2225,8 @@ rm $0
                     return errors == SslPolicyErrors.None;
                 },
                 UseCookies = false,
-                SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+// 临时增加对低版本协议的支持（仅用于测试）
+                SslProtocols = SslProtocols.None
             };
 
             switch (Instances.VersionUpdateSettingsUserControlModel.ProxyType)

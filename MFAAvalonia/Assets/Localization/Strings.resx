@@ -742,7 +742,7 @@
         <value>重新扫描控制器</value>
     </data>
     <data name="ResourceDownloadSource" xml:space="preserve">
-        <value>资源下载源</value>
+        <value>下载源</value>
     </data>
     <data name="ResourceLink" xml:space="preserve">
         <value>资源链接: </value>
@@ -820,7 +820,7 @@
         <value>显示</value>
     </data>
     <data name="ShowDisclaimerNoMore" xml:space="preserve">
-        <value>下次不再提示</value>
+        <value>下次更新前不再提示</value>
     </data>
     <data name="ShowHitDraw" xml:space="preserve">
         <value>显示节点命中截图 (用于调试)</value>
@@ -1188,5 +1188,17 @@
     </data>
     <data name="HashVerificationFailed" xml:space="preserve">
         <value>哈希验证失败！资源可能损坏，可能是网络波动导致的，请尝试重新下载资源</value>
+    </data>
+    <data name="FileLoadFailed" xml:space="preserve">
+        <value>文件 {0} 加载失败！</value>
+    </data>
+    <data name="CopyToClipboard" xml:space="preserve">
+        <value>复制到剪切板</value>
+    </data>
+    <data name="UseDirectMLSupportedDevice" xml:space="preserve">
+        <value>使用 DirectML 支持设备</value>
+    </data>
+    <data name="SwitchUiUpdateSourceToGithub" xml:space="preserve">
+        <value>因 Mirror 酱无法指定特定版本进行更新，请到更新设置中把更新源切换为 GitHub。</value>
     </data>
 </root>

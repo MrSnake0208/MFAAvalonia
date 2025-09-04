@@ -3,12 +3,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MFAAvalonia.Configuration;
 using MFAAvalonia.Extensions;
+using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper;
-using Semver;
 using SukiUI.Dialogs;
-using SukiUI.Toasts;
-using System;
-using System.Reflection;
+using System.Linq;
 
 namespace MFAAvalonia.ViewModels.Windows;
 
@@ -38,7 +36,7 @@ public partial class RootViewModel : ViewModelBase
             // var minor = version.Minor >= 0 ? version.Minor : 0;
             // var patch = version.Build >= 0 ? version.Build : 0;
             // return $"v{SemVersion.Parse($"{major}.{minor}.{patch}")}";
-            return "v1.6.3"; // Hardcoded version for now, replace with dynamic versioning later
+            return "v1.6.5"; // Hardcoded version for now, replace with dynamic versioning later
         }
     }
 
@@ -66,7 +64,13 @@ public partial class RootViewModel : ViewModelBase
     {
         _currentConfiguration = ConfigurationManager.GetCurrentConfiguration();
     }
-
+    partial void OnLockControllerChanged(bool value)
+    {
+        if (value)
+        {
+            Instances.TaskQueueViewModel.ShouldShow = (int)(MaaProcessor.Interface?.Controller?.FirstOrDefault()?.Type).ToMaaControllerTypes(Instances.TaskQueueViewModel.CurrentController);
+        }
+    }
     public void CheckDebug()
     {
         if (IsDebugMode && _shouldTip)
@@ -75,15 +79,16 @@ public partial class RootViewModel : ViewModelBase
             _shouldTip = false;
         }
     }
-    
+
     public void SetUpdating(bool isUpdating)
     {
         IsUpdating = isUpdating;
     }
 
-    partial void OnIsDebugModeChanged(bool _)
+    partial void OnIsDebugModeChanged(bool value)
     {
-        CheckDebug();
+        if (value)
+            CheckDebug();
     }
 
     public void ShowResourceName(string name)

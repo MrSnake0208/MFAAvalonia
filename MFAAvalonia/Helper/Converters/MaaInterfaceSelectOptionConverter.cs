@@ -60,7 +60,7 @@ public class MaaInterfaceSelectOptionConverter(bool serializeAsStringArray) : Js
                 return null;
         }
 
-        Console.WriteLine($"Invalid JSON format for MaaInterfaceSelectOptionConverter. Unexpected type {objectType}.");
+        LoggerHelper.Error($"Invalid JSON format for MaaInterfaceSelectOptionConverter. Unexpected type {objectType}.");
         return null;
     }
 

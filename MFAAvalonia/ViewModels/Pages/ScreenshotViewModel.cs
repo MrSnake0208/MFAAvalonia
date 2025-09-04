@@ -16,6 +16,7 @@ namespace MFAAvalonia.ViewModels.Pages;
 
 public partial class ScreenshotViewModel : ViewModelBase
 {
+    #pragma warning disable CS4014  // Because this call is not awaited, execution of the current method continues before the call is completed
     [ObservableProperty] private Bitmap? _screenshotImage;
     [ObservableProperty] private string _taskName = string.Empty;
     [RelayCommand]

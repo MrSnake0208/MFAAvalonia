@@ -427,7 +427,7 @@ public static class MaaExtensions
             RootView.AddLog("识别失败！");
         }
 
-        Console.WriteLine($"识别结果: {result}");
+        LoggerHelper.Info($"识别结果: {result}");
 
         return result;
     }
@@ -466,7 +466,6 @@ public static class MaaExtensions
 
             if (++count >= maxCount)
             {
-                Console.WriteLine(count);
                 if (!outE)
                 {
                     errorAction?.Invoke();
