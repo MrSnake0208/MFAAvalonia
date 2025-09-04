@@ -1087,7 +1087,7 @@
         <value>交流反馈: QQ频道搜索Maa鸢</value>
     </data>
     <data name="UpcomingChanges" xml:space="preserve">
-        <value>即将更新</value>
+        <value>有新版本可用</value>
     </data>
     <data name="TaskFailed" xml:space="preserve">
         <value>任务运行失败！</value>

@@ -584,10 +584,13 @@ public static class VersionChecker
         {
             var configBackupDir = Path.Combine(AppContext.BaseDirectory, "backup_config");
             Directory.CreateDirectory(configBackupDir);
-            
-            // 将配置文件复制到备份目录
 
-            await DirectoryMerger.DirectoryMergeAsync(sourceConfigDir,configBackupDir, overwriteMFA: true);
+            // 如果备份目录已存在，先清理
+            if (Directory.Exists(configBackupDir))
+                Directory.Delete(configBackupDir, true);
+            
+            // 简单复制到备份目录
+            CopyFolder(sourceConfigDir, configBackupDir); 
             
             // 创建更新配置的脚本
             var updaterScriptPath = Path.Combine(AppContext.BaseDirectory, RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
@@ -672,10 +675,29 @@ rm $0
                 LoggerHelper.Error($"准备配置更新器失败: {ex.Message}");
             }
         }
-
-        // File.Delete(tempZipFilePath);
-        // Directory.Delete(tempExtractDir, true);
-
+        // 清理临时文件
+        try
+        {
+            if (File.Exists(tempZipFilePath))
+            {
+                File.Delete(tempZipFilePath);
+                LoggerHelper.Info($"已删除临时ZIP文件: {tempZipFilePath}");
+            }
+            if (Directory.Exists(tempExtractDir))
+            {
+                Directory.Delete(tempExtractDir, true);
+                LoggerHelper.Info($"已删除临时解压目录: {tempExtractDir}");
+            }
+            if (Directory.Exists(tempPath))
+            {
+                Directory.Delete(tempPath, true);
+                LoggerHelper.Info($"已删除临时目录: {tempPath}，准备重启");
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Warning($"清理临时文件失败: {ex.Message}");
+        }
 
         var newInterfacePath = Path.Combine(wpfDir, "interface.json");
         if (File.Exists(newInterfacePath))
@@ -955,8 +977,32 @@ rm $0
             }
             SetProgress(progress, 100);
 
-            await ApplySecureUpdate(sourceDirectory, utf8BaseDirectory, $"{Assembly.GetEntryAssembly().GetName().Name}{(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "")}",
+            await ApplySecureUpdate(sourceDirectory, utf8BaseDirectory, $"MaaYuan{(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "")}",
                 Process.GetCurrentProcess().MainModule.ModuleName);
+            
+            // 清理临时文件
+            try
+            {
+                if (File.Exists(tempZip))
+                {
+                    File.Delete(tempZip);
+                    LoggerHelper.Info($"已删除临时ZIP文件: {tempZip}");
+                }
+                if (Directory.Exists(extractDir))
+                {
+                    Directory.Delete(extractDir, true);
+                    LoggerHelper.Info($"已删除临时解压目录: {extractDir}");
+                }
+                if (Directory.Exists(tempPath))
+                {
+                    Directory.Delete(tempPath, true);
+                    LoggerHelper.Info($"已删除临时目录: {tempPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.Warning($"清理临时文件失败: {ex.Message}");
+            }
 
             Thread.Sleep(500);
         }
