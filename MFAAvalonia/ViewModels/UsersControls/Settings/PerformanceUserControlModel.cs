@@ -31,13 +31,13 @@ public partial class PerformanceUserControlModel : ViewModelBase
 
     public class DirectMLAdapterInfo
     {
-        public int AdapterId { get; set; }// 与EnumAdapters1索引一致
+        public int AdapterId { get; set; } // 与EnumAdapters1索引一致
         public string AdapterName { get; set; }
         public bool IsDirectMLCompatible { get; set; }
     }
 
 #if WINDOWS
-    public static List<DirectMLAdapterInfo> GetCompatibleAdapters()
+    public List<DirectMLAdapterInfo> GetCompatibleAdapters()
     {
         var adapters = new List<DirectMLAdapterInfo>();
         using (var factory = new Factory1())
@@ -63,11 +63,15 @@ public partial class PerformanceUserControlModel : ViewModelBase
                 catch (SharpDXException) { continue; } // 跳过无法查询的适配器
             }
         }
+        if (!IsDirectMLSupported)
+            adapters = [];
         return adapters;
     }
 #endif
     partial void OnUseDirectMLChanged(bool value) => HandlePropertyChanged(ConfigurationKeys.UseDirectML, value, (v) =>
     {
+        if (!IsDirectMLSupported)
+            return;
         if (v)
         {
 #if WINDOWS
@@ -139,17 +143,27 @@ public partial class PerformanceUserControlModel : ViewModelBase
     }
 
     [ObservableProperty] private AvaloniaList<LocalizationViewModel<GpuDeviceOption>> _gpuOptions =
-        ConfigurationManager.Current.GetValue(ConfigurationKeys.GPUs, new AvaloniaList<LocalizationViewModel<GpuDeviceOption>>
+    [
+        new("GpuOptionAuto")
         {
-            new("GpuOptionAuto")
-            {
-                Other = GpuDeviceOption.Auto,
-            },
-            new("GpuOptionDisable")
-            {
-                Other = GpuDeviceOption.CPU
-            }
-        }, null, new UniversalEnumConverter<InferenceDevice>());
+            Other = GpuDeviceOption.Auto,
+        },
+        new("GpuOptionDisable")
+        {
+            Other = GpuDeviceOption.CPU
+        }
+    ];
+    // ConfigurationManager.Current.GetValue(ConfigurationKeys.GPUs, new AvaloniaList<LocalizationViewModel<GpuDeviceOption>>
+    // {
+    //     new("GpuOptionAuto")
+    //     {
+    //         Other = GpuDeviceOption.Auto,
+    //     },
+    //     new("GpuOptionDisable")
+    //     {
+    //         Other = GpuDeviceOption.CPU
+    //     }
+    // }, null, new UniversalEnumConverter<InferenceDevice>());
 
     partial void OnGpuOptionsChanged(AvaloniaList<LocalizationViewModel<GpuDeviceOption>> value) => HandlePropertyChanged(ConfigurationKeys.GPUs, value);
 
