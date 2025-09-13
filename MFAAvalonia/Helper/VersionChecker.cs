@@ -969,21 +969,6 @@ rm $0
 
             await ApplySecureUpdate(sourceDirectory, utf8BaseDirectory, $"MaaYuan{(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "")}",
                 Process.GetCurrentProcess().MainModule.ModuleName);
-            
-            // 清理临时文件
-            try
-            {
-
-                if (Directory.Exists(tempPath))
-                {
-                    Directory.Delete(tempPath, true);
-                    LoggerHelper.Info($"已删除临时目录: {tempPath}");
-                }
-            }
-            catch (Exception ex)
-            {
-                LoggerHelper.Warning($"清理临时文件失败: {ex.Message}");
-            }
 
             Thread.Sleep(500);
         }
