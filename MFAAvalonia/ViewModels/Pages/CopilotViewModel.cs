@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -12,6 +13,7 @@ using CommunityToolkit.Mvvm.Input;
 using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper;
 using MFAAvalonia.ViewModels.Other;
+using MFAAvalonia.Helper.ValueType;
 using MaaFramework.Binding;
 
 namespace MFAAvalonia.ViewModels.Pages;
@@ -70,10 +72,7 @@ public partial class CopilotViewModel : ObservableObject
     public void Initialize()
     {
         EnsureDirs();
-        // 优先确保资源与任务源已加载（避免首次进入时任务列表为空）
-        try { MaaProcessor.ReloadResources(); } catch { /* ignore */ }
         _ = RefreshAsync();
-        _ = EnsureDefaultTaskSelectedAsync();
         _ = UpdateActiveJobFromDiskAsync();
     }
 
@@ -247,6 +246,46 @@ public partial class CopilotViewModel : ObservableObject
         }
 
         await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private Task ToggleCopilotTaskAsync()
+    {
+        try
+        {
+            if (Instances.RootViewModel.IsRunning)
+            {
+                Instances.TaskQueueViewModel.StopTask();
+                return Task.CompletedTask;
+            }
+
+            var vm = Instances.TaskQueueViewModel;
+            var items = vm.TaskItemViewModels;
+            if (items == null || items.Count == 0)
+            {
+                ToastHelper.Error("默认任务列表为空，无法启动");
+                return Task.CompletedTask;
+            }
+
+            var source = items.FirstOrDefault(i => string.Equals(i.Name, DefaultCopilotTaskName, StringComparison.OrdinalIgnoreCase))
+                         ?? items.FirstOrDefault(i => string.Equals(i.InterfaceItem?.Name, DefaultCopilotTaskName, StringComparison.OrdinalIgnoreCase));
+            if (source?.InterfaceItem == null)
+            {
+                ToastHelper.Error($"未找到默认任务：{DefaultCopilotTaskName}");
+                return Task.CompletedTask;
+            }
+
+            var taskClone = source.Clone();
+            var taskList = new List<DragItemViewModel> { taskClone };
+            MaaProcessor.Instance.Start(taskList);
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error(ex);
+            ToastHelper.Error("启动默认任务失败");
+        }
+
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
