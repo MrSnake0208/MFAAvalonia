@@ -89,7 +89,7 @@
                         <suki:GroupBox.Header>
                             <Grid>
                                 <TextBlock FontSize="11" FontWeight="Bold" Foreground="{DynamicResource SukiLowText}"
-                                           HorizontalAlignment="Left" Margin="2,0,0,0" Text="作业展示" />
+                                           HorizontalAlignment="Left" Margin="2,0,0,0" Text="作业列表" />
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Classes="Basic Round" Height="16" Padding="0" Margin="7,0,0,0"
                                         ToolTip.Tip="打开作业文件夹" Click="OnOpenCacheDir">
