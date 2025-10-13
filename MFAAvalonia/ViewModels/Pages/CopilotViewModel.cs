@@ -22,6 +22,7 @@ public partial class CopilotViewModel : ObservableObject
 {
     private const string DefaultCopilotTaskName = "✨ 自动抄作业V3";
 
+    private static string ResourceRoot => MaaProcessor.Resource; // 资源根目录（与 base/pipeline 同级）
     private static string ResourceBase => MaaProcessor.ResourceBase; // 简中基准资源，用于缓存与默认路径
     private static string PipelineDir => Path.Combine(ResourceBase, "pipeline"); // 基准 pipeline（用于兼容迁移等）
 
@@ -42,9 +43,10 @@ public partial class CopilotViewModel : ObservableObject
 
     private static string ActivePipelineDir => Path.Combine(GetActiveResourceBase(), "pipeline");
     private static string CopilotActiveDir => Path.Combine(ActivePipelineDir, "copilot");
-    // 迁移：缓存目录移至 ResourceBase 根，避免引擎扫描 pipeline 下的缓存导致解析冲突
-    private static string CopilotCacheDir => Path.Combine(ResourceBase, "copilot-cache");
-    private static string OldCopilotCacheDir => Path.Combine(PipelineDir, "copilot-cache");
+    // 迁移：缓存目录移至资源根，避免引擎扫描 pipeline/base 下的缓存导致解析冲突
+    private static string CopilotCacheDir => Path.Combine(ResourceRoot, "copilot-cache");
+    private static string LegacyBaseCopilotCacheDir => Path.Combine(ResourceBase, "copilot-cache");
+    private static string LegacyPipelineCopilotCacheDir => Path.Combine(PipelineDir, "copilot-cache");
 
     [ObservableProperty]
     private ObservableCollection<CopilotFileItem> _files = new();
@@ -161,43 +163,49 @@ public partial class CopilotViewModel : ObservableObject
             Directory.CreateDirectory(CopilotActiveDir);
             Directory.CreateDirectory(CopilotCacheDir);
 
-            // 迁移：将 pipeline/copilot-cache 挪到 resource/base/copilot-cache，避免被底层引擎当作 pipeline 解析
-            if (Directory.Exists(OldCopilotCacheDir))
-            {
-                try
-                {
-                    foreach (var file in Directory.EnumerateFiles(OldCopilotCacheDir, "*.json", SearchOption.TopDirectoryOnly))
-                    {
-                        var dest = Path.Combine(CopilotCacheDir, Path.GetFileName(file));
-                        if (!File.Exists(dest))
-                        {
-                            File.Move(file, dest);
-                        }
-                        else
-                        {
-                            // 已存在则保留较新的
-                            var srcInfo = new FileInfo(file);
-                            var dstInfo = new FileInfo(dest);
-                            if (srcInfo.LastWriteTimeUtc > dstInfo.LastWriteTimeUtc)
-                            {
-                                File.Copy(file, dest, true);
-                            }
-                            File.Delete(file);
-                        }
-                    }
-                    // 移除旧目录
-                    Directory.Delete(OldCopilotCacheDir, true);
-                    LoggerHelper.Info("已迁移 copilot-cache 至 ResourceBase，避免引擎解析缓存");
-                }
-                catch (Exception e)
-                {
-                    LoggerHelper.Warning($"迁移 copilot-cache 失败: {e.Message}");
-                }
-            }
+            MigrateLegacyCache(LegacyPipelineCopilotCacheDir, "pipeline");
+            MigrateLegacyCache(LegacyBaseCopilotCacheDir, "ResourceBase");
         }
         catch (Exception ex)
         {
             LoggerHelper.Error($"创建目录失败: {ex}");
+        }
+
+        static void MigrateLegacyCache(string legacyDir, string originLabel)
+        {
+            if (!Directory.Exists(legacyDir))
+            {
+                return;
+            }
+
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(legacyDir, "*.json", SearchOption.TopDirectoryOnly))
+                {
+                    var dest = Path.Combine(CopilotCacheDir, Path.GetFileName(file));
+                    if (!File.Exists(dest))
+                    {
+                        File.Move(file, dest);
+                    }
+                    else
+                    {
+                        var srcInfo = new FileInfo(file);
+                        var dstInfo = new FileInfo(dest);
+                        if (srcInfo.LastWriteTimeUtc > dstInfo.LastWriteTimeUtc)
+                        {
+                            File.Copy(file, dest, true);
+                        }
+                        File.Delete(file);
+                    }
+                }
+
+                Directory.Delete(legacyDir, true);
+                LoggerHelper.Info($"已迁移 copilot-cache（{originLabel}）至资源根目录，避免引擎解析缓存");
+            }
+            catch (Exception e)
+            {
+                LoggerHelper.Warning($"迁移 copilot-cache（{originLabel}）失败: {e.Message}");
+            }
         }
     }
 
