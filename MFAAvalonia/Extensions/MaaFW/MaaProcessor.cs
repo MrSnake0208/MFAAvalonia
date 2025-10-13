@@ -160,6 +160,8 @@ public class MaaProcessor
                 return false;
             }
 
+            // 在重载前重置 Tasker，确保使用最新资源与 pipeline
+            Instance.SetTasker();
             var ok = Instance.InitializeData();
             if (!ok)
             {
