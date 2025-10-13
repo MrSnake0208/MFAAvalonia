@@ -121,7 +121,7 @@ public partial class CopilotView : UserControl
     {
         try
         {
-            var url = "https://share.maayuan.fun/";
+            var url = "https://share.maayuan.top/";
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = url,

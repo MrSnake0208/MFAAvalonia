@@ -304,10 +304,10 @@ public partial class CopilotViewModel : ObservableObject
         EnsureDirs();
         try
         {
-            var id = code.StartsWith("maa://", StringComparison.OrdinalIgnoreCase) ? code[6..] : code;
+            var id = code.StartsWith("maay://", StringComparison.OrdinalIgnoreCase) ? code[6..] : code;
             id = id.Trim('/');
             if (id.Contains('/')) id = id.Split('/')[^1];
-            var url = $"https://share-backend.maayuan.fun/copilot/get/{id}";
+            var url = $"https://share.maayuan.top/api/copilot/get/{id}";
             using var http = new HttpClient();
             var json = await http.GetStringAsync(url);
 
