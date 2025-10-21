@@ -123,6 +123,11 @@ public partial class CopilotView : UserControl
         try
         {
             var vm = DataContext as CopilotViewModel;
+            if (sender is MenuItem menuItem && menuItem.DataContext is CopilotFileItem fileItem && vm != null)
+            {
+                vm.SelectedFile = fileItem;
+            }
+
             if (vm?.SelectedFile == null)
             {
                 ToastHelper.Warn("请选择要删除的作业");

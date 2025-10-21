@@ -56,15 +56,15 @@
                             <Button Classes="Basic" Click="OnOpenShareSite">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <fluent:FluentIcon Icon="Globe" IconSize="Size16" IconVariant="Regular" />
-                                    <TextBlock Text="作业站" />
+                                    <TextBlock Text=" 作业站" />
                                 </StackPanel>
                             </Button>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button Classes="Basic" Click="OnImportMysteryCode">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <fluent:FluentIcon Icon="Link" IconSize="Size16" IconVariant="Regular" />
-                                    <TextBlock Text="神秘代码导入" />
+                                    <fluent:FluentIcon Icon="Clipboard" IconSize="Size16" IconVariant="Regular" />
+                                    <TextBlock Text="粘贴神秘代码" />
                                 </StackPanel>
                             </Button>
                             <Button Classes="Basic" Click="OnImportLocalJson">
@@ -74,6 +74,10 @@
                                 </StackPanel>
                             </Button>
                         </StackPanel>
+                        <TextBlock FontSize="14" Foreground="{DynamicResource SukiDisabledText}"
+                                   Text="左键点击自动粘贴+导入单份作业📒" TextWrapping="Wrap"/>
+                        <TextBlock FontSize="14" Foreground="{DynamicResource SukiDisabledText}"
+                                   Text="右键点击粘贴导入作业集📚" TextWrapping="Wrap"/>
                     </StackPanel>
                 </suki:GroupBox>
             </suki:GlassCard>
@@ -101,7 +105,7 @@
                                 </Button>
                                 <Button Classes="Basic Round" Height="16" Padding="0" Margin="7,0,8,0"
                                         ToolTip.Tip="删除选中作业" Click="OnDeleteSelectedJobs">
-                                    <fluent:FluentIcon Icon="Delete" IconSize="Size16" IconVariant="Regular" />
+                                    <fluent:FluentIcon Icon="Delete" IconSize="Size12" IconVariant="Regular" />
                                 </Button>
                             </StackPanel>
                         </Grid>
@@ -123,6 +127,11 @@
                                         <TextBlock Text="{Binding DisplayName}" Width="320"/>
                                         <TextBlock Text="{Binding SizeText}" Width="100"/>
                                         <TextBlock Text="{Binding ModifiedText}"/>
+                                        <StackPanel.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="删除" Click="OnDeleteSelectedJobs" />
+                                            </ContextMenu>
+                                        </StackPanel.ContextMenu>
                                     </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
