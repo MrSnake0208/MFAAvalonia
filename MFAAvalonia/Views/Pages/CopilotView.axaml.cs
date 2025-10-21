@@ -96,6 +96,19 @@ public partial class CopilotView : UserControl
         await (DataContext as CopilotViewModel)!.ImportMysteryCodeAsync(string.Empty);
     }
 
+    private async void OnImportMysteryCodePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Avalonia.Visual visual && e.GetCurrentPoint(visual).Properties.IsRightButtonPressed)
+        {
+            e.Handled = true;
+            var vm = DataContext as CopilotViewModel;
+            if (vm != null)
+            {
+                await vm.ImportMysterySetAsync(string.Empty);
+            }
+        }
+    }
+
     private async void OnRefresh(object? sender, RoutedEventArgs e)
     {
         await (DataContext as CopilotViewModel)!.RefreshAsync();
