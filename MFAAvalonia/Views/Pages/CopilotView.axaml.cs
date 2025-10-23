@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using System;
@@ -39,10 +39,10 @@ namespace MFAAvalonia.Views.Pages;
 public partial class CopilotView : UserControl
 {
     private const string DefaultCopilotIntro =
-        "左上角导入作业文件，点击作业列表中的候选文件，\n" +
-        "激活想抄的作业后开始任务。\n\n" +
-        "需要展开战斗中手动/自动和倍速的那个面板。\n\n" +
-        "不勾选“战斗中开始抄作业”时，需要在想打的关卡的编队界面（页面中有“进入战斗”按钮）处启动任务。";
+        "左上角导入作业文件，点击作业列表中的候选文件将自动激活该作业，\n" +
+        "激活想抄的作业后即可点击开始任务。\n\n" +
+        "不勾选“战斗中开始抄作业”时，需要在想打的关卡的编队界面（页面中有“进入战斗”按钮）处启动任务。\n\n" +
+        "在“战斗中开始抄作业”需要展开战斗中手动/自动和倍速的那个面板。";
     private bool _isSelectionRefreshBusy;
     private bool _mysteryImportInProgress;
     private DateTime _lastMysteryImportUtc = DateTime.MinValue;
