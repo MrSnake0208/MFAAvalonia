@@ -732,6 +732,48 @@ public partial class CopilotViewModel : ObservableObject
         }
     }
 
+    public async Task UnloadActiveJobAsync()
+    {
+        try
+        {
+            var hasActiveJob = Directory.Exists(CopilotActiveDir) &&
+                               Directory.EnumerateFiles(CopilotActiveDir, "*.*", SearchOption.TopDirectoryOnly)
+                                   .Any(file =>
+                                   {
+                                       var ext = Path.GetExtension(file);
+                                       var name = Path.GetFileName(file);
+                                       var isJobFile = ext.Equals(".json", StringComparison.OrdinalIgnoreCase) ||
+                                                       ext.Equals(".jsonc", StringComparison.OrdinalIgnoreCase);
+                                       return isJobFile &&
+                                              !name.Equals("copilot_config.json", StringComparison.OrdinalIgnoreCase);
+                                   });
+
+            if (!hasActiveJob)
+            {
+                ToastHelper.Warn("当前没有激活的作业");
+                return;
+            }
+
+            ClearCopilotActiveDir();
+            var reloadOk = MaaProcessor.ReloadResources();
+            await UpdateActiveJobFromDiskAsync();
+
+            if (reloadOk)
+            {
+                ToastHelper.Success("已卸载当前作业");
+            }
+            else
+            {
+                ToastHelper.Warn("已清空作业，但资源刷新失败");
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error(ex);
+            ToastHelper.Error("卸载失败");
+        }
+    }
+
     private static void ClearCopilotActiveDir()
     {
         try

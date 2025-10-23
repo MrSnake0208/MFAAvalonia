@@ -120,6 +120,22 @@ public partial class CopilotView : UserControl
         try { await RenderSelectedTaskDetailsAsync(); } catch { /* ignore */ }
     }
 
+    private async void OnUnloadActiveJob(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var vm = DataContext as CopilotViewModel;
+            if (vm == null) return;
+
+            await vm.UnloadActiveJobAsync();
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error(ex);
+            ToastHelper.Error("卸载失败");
+        }
+    }
+
     private async void OnOpenCacheDir(object? sender, RoutedEventArgs e)
     {
         await (DataContext as CopilotViewModel)!.OpenCacheDirAsync();

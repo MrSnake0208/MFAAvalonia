@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     x:Class="MFAAvalonia.Views.Pages.CopilotView"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -104,8 +104,8 @@
                                     <fluent:FluentIcon Icon="ArrowClockwise" IconSize="Size16" IconVariant="Regular" />
                                 </Button>
                                 <Button Classes="Basic Round" Height="16" Padding="0" Margin="7,0,8,0"
-                                        ToolTip.Tip="删除选中作业" Click="OnDeleteSelectedJobs">
-                                    <fluent:FluentIcon Icon="Delete" IconSize="Size12" IconVariant="Regular" />
+                                        ToolTip.Tip="卸载当前激活的文件" Click="OnUnloadActiveJob">
+                                    <fluent:FluentIcon Icon="FolderArrowLeft" IconSize="Size16" IconVariant="Regular" />
                                 </Button>
                             </StackPanel>
                         </Grid>
