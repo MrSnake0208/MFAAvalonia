@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using MFAAvalonia.ViewModels.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Avalonia.Markup.Xaml;
-using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.Input;
@@ -136,20 +135,33 @@ public partial class CopilotView : UserControl
         try
         {
             var vm = DataContext as CopilotViewModel;
-            if (sender is MenuItem menuItem && menuItem.DataContext is CopilotFileItem fileItem && vm != null)
+            if (sender is MenuItem menuItem && vm != null)
             {
-                vm.SelectedFile = fileItem;
+                switch (menuItem.DataContext)
+                {
+                    case CopilotTreeItem treeItem:
+                        vm.SelectedNode = treeItem;
+                        break;
+                    case CopilotFileItem fileItem:
+                        vm.SelectedFile = fileItem;
+                        break;
+                }
             }
 
-            if (vm?.SelectedFile == null)
+            if (vm?.SelectedNode == null)
             {
-                ToastHelper.Warn("请选择要删除的作业");
+                ToastHelper.Warn("请选择要删除的作业或文件夹");
                 return;
             }
 
+            var target = vm.SelectedNode;
+            var confirmText = target.IsFile
+                ? "确认删除选中的作业？此操作不可恢复"
+                : "确认删除选中的文件夹？将一并删除其中的所有作业";
+
             var result = await SukiMessageBox.ShowDialog(new SukiMessageBoxHost
             {
-                Content = "确定删除选中的作业吗？此操作不可撤销",
+                Content = confirmText,
                 ActionButtonsPreset = SukiMessageBoxButtons.YesNo,
                 IconPreset = SukiMessageBoxIcons.Warning,
             }, new SukiMessageBoxOptions
@@ -193,10 +205,10 @@ public partial class CopilotView : UserControl
     {
         try
         {
-            var list = this.FindControl<ListBox>("CopilotList");
-            if (list == null) return;
-            list.SelectionChanged -= OnListSelectionChanged;
-            list.SelectionChanged += OnListSelectionChanged;
+            var tree = this.FindControl<TreeView>("CopilotTree");
+            if (tree == null) return;
+            tree.SelectionChanged -= OnListSelectionChanged;
+            tree.SelectionChanged += OnListSelectionChanged;
         }
         catch { /* ignore */ }
     }
@@ -204,13 +216,28 @@ public partial class CopilotView : UserControl
     private async void OnListSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_isSelectionRefreshBusy) return;
+        var tree = sender as TreeView ?? this.FindControl<TreeView>("CopilotTree");
+        var vm = DataContext as CopilotViewModel;
+        var node = e.AddedItems?.OfType<CopilotTreeItem>().FirstOrDefault() ?? tree?.SelectedItem as CopilotTreeItem;
+        if (vm != null && node != null)
+        {
+            vm.SelectedNode = node;
+        }
+
+        // Clear visual selection immediately to avoid highlight flashes
+        if (tree != null)
+        {
+            try { tree.SelectedItem = null; } catch { /* ignore */ }
+        }
+
+        if (vm?.SelectedFile == null)
+            return;
+
         _isSelectionRefreshBusy = true;
         try
         {
-            // 选中即预览
             try { await RenderSelectedTaskDetailsAsync(); } catch { }
-            // 并触发加载（重载资源）
-            try { await (DataContext as CopilotViewModel)!.LoadSelectedAsync(); } catch { }
+            try { await vm.LoadSelectedAsync(); } catch { }
         }
         finally
         {
