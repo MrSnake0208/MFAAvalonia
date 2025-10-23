@@ -64,7 +64,7 @@
                             <Button Classes="Basic" Click="OnImportMysteryCode" PointerPressed="OnImportMysteryCodePointerPressed">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <fluent:FluentIcon Icon="Clipboard" IconSize="Size16" IconVariant="Regular" />
-                                    <TextBlock Text="粘贴神秘代码" />
+                                    <TextBlock Text="使用神秘代码" />
                                 </StackPanel>
                             </Button>
                             <Button Classes="Basic" Click="OnImportLocalJson">
@@ -75,9 +75,9 @@
                             </Button>
                         </StackPanel>
                         <TextBlock FontSize="14" Foreground="{DynamicResource SukiDisabledText}"
-                                   Text="左键点击自动粘贴+导入单份作业📒" TextWrapping="Wrap"/>
+                                   Text=" 左键点击自动粘贴+导入单份作业📒" TextWrapping="Wrap"/>
                         <TextBlock FontSize="14" Foreground="{DynamicResource SukiDisabledText}"
-                                   Text="右键点击粘贴导入作业集📚" TextWrapping="Wrap"/>
+                                   Text=" 右键点击粘贴导入作业集📚" TextWrapping="Wrap"/>
                     </StackPanel>
                 </suki:GroupBox>
             </suki:GlassCard>

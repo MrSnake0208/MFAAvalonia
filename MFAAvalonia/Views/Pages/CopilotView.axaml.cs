@@ -44,6 +44,9 @@ public partial class CopilotView : UserControl
         "需要展开战斗中手动/自动和倍速的那个面板。\n\n" +
         "不勾选“战斗中开始抄作业”时，需要在想打的关卡的编队界面（页面中有“进入战斗”按钮）处启动任务。";
     private bool _isSelectionRefreshBusy;
+    private bool _mysteryImportInProgress;
+    private DateTime _lastMysteryImportUtc = DateTime.MinValue;
+    private static readonly TimeSpan MysteryImportCooldown = TimeSpan.FromMilliseconds(500);
 
     public CopilotView()
     {
@@ -90,21 +93,15 @@ public partial class CopilotView : UserControl
         }
     }
 
-    private async void OnImportMysteryCode(object? sender, RoutedEventArgs e)
-    {
-        await (DataContext as CopilotViewModel)!.ImportMysteryCodeAsync(string.Empty);
-    }
+    private async void OnImportMysteryCode(object? sender, RoutedEventArgs e) =>
+        await TryRunMysteryImportAsync(vm => vm.ImportMysteryCodeAsync(string.Empty));
 
     private async void OnImportMysteryCodePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is Avalonia.Visual visual && e.GetCurrentPoint(visual).Properties.IsRightButtonPressed)
         {
             e.Handled = true;
-            var vm = DataContext as CopilotViewModel;
-            if (vm != null)
-            {
-                await vm.ImportMysterySetAsync(string.Empty);
-            }
+            await TryRunMysteryImportAsync(vm => vm.ImportMysterySetAsync(string.Empty));
         }
     }
 
@@ -905,5 +902,38 @@ public partial class CopilotView : UserControl
                 LoggerHelper.Error($"更新列宽失败: {ex.Message}");
             }
         });
+    }
+
+    private async Task<bool> TryRunMysteryImportAsync(Func<CopilotViewModel, Task> action)
+    {
+        if (DataContext is not CopilotViewModel vm)
+        {
+            return false;
+        }
+
+        var now = DateTime.UtcNow;
+        if (_mysteryImportInProgress)
+        {
+            return false;
+        }
+
+        if (now - _lastMysteryImportUtc < MysteryImportCooldown)
+        {
+            return false;
+        }
+
+        _mysteryImportInProgress = true;
+        _lastMysteryImportUtc = now;
+
+        try
+        {
+            await action(vm);
+            return true;
+        }
+        finally
+        {
+            _mysteryImportInProgress = false;
+            _lastMysteryImportUtc = DateTime.UtcNow;
+        }
     }
 }
