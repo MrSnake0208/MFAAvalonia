@@ -13,6 +13,7 @@ using CommunityToolkit.Mvvm.Input;
 using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper;
 using MFAAvalonia.ViewModels.Other;
+using MFAAvalonia.Helper.ValueType;
 using MaaFramework.Binding;
 using Avalonia;
 using Avalonia.Threading;
@@ -24,6 +25,7 @@ public partial class CopilotViewModel : ObservableObject
 {
     private const string DefaultCopilotTaskName = "✨ 自动抄作业V3";
 
+    private static string ResourceRoot => MaaProcessor.Resource; // 资源根目录（与 base/pipeline 同级）
     private static string ResourceBase => MaaProcessor.ResourceBase; // 简中基准资源，用于缓存与默认路径
     private static string PipelineDir => Path.Combine(ResourceBase, "pipeline"); // 基准 pipeline（用于兼容迁移等）
 
@@ -44,9 +46,10 @@ public partial class CopilotViewModel : ObservableObject
 
     private static string ActivePipelineDir => Path.Combine(GetActiveResourceBase(), "pipeline");
     private static string CopilotActiveDir => Path.Combine(ActivePipelineDir, "copilot");
-    // 迁移：缓存目录移至 ResourceBase 根，避免引擎扫描 pipeline 下的缓存导致解析冲突
-    private static string CopilotCacheDir => Path.Combine(ResourceBase, "copilot-cache");
-    private static string OldCopilotCacheDir => Path.Combine(PipelineDir, "copilot-cache");
+    // 迁移：缓存目录移至资源根，避免引擎扫描 pipeline/base 下的缓存导致解析冲突
+    private static string CopilotCacheDir => Path.Combine(ResourceRoot, "copilot-cache");
+    private static string LegacyBaseCopilotCacheDir => Path.Combine(ResourceBase, "copilot-cache");
+    private static string LegacyPipelineCopilotCacheDir => Path.Combine(PipelineDir, "copilot-cache");
 
     [ObservableProperty]
     private ObservableCollection<CopilotTreeItem> _fileTree = new();
@@ -82,10 +85,7 @@ public partial class CopilotViewModel : ObservableObject
     public void Initialize()
     {
         EnsureDirs();
-        // 优先确保资源与任务源已加载（避免首次进入时任务列表为空）
-        try { MaaProcessor.ReloadResources(); } catch { /* ignore */ }
         _ = RefreshAsync();
-        _ = EnsureDefaultTaskSelectedAsync();
         _ = UpdateActiveJobFromDiskAsync();
     }
 
@@ -174,43 +174,49 @@ public partial class CopilotViewModel : ObservableObject
             Directory.CreateDirectory(CopilotActiveDir);
             Directory.CreateDirectory(CopilotCacheDir);
 
-            // 迁移：将 pipeline/copilot-cache 挪到 resource/base/copilot-cache，避免被底层引擎当作 pipeline 解析
-            if (Directory.Exists(OldCopilotCacheDir))
-            {
-                try
-                {
-                    foreach (var file in Directory.EnumerateFiles(OldCopilotCacheDir, "*.json", SearchOption.TopDirectoryOnly))
-                    {
-                        var dest = Path.Combine(CopilotCacheDir, Path.GetFileName(file));
-                        if (!File.Exists(dest))
-                        {
-                            File.Move(file, dest);
-                        }
-                        else
-                        {
-                            // 已存在则保留较新的
-                            var srcInfo = new FileInfo(file);
-                            var dstInfo = new FileInfo(dest);
-                            if (srcInfo.LastWriteTimeUtc > dstInfo.LastWriteTimeUtc)
-                            {
-                                File.Copy(file, dest, true);
-                            }
-                            File.Delete(file);
-                        }
-                    }
-                    // 移除旧目录
-                    Directory.Delete(OldCopilotCacheDir, true);
-                    LoggerHelper.Info("已迁移 copilot-cache 至 ResourceBase，避免引擎解析缓存");
-                }
-                catch (Exception e)
-                {
-                    LoggerHelper.Warning($"迁移 copilot-cache 失败: {e.Message}");
-                }
-            }
+            MigrateLegacyCache(LegacyPipelineCopilotCacheDir, "pipeline");
+            MigrateLegacyCache(LegacyBaseCopilotCacheDir, "ResourceBase");
         }
         catch (Exception ex)
         {
             LoggerHelper.Error($"创建目录失败: {ex}");
+        }
+
+        static void MigrateLegacyCache(string legacyDir, string originLabel)
+        {
+            if (!Directory.Exists(legacyDir))
+            {
+                return;
+            }
+
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(legacyDir, "*.json", SearchOption.TopDirectoryOnly))
+                {
+                    var dest = Path.Combine(CopilotCacheDir, Path.GetFileName(file));
+                    if (!File.Exists(dest))
+                    {
+                        File.Move(file, dest);
+                    }
+                    else
+                    {
+                        var srcInfo = new FileInfo(file);
+                        var dstInfo = new FileInfo(dest);
+                        if (srcInfo.LastWriteTimeUtc > dstInfo.LastWriteTimeUtc)
+                        {
+                            File.Copy(file, dest, true);
+                        }
+                        File.Delete(file);
+                    }
+                }
+
+                Directory.Delete(legacyDir, true);
+                LoggerHelper.Info($"已迁移 copilot-cache（{originLabel}）至资源根目录，避免引擎解析缓存");
+            }
+            catch (Exception e)
+            {
+                LoggerHelper.Warning($"迁移 copilot-cache（{originLabel}）失败: {e.Message}");
+            }
         }
     }
 
@@ -259,6 +265,46 @@ public partial class CopilotViewModel : ObservableObject
         }
 
         await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private Task ToggleCopilotTaskAsync()
+    {
+        try
+        {
+            if (Instances.RootViewModel.IsRunning)
+            {
+                Instances.TaskQueueViewModel.StopTask();
+                return Task.CompletedTask;
+            }
+
+            var vm = Instances.TaskQueueViewModel;
+            var items = vm.TaskItemViewModels;
+            if (items == null || items.Count == 0)
+            {
+                ToastHelper.Error("默认任务列表为空，无法启动");
+                return Task.CompletedTask;
+            }
+
+            var source = items.FirstOrDefault(i => string.Equals(i.Name, DefaultCopilotTaskName, StringComparison.OrdinalIgnoreCase))
+                         ?? items.FirstOrDefault(i => string.Equals(i.InterfaceItem?.Name, DefaultCopilotTaskName, StringComparison.OrdinalIgnoreCase));
+            if (source?.InterfaceItem == null)
+            {
+                ToastHelper.Error($"未找到默认任务：{DefaultCopilotTaskName}");
+                return Task.CompletedTask;
+            }
+
+            var taskClone = source.Clone();
+            var taskList = new List<DragItemViewModel> { taskClone };
+            MaaProcessor.Instance.Start(taskList);
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error(ex);
+            ToastHelper.Error("启动默认任务失败");
+        }
+
+        return Task.CompletedTask;
     }
 
     [RelayCommand]

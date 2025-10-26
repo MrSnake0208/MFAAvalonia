@@ -194,7 +194,7 @@
                         </markup:IfConditionConverter.False>
                     </markup:IfConditionConverter>
                 </StackPanel.Resources>
-                <Button Classes="Flat Rounded" Command="{Binding ToggleCommand, Source={x:Static helper:Instances.TaskQueueViewModel}}"
+                <Button Classes="Flat Rounded" Command="{Binding ToggleCopilotTaskCommand}"
                         Content="{Binding IsRunning, Source={x:Static helper:Instances.RootViewModel}, Converter={StaticResource StatusConditionConverter}}"
                         FontWeight="DemiBold" Height="40" Width="150" />
             </StackPanel>
