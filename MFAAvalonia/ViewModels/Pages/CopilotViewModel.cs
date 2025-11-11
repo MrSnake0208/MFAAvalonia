@@ -1195,6 +1195,42 @@ public sealed class CopilotFileItem
             {
                 display = $"{game}-{baseName}";
             }
+
+            // Prefix display name by tags rules:
+            // - If tags contain "如鸢" and NOT contain "代号鸢" → add 【如鸢】
+            // - Else if NOT contain "如鸢" but contain "代号鸢" → add 【代号鸢】
+            // - Otherwise no prefix
+            if (node != null && node["tags"] is JsonArray tagsArr)
+            {
+                bool hasRuYuan = tagsArr.Any(it =>
+                {
+                    if (it is JsonValue v && v.TryGetValue<string>(out var s))
+                    {
+                        s = s?.Trim();
+                        return !string.IsNullOrEmpty(s) && s.Contains("如鸢", StringComparison.Ordinal);
+                    }
+                    return false;
+                });
+
+                bool hasDaiHaoYuan = tagsArr.Any(it =>
+                {
+                    if (it is JsonValue v && v.TryGetValue<string>(out var s))
+                    {
+                        s = s?.Trim();
+                        return !string.IsNullOrEmpty(s) && s.Contains("代号鸢", StringComparison.Ordinal);
+                    }
+                    return false;
+                });
+
+                if (hasRuYuan && !hasDaiHaoYuan)
+                {
+                    display = $"【如鸢】{display}";
+                }
+                else if (!hasRuYuan && hasDaiHaoYuan)
+                {
+                    display = $"【代号鸢】{display}";
+                }
+            }
         }
         catch { /* ignore parse errors */ }
 
