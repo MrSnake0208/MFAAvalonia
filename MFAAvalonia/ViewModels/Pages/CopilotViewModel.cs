@@ -957,115 +957,100 @@ public partial class CopilotViewModel : ObservableObject
         return true;
     }
     public async Task DeleteSelectedAsync()
-
     {
-
         var node = SelectedNode;
-
         if (node == null)
-
         {
-
             ToastHelper.Warn("请选择要删除的作业");
-
             return;
-
         }
-
-
 
         try
-
         {
+            // 若将要删除的目标包含当前激活作业，则先卸载
+            try
+            {
+                string? activePath = null;
+                if (Directory.Exists(CopilotActiveDir))
+                {
+                    activePath = Directory.EnumerateFiles(CopilotActiveDir, "*.json", SearchOption.TopDirectoryOnly)
+                        .Select(p => new FileInfo(p))
+                        .Where(f => !string.Equals(f.Name, "copilot_config.json", StringComparison.OrdinalIgnoreCase))
+                        .OrderByDescending(f => f.LastWriteTimeUtc)
+                        .FirstOrDefault()?.FullName;
+                }
+
+                if (!string.IsNullOrWhiteSpace(activePath))
+                {
+                    var activeBase = Path.GetFileNameWithoutExtension(activePath);
+                    bool targetIncludesActive = false;
+
+                    if (node.IsFile && node.File != null)
+                    {
+                        var baseName = Path.GetFileNameWithoutExtension(node.File.Name);
+                        targetIncludesActive = string.Equals(baseName, activeBase, StringComparison.OrdinalIgnoreCase);
+                    }
+                    else if (Directory.Exists(node.FullPath))
+                    {
+                        targetIncludesActive = Directory.EnumerateFiles(node.FullPath, "*.json", SearchOption.AllDirectories)
+                            .Any(f => string.Equals(Path.GetFileNameWithoutExtension(f), activeBase, StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    if (targetIncludesActive)
+                    {
+                        await UnloadActiveJobAsync();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                // 卸载判定失败不应阻断删除流程，仅记录告警
+                LoggerHelper.Warning($"删除前卸载判定失败: {e.Message}");
+            }
 
             string successMessage;
-
             if (node.IsFile && node.File != null)
-
             {
-
                 var path = node.File.FullPath;
-
                 await Task.Run(() =>
-
                 {
-
                     try
-
                     {
-
                         if (File.Exists(path)) File.Delete(path);
-
                     }
-
                     catch (Exception e)
-
                     {
-
                         throw new IOException($"删除失败: {path}", e);
-
                     }
-
                 });
-
                 successMessage = "删除成功";
-
             }
-
             else
-
             {
-
                 var path = node.FullPath;
-
                 await Task.Run(() =>
-
                 {
-
                     try
-
                     {
-
                         if (Directory.Exists(path)) Directory.Delete(path, true);
-
                     }
-
                     catch (Exception e)
-
                     {
-
                         throw new IOException($"删除失败: {path}", e);
-
                     }
-
                 });
-
                 successMessage = "删除成功";
-
             }
-
-
 
             SelectedNode = null;
-
-
-
             await RefreshAsync();
-
             ToastHelper.Success(successMessage);
-
         }
-
         catch (Exception ex)
-
         {
-
             LoggerHelper.Error(ex);
-
             ToastHelper.Error("删除失败");
-
         }
-
     }
 
 
