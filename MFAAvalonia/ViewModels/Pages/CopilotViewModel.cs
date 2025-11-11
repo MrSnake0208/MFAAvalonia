@@ -512,6 +512,36 @@ public partial class CopilotViewModel : ObservableObject
             }
             levelMeta = contentObj["level_meta"] ?? contentObj["levelMeta"];
 
+            // 附加需求：在导入的 JSON 中增加 id（去除 maay:// 的纯数字）与 tags（来自响应的 data.tags）
+            try
+            {
+                // 写入 id：优先以数字写入，失败则写入字符串
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    if (long.TryParse(id, out var idNum))
+                        contentObj["id"] = idNum;
+                    else
+                        contentObj["id"] = id;
+                }
+
+                // 写入 tags：从 data 节点提取（兼容大小写与数组/对象情况）
+                JsonNode? tagsNode = null;
+                if (data != null)
+                {
+                    if (data is JsonObject dObj)
+                        tagsNode = dObj["tags"] ?? dObj["Tags"];
+                    else if (data is JsonArray dArr && dArr.Count > 0 && dArr[0] is JsonObject dObj0)
+                        tagsNode = dObj0["tags"] ?? dObj0["Tags"];
+                }
+
+                if (tagsNode != null)
+                {
+                    // 直接挂载即可；如为数组则保持原样
+                    contentObj["tags"] = tagsNode;
+                }
+            }
+            catch { /* 忽略增强字段写入失败，保持导入主流程 */ }
+
             string fileName = string.IsNullOrWhiteSpace(title) ? $"{id}-{DateTime.Now:yyyyMMddHHmmss}.json" : title;
             fileName = SanitizeFileName(fileName);
             if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) fileName += ".json";
@@ -1186,5 +1216,4 @@ public sealed class CopilotFileItem
         return $"{v:F1} {units[i]}";
     }
 }
-
 
