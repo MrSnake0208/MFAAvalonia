@@ -24,6 +24,9 @@ namespace MFAAvalonia.ViewModels.Pages;
 public partial class CopilotViewModel : ObservableObject
 {
     private const string DefaultCopilotTaskName = "✨ 自动抄作业V3";
+    // 主备域：当主域不可用时自动回退到备域
+    private static readonly string SharePrimaryBase = "https://share.maayuan.top";
+    private static readonly string ShareBackupBase = "https://share-backend.maayuan.fun:16666";
 
     private static string ResourceRoot => MaaProcessor.Resource; // 资源根目录（与 base/pipeline 同级）
     private static string ResourceBase => MaaProcessor.ResourceBase; // 简中基准资源，用于缓存与默认路径
@@ -87,6 +90,32 @@ public partial class CopilotViewModel : ObservableObject
         EnsureDirs();
         _ = RefreshAsync();
         _ = UpdateActiveJobFromDiskAsync();
+    }
+    // 统一的主备域回退请求封装：按序尝试主域与备域，仅两者均失败时抛出异常
+    private static async Task<string> GetStringWithFallbackAsync(HttpClient http, string relativePath)
+    {
+        // 确保相对路径以 '/'
+        var path = relativePath.StartsWith('/') ? relativePath : "/" + relativePath;
+        var urls = new[] { $"{SharePrimaryBase}{path}", $"{ShareBackupBase}{path}" };
+        Exception? lastError = null;
+        foreach (var url in urls)
+        {
+            try
+            {
+                using var resp = await http.GetAsync(url);
+                if (resp.IsSuccessStatusCode)
+                {
+                    return await resp.Content.ReadAsStringAsync();
+                }
+                lastError = new HttpRequestException($"Request failed with status {(int)resp.StatusCode} {resp.StatusCode} for {url}");
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                // 尝试下一个域名
+            }
+        }
+        throw lastError ?? new Exception("Unknown error on fallback requests");
     }
 
     #region 右侧列（连接与日志）- 与 TaskQueue 右栏对齐
@@ -437,9 +466,11 @@ public partial class CopilotViewModel : ObservableObject
         Directory.CreateDirectory(destinationDir);
         try
         {
-            var url = $"https://share.maayuan.top/api/copilot/get/{id}";
-            using var http = new HttpClient();
-            var json = await http.GetStringAsync(url);
+            using var http = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(10)
+            };
+            var json = await GetStringWithFallbackAsync(http, $"/api/copilot/get/{id}");
 
             JsonNode? root;
             try { root = JsonNode.Parse(json); }
@@ -595,9 +626,11 @@ public partial class CopilotViewModel : ObservableObject
 
         try
         {
-            var url = $"https://share.maayuan.top/api/set/get?id={id}";
-            using var http = new HttpClient();
-            var json = await http.GetStringAsync(url);
+            using var http = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(10)
+            };
+            var json = await GetStringWithFallbackAsync(http, $"/api/set/get?id={id}");
 
             JsonNode? root;
             try { root = JsonNode.Parse(json); }

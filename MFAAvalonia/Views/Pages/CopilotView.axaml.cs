@@ -201,10 +201,33 @@ public partial class CopilotView : UserControl
     {
         try
         {
-            var url = "https://share.maayuan.top/";
+            // 主域与备用域
+            var primary = "https://share.maayuan.top/";
+            var backup = "https://share.maayuan.fun:16666/";
+            // 快速探测主域可用性（短超时，避免阻塞）
+            var openUrl = primary;
+            try
+            {
+                using var http = new System.Net.Http.HttpClient
+                {
+                    Timeout = TimeSpan.FromSeconds(2)
+                };
+                using var req = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, primary);
+                using var resp = await http.SendAsync(req, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    openUrl = backup;
+                }
+            }
+            catch
+            {
+                // 网络异常/超时：切换备用域
+                openUrl = backup;
+            }
+
             var psi = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = url,
+                FileName = openUrl,
                 UseShellExecute = true
             };
             System.Diagnostics.Process.Start(psi);
