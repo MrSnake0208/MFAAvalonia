@@ -1,4 +1,7 @@
-﻿using Avalonia.Media.Imaging;
+﻿using Avalonia;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using AvaloniaExtensions.Axaml.Markup;
 using MaaFramework.Binding.Buffers;
 using MFAAvalonia.Extensions.MaaFW;
@@ -96,7 +99,78 @@ public static class MFAExtensions
             string propName = property.Name;
             JToken? targetProp = targetObj.Property(propName)?.Value;
             JToken sourceProp = property.Value;
+            if (propName == "attach")
+            {
+                // 仅当双方都是对象类型时才进行第一层字段合并
+                if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+                {
+                    JObject targetAttach = (JObject)targetProp;
+                    JObject sourceAttach = (JObject)sourceProp;
 
+                    // 遍历sourceAttach的所有第一层字段，直接覆盖或添加（不递归）
+                    foreach (var attachProp in sourceAttach.Properties())
+                    {
+                        string attachPropName = attachProp.Name;
+                        JToken sourceAttachValue = attachProp.Value;
+
+                        // 目标存在该字段则直接用源覆盖（不递归），否则添加
+                        targetAttach[attachPropName] = sourceAttachValue.DeepClone();
+                    }
+
+                    targetObj[propName] = targetAttach;
+                }
+                // 目标不存在attach字段时，直接克隆源的attach
+                else if (targetProp == null)
+                {
+                    targetObj[propName] = sourceProp.DeepClone();
+                }
+                // 若类型不匹配（如一方不是对象），则用源覆盖目标
+                else
+                {
+                    targetObj[propName] = sourceProp.DeepClone();
+                }
+                continue;
+            }
+            // if (propName == "attach")
+            // {
+            //     // 仅当双方都是对象类型时才进行字段合并
+            //     if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+            //     {
+            //         JObject targetAttach = (JObject)targetProp;
+            //         JObject sourceAttach = (JObject)sourceProp;
+            //
+            //         // 遍历sourceAttach的所有字段，逐个合并到targetAttach
+            //         foreach (var attachProp in sourceAttach.Properties())
+            //         {
+            //             string attachPropName = attachProp.Name;
+            //             JToken sourceAttachValue = attachProp.Value;
+            //
+            //             // 目标存在该字段则递归合并，否则直接添加
+            //             if (targetAttach.ContainsKey(attachPropName))
+            //             {
+            //                 targetAttach[attachPropName] = Merge(targetAttach[attachPropName], sourceAttachValue);
+            //             }
+            //             else
+            //             {
+            //                 targetAttach[attachPropName] = sourceAttachValue.DeepClone();
+            //             }
+            //         }
+            //
+            //         targetObj[propName] = targetAttach;
+            //     }
+            //     // 目标不存在attach字段时，直接克隆源的attach
+            //     else if (targetProp == null)
+            //     {
+            //         targetObj[propName] = sourceProp.DeepClone();
+            //     }
+            //     // 若类型不匹配（如一方不是对象），则用源覆盖目标
+            //     else
+            //     {
+            //         targetObj[propName] = sourceProp.DeepClone();
+            //     }
+            //     continue;
+            // }
+            //
             // 处理 recognition 相关合并逻辑
             if (propName == "recognition")
             {
@@ -351,19 +425,49 @@ public static class MFAExtensions
             return null;
         }
     }
-    public static System.Drawing.Bitmap? ToDrawingBitmap(this Bitmap? bitmap)
+    // public static System.Drawing.Bitmap? ToDrawingBitmap(this Bitmap? bitmap)
+    // {
+    //     if (bitmap == null)
+    //         return null;
+    //
+    //     using var memory = new MemoryStream();
+    //
+    //     bitmap.Save(memory);
+    //     memory.Position = 0;
+    //     
+    //     return new System.Drawing.Bitmap(memory);
+    // }
+    public static Bitmap DrawRectangle(this Bitmap sourceBitmap, MaaRectBuffer rect, IBrush color, double thickness = 1.5)
     {
-        if (bitmap == null)
-            return null;
+        if (sourceBitmap == null)
+            throw new ArgumentNullException(nameof(sourceBitmap));
 
-        using var memory = new MemoryStream();
+        var renderBitmap = new RenderTargetBitmap(
+            sourceBitmap.PixelSize,
+            sourceBitmap.Dpi);
 
-        bitmap.Save(memory);
-        memory.Position = 0;
-        
-        return new System.Drawing.Bitmap(memory);
+        DispatcherHelper.PostOnMainThread(() =>
+        {
+            // 使用 DrawingContext 绘制
+            using var context = renderBitmap.CreateDrawingContext();
+
+            // 1. 绘制原始图像作为背景
+            context.DrawImage(sourceBitmap, new Rect(sourceBitmap.Size));
+
+            // 2. 创建抗锯齿画笔
+            var pen = new Avalonia.Media.Pen(color, thickness)
+            {
+                LineJoin = PenLineJoin.Round,
+                LineCap = PenLineCap.Round
+            };
+
+            // 3. 绘制矩形边框
+            context.DrawRectangle(pen, new Rect(rect.X, rect.Y, rect.Width, rect.Height));
+
+        });
+        return renderBitmap;
     }
-    
+
     public static Bitmap? ToAvaloniaBitmap(this System.Drawing.Bitmap? bitmap)
     {
         if (bitmap == null)
@@ -378,5 +482,18 @@ public static class MFAExtensions
         bitmapTmp.UnlockBits(bd);
         bitmapTmp.Dispose();
         return bitmap1;
+    }
+
+    public static bool TryGetText(this IDataTransfer dataTransfer, out string? result)
+    {
+        result = null;
+        var textFormat = DataFormat.Text;
+        if (!dataTransfer.Formats.Contains(textFormat))
+            return false;
+
+        var rawData = dataTransfer.TryGetText();
+
+        result = rawData;
+        return true;
     }
 }

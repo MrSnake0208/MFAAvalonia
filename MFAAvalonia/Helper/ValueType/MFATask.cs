@@ -22,9 +22,10 @@ public partial class MFATask : ObservableObject
     public enum MFATaskStatus
     {
         NOT_STARTED,
+        STOPPING,
         STOPPED,
         SUCCEEDED,
-        FAILED,
+        FAILED
     }
 
     [ObservableProperty] private string? _name = string.Empty;
@@ -42,7 +43,7 @@ public partial class MFATask : ObservableObject
             {
                 token.ThrowIfCancellationRequested();
                 if (Type == MFATaskType.MAAFW)
-                    RootView.AddLogByKey("TaskStart", null, true, Name ?? string.Empty);
+                    RootView.AddLogByKeys("TaskStart", null, true, Name ?? string.Empty);
                 await Action();
             }
             return MFATaskStatus.SUCCEEDED;

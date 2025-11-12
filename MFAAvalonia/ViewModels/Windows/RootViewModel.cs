@@ -73,10 +73,13 @@ public partial class RootViewModel : ViewModelBase
     }
     public void CheckDebug()
     {
-        if (IsDebugMode && _shouldTip)
+        if (IsDebugMode && _shouldTip && !MaaProcessor.Instance.IsV2)
         {
-            Instances.DialogManager.CreateDialog().OfType(NotificationType.Warning).WithContent("DebugModeWarning".ToLocalization()).WithActionButton("Ok".ToLocalization(), dialog => { }, true).TryShow();
-            _shouldTip = false;
+            DispatcherHelper.PostOnMainThread(() =>
+            {
+                Instances.DialogManager.CreateDialog().OfType(NotificationType.Warning).WithContent("DebugModeWarning".ToLocalization()).WithActionButton("Ok".ToLocalization(), dialog => { }, true).TryShow();
+                _shouldTip = false;
+            });
         }
     }
 

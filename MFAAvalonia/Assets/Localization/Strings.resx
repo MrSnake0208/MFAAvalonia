@@ -637,7 +637,7 @@
         <value>最小化时隐藏至托盘</value>
     </data>
     <data name="MiniTouch" xml:space="preserve">
-        <value>MiniTouch (默认)</value>
+        <value>MiniTouch (旧)</value>
     </data>
     <data name="MirrorAutoUpdatePrompt" xml:space="preserve">
         <value>请购买 Mirror 酱服务以实现自动更新，或将下载源切换至 GitHub</value>
@@ -1032,6 +1032,9 @@
     <data name="ExternalNotificationOneBotUser" xml:space="preserve">
         <value>用户 QQ</value>
     </data>
+    <data name="ExternalNotificationServerChanSendKey" xml:space="preserve">
+        <value>SendKey</value>
+    </data>
     <data name="CreateCustomTheme" xml:space="preserve">
         <value>创建自定义主题</value>
     </data>
@@ -1196,9 +1199,24 @@
         <value>复制到剪切板</value>
     </data>
     <data name="UseDirectMLSupportedDevice" xml:space="preserve">
-        <value>使用 DirectML 支持设备</value>
+        <value>使用支持 DirectML 的设备</value>
     </data>
     <data name="SwitchUiUpdateSourceToGithub" xml:space="preserve">
         <value>因 Mirror 酱无法指定特定版本进行更新，请到更新设置中把更新源切换为 GitHub。</value>
+    </data>
+    <data name="MultiInstanceUnderSamePath" xml:space="preserve">
+        <value>同一路径下只能启动一个实例！</value>
+    </data>
+    <data name="MouseInput" xml:space="preserve">
+        <value>鼠标输入</value>
+    </data>
+    <data name="KeyboardInput" xml:space="preserve">
+        <value>键盘输入</value>
+    </data>
+    <data name="UiDoesNotSupportResourceUpdateCancelled" xml:space="preserve">
+        <value>当前版本的UI不支持即将更新的资源，更新已取消</value>
+    </data>
+    <data name="UiDoesNotSupportCurrentResource" xml:space="preserve">
+        <value>当前版本的UI不支持当前资源！</value>
     </data>
 </root>

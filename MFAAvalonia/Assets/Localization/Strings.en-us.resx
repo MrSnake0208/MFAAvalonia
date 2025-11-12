@@ -630,7 +630,7 @@
         <value>Hide to tray when minimized</value>
     </data>
     <data name="MiniTouch" xml:space="preserve">
-        <value>MiniTouch (Default)</value>
+        <value>MiniTouch (Old)</value>
     </data>
     <data name="MirrorAutoUpdatePrompt" xml:space="preserve">
         <value>Please purchase the Mirror Chyan service to enable automatic updates, or switch the download source to GitHub</value>
@@ -1173,7 +1173,7 @@
         <value>Execute</value>
     </data>
     <data name="StoppingInternalTask" xml:space="preserve">
-        <value>正在停止內部任務...</value>
+        <value>Stopping Internal Task...</value>
     </data>
     <data name="Verifying" xml:space="preserve">
         <value>Verifying</value>
@@ -1188,9 +1188,27 @@
         <value>Copy to clipboard</value>
     </data>
     <data name="UseDirectMLSupportedDevice" xml:space="preserve">
-        <value>使用 DirectML 支援設備</value>
+        <value>Use DirectML Supported Device</value>
     </data>
     <data name="SwitchUiUpdateSourceToGithub" xml:space="preserve">
         <value>Since Mirror Chyan cannot specify a specific version for update, please go to update settings and switch the update source to GitHub.</value>
+    </data>
+    <data name="MultiInstanceUnderSamePath" xml:space="preserve">
+        <value>Only one instance can be launched under the same path!</value>
+    </data>
+    <data name="KeyboardInput" xml:space="preserve">
+        <value>Keyboard Input</value>
+    </data>
+    <data name="MouseInput" xml:space="preserve">
+        <value>Mouse Input</value>
+    </data>
+    <data name="ExternalNotificationServerChanSendKey" xml:space="preserve">
+        <value>SendKey</value>
+    </data>
+    <data name="UiDoesNotSupportResourceUpdateCancelled" xml:space="preserve">
+        <value>The current version of the UI does not support the resources to be updated, and the update has been cancelled.</value>
+    </data>
+    <data name="UiDoesNotSupportCurrentResource" xml:space="preserve">
+        <value>The current version of the UI does not support the current resource!</value>
     </data>
 </root>

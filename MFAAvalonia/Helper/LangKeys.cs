@@ -350,6 +350,7 @@ public static class LangKeys
 	public static readonly string ExternalNotificationOneBotKey = "ExternalNotificationOneBotKey";
 	public static readonly string ExternalNotificationOneBotServer = "ExternalNotificationOneBotServer";
 	public static readonly string ExternalNotificationOneBotUser = "ExternalNotificationOneBotUser";
+	public static readonly string ExternalNotificationServerChanSendKey = "ExternalNotificationServerChanSendKey";
 	public static readonly string CreateCustomTheme = "CreateCustomTheme";
 	public static readonly string ConfigurePrimaryAccent = "ConfigurePrimaryAccent";
 	public static readonly string ColorThemeAlreadyExists = "ColorThemeAlreadyExists";
@@ -403,4 +404,8 @@ public static class LangKeys
 	public static readonly string FileLoadFailed = "FileLoadFailed";
 	public static readonly string CopyToClipboard = "CopyToClipboard";
 	public static readonly string UseDirectMLSupportedDevice = "UseDirectMLSupportedDevice";
+	public static readonly string SwitchUiUpdateSourceToGithub = "SwitchUiUpdateSourceToGithub";
+	public static readonly string MultiInstanceUnderSamePath = "MultiInstanceUnderSamePath";
+	public static readonly string MouseInput = "MouseInput";
+	public static readonly string KeyboardInput = "KeyboardInput";
 }

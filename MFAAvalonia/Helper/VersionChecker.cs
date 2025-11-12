@@ -1,11 +1,14 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
+using Avalonia.Media;
+using MaaFramework.Binding.Interop.Native;
 using MFAAvalonia.Configuration;
 using MFAAvalonia.Extensions;
 using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper.Converters;
 using MFAAvalonia.ViewModels.UsersControls.Settings;
 using MFAAvalonia.ViewModels.Windows;
+using MFAAvalonia.Views.Windows;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Semver;
@@ -82,13 +85,13 @@ public static class VersionChecker
             () => ToastNotification.Show("自动更新时发生错误！"), "启动检测");
     }
 
-    public static void CheckMFAVersionAsync() => TaskManager.RunTaskAsync(() => CheckForMFAUpdates(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0));
-    public static void CheckResourceVersionAsync() => TaskManager.RunTaskAsync(() => CheckForResourceUpdates(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0));
+    public static void CheckMFAVersionAsync() => TaskManager.RunTaskAsync(() => CheckForMFAUpdates(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0), name: "检测MFA版本");
+    public static void CheckResourceVersionAsync() => TaskManager.RunTaskAsync(() => CheckForResourceUpdates(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0), name: "检测资源版本");
     public static void UpdateResourceAsync(string
-        currentVersion = "") => TaskManager.RunTaskAsync(() => UpdateResource(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0, currentVersion: currentVersion));
-    public static void UpdateMFAAsync() => TaskManager.RunTaskAsync(() => UpdateMFA(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0));
+        currentVersion = "") => TaskManager.RunTaskAsync(() => UpdateResource(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0, currentVersion: currentVersion), name: "更新MFA");
+    public static void UpdateMFAAsync() => TaskManager.RunTaskAsync(() => UpdateMFA(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0), name: "更新资源");
 
-    public static void UpdateMaaFwAsync() => TaskManager.RunTaskAsync(() => UpdateMaaFw());
+    public static void UpdateMaaFwAsync() => TaskManager.RunTaskAsync(() => UpdateMaaFw(), name: "更新MaaFw");
 
     private static void AddResourceCheckTask()
     {
@@ -223,10 +226,17 @@ public static class VersionChecker
                 GetLatestVersionAndDownloadUrlFromGithub(out _, out latestVersion, out sha256);
             else
                 GetDownloadUrlFromMirror(localVersion, "YuanMFA", CDK(), out _, out latestVersion, out sha256, isUI: true, onlyCheck: true);
-
+            var mirrocS = false;
             if (IsNewVersionAvailable(latestVersion, GetMaxVersion()))
+            {
                 latestVersion = GetMaxVersion();
-            if (IsNewVersionAvailable(latestVersion, localVersion))
+                if (!isGithub) mirrocS = true;
+            }
+            if (mirrocS)
+            {
+                ToastHelper.Warn("Warning".ToLocalization(), "SwitchUiUpdateSourceToGithub".ToLocalization());
+            }
+            else if (IsNewVersionAvailable(latestVersion, localVersion))
             {
                 DispatcherHelper.RunOnMainThread(() =>
                 {
@@ -429,14 +439,28 @@ public static class VersionChecker
             interfacePath = Path.Combine(tempExtractDir, "assets", "interface.json");
             resourceDirPath = Path.Combine(tempExtractDir, "assets", "resource");
         }
-        
+
         var file = new FileInfo(interfacePath);
+
+
         if (file.Exists)
         {
+            var jsonContent = await File.ReadAllTextAsync(interfacePath);
+
+            var @interface = JObject.Parse(jsonContent);
+            if (@interface != null && @interface["interface_version"] != null && @interface["interface_version"].ToString().Trim().Equals("2"))
+            {
+                Dismiss(sukiToast);
+                ToastHelper.Warn("Warning".ToLocalization(), "UiDoesNotSupportResourceUpdateCancelled".ToLocalization());
+                RootView.AddLog("UiDoesNotSupportResourceUpdateCancelled".ToLocalization(), Brushes.Orange, changeColor: false);
+                Instances.RootViewModel.SetUpdating(false);
+                return;
+            }
+
             var targetPath = Path.Combine(wpfDir, "interface.json");
             file.CopyTo(targetPath, true);
         }
-        
+
         if (isGithub || currentVersion.Equals("v0.0.0", StringComparison.OrdinalIgnoreCase))
         {
             if (Directory.Exists(resourcePath))
@@ -1242,7 +1266,7 @@ rm $0
             // 版本信息获取（保持原有逻辑）
             SetProgress(progress, 10);
             var resId = "MaaFramework";
-            var currentVersion = MaaProcessor.Utility.Version;
+            var currentVersion = MaaUtility.MaaVersion();
             string downloadUrl = string.Empty, latestVersion = string.Empty, sha256 = string.Empty;
             try
             {
@@ -1903,31 +1927,28 @@ rm $0
 
     async private static Task<(bool, string)> DownloadFileAsync(string url, string filePath, ProgressBar? progressBar)
     {
+        var targetFilePath = filePath;
         try
         {
             using var httpClient = CreateHttpClientWithProxy();
             httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("request");
-            httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            httpClient.DefaultRequestHeaders.Accept.Clear();
+            httpClient.DefaultRequestHeaders.Accept.ParseAdd("*/*");
 
-            using var headResponse = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
-            headResponse.EnsureSuccessStatusCode();
-
-            string? suggestedFileName = null;
-            if (headResponse.Content.Headers.ContentDisposition != null)
-            {
-                suggestedFileName = ParseFileNameFromContentDisposition(
-                    headResponse.Content.Headers.ContentDisposition.ToString());
-            }
-
-            if (!string.IsNullOrEmpty(suggestedFileName))
-            {
-                string dir = Path.GetDirectoryName(filePath)!;
-                string newFileName = Path.GetFileNameWithoutExtension(filePath) + Path.GetExtension(suggestedFileName);
-                filePath = Path.Combine(dir, newFileName);
-            }
-
-            using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url), HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
+
+            if (response.Content.Headers.ContentDisposition != null)
+            {
+                var suggestedFileName = ParseFileNameFromContentDisposition(
+                    response.Content.Headers.ContentDisposition.ToString());
+                if (!string.IsNullOrEmpty(suggestedFileName))
+                {
+                    string dir = Path.GetDirectoryName(filePath)!;
+                    string newFileName = Path.GetFileNameWithoutExtension(filePath) + Path.GetExtension(suggestedFileName);
+                    targetFilePath = Path.Combine(dir, newFileName);
+                }
+            }
 
             var startTime = DateTime.Now;
             long totalBytesRead = 0;
@@ -1935,7 +1956,7 @@ rm $0
             long? totalBytes = response.Content.Headers.ContentLength;
 
             await using var contentStream = await response.Content.ReadAsStreamAsync();
-            await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+            await using var fileStream = new FileStream(targetFilePath, FileMode.Create, FileAccess.Write);
 
             var buffer = new byte[8192];
             var stopwatch = Stopwatch.StartNew();
@@ -2002,22 +2023,22 @@ rm $0
                     (DateTime.Now - startTime).TotalSeconds
                 ));
 
-            return (true, filePath);
+            return (true, targetFilePath);
         }
         catch (HttpRequestException httpEx)
         {
             LoggerHelper.Error($"HTTP请求失败: {httpEx.Message}");
-            return (false, filePath);
+            return (false, targetFilePath);
         }
         catch (IOException ioEx)
         {
             LoggerHelper.Error($"文件操作失败: {ioEx.Message}");
-            return (false, filePath);
+            return (false, targetFilePath);
         }
         catch (Exception ex)
         {
             LoggerHelper.Error($"未知错误: {ex.Message}");
-            return (false, filePath);
+            return (false, targetFilePath);
         }
     }
 

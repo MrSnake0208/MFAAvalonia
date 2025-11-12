@@ -264,10 +264,10 @@ public partial class TaskQueueViewModel : ViewModelBase
     public void AddLog(string content,
         IBrush? brush,
         string weight = "Regular",
+        bool changeColor = true,
         bool showTime = true)
     {
         brush ??= Brushes.Black;
-        var changeColor = true;
         if (content.StartsWith(INFO))
         {
             brush = Brushes.Black;
@@ -299,35 +299,37 @@ public partial class TaskQueueViewModel : ViewModelBase
     public void AddLog(string content,
         string color = "",
         string weight = "Regular",
+        bool changeColor = true,
         bool showTime = true)
     {
         var brush = BrushHelper.ConvertToBrush(color, Brushes.Black);
-        AddLog(content, brush, weight, showTime);
+        AddLog(content, brush, weight, changeColor, showTime);
     }
 
-    public void AddLogByKey(string key, IBrush? brush = null, bool transformKey = true, params string[] formatArgsKeys)
+    public void AddLogByKey(string key, IBrush? brush = null, bool changeColor = true, bool transformKey = true, params string[] formatArgsKeys)
     {
         brush ??= Brushes.Black;
         Task.Run(() =>
         {
             DispatcherHelper.RunOnMainThread(() =>
             {
-                var log = new LogItemViewModel(key, brush, "Regular", true, "HH':'mm':'ss", showTime: true, transformKey: transformKey, formatArgsKeys);
+                var log = new LogItemViewModel(key, brush, "Regular", true, "HH':'mm':'ss", changeColor: changeColor, showTime: true, transformKey: transformKey, formatArgsKeys);
                 LogItemViewModels.Add(log);
                 LoggerHelper.Info(log.Content);
             });
         });
     }
 
-    public void AddLogByKey(string key, string color = "", bool transformKey = true, params string[] formatArgsKeys)
+    public void AddLogByKey(string key, string color = "", bool changeColor = true, bool transformKey = true, params string[] formatArgsKeys)
     {
         var brush = BrushHelper.ConvertToBrush(color, Brushes.Black);
-        AddLogByKey(key, brush, transformKey, formatArgsKeys);
+        AddLogByKey(key, brush, changeColor, transformKey, formatArgsKeys);
     }
 
     #endregion
 
     #region 连接
+
     [ObservableProperty] private int shouldShow = 0;
     [ObservableProperty] private ObservableCollection<object> _devices = [];
     [ObservableProperty] private object? _currentDevice;
@@ -339,6 +341,7 @@ public partial class TaskQueueViewModel : ViewModelBase
 
     public void ChangedDevice(object? value)
     {
+        var igoreToast = false;
         if (value != null)
         {
             var now = DateTime.Now;
@@ -349,24 +352,26 @@ public partial class TaskQueueViewModel : ViewModelBase
             else
             {
                 if (now - _lastExecutionTime < TimeSpan.FromSeconds(2))
-                    return;
-                _lastExecutionTime = now;
+                    igoreToast = true;
+                else
+                    _lastExecutionTime = now;
             }
         }
         if (value is DesktopWindowInfo window)
         {
-            ToastHelper.Info("WindowSelectionMessage".ToLocalizationFormatted(false, ""), window.Name);
+            if (!igoreToast) ToastHelper.Info("WindowSelectionMessage".ToLocalizationFormatted(false, ""), window.Name);
             MaaProcessor.Config.DesktopWindow.Name = window.Name;
             MaaProcessor.Config.DesktopWindow.HWnd = window.Handle;
             MaaProcessor.Instance.SetTasker();
         }
         else if (value is AdbDeviceInfo device)
         {
-            ToastHelper.Info("EmulatorSelectionMessage".ToLocalizationFormatted(false, ""), device.Name);
+            if (!igoreToast) ToastHelper.Info("EmulatorSelectionMessage".ToLocalizationFormatted(false, ""), device.Name);
             MaaProcessor.Config.AdbDevice.Name = device.Name;
             MaaProcessor.Config.AdbDevice.AdbPath = device.AdbPath;
             MaaProcessor.Config.AdbDevice.AdbSerial = device.AdbSerial;
             MaaProcessor.Config.AdbDevice.Config = device.Config;
+            MaaProcessor.Config.AdbDevice.Info = device;
             MaaProcessor.Instance.SetTasker();
             ConfigurationManager.Current.SetValue(ConfigurationKeys.AdbDevice, device);
         }
@@ -435,7 +440,7 @@ public partial class TaskQueueViewModel : ViewModelBase
     {
         _refreshCancellationTokenSource?.Cancel();
         _refreshCancellationTokenSource = new CancellationTokenSource();
-        TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token), _refreshCancellationTokenSource.Token, handleError: (e) => HandleDetectionError(e, CurrentController == MaaControllerTypes.Adb),
+        TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token), _refreshCancellationTokenSource.Token, name: "刷新", handleError: (e) => HandleDetectionError(e, CurrentController == MaaControllerTypes.Adb),
             catchException: true, shouldLog: true);
     }
     [RelayCommand]
@@ -557,11 +562,10 @@ public partial class TaskQueueViewModel : ViewModelBase
 
     private void HandleInputSettings(MaaInterface.MaaResourceController controller, bool isAdb)
     {
-        var input = isAdb ? controller.Adb?.Input : controller.Win32?.Input;
-        if (input == null) return;
-
         if (isAdb)
         {
+            var input = controller.Adb?.Input;
+            if (input == null) return;
             Instances.ConnectSettingsUserControlModel.AdbControlInputType = input switch
             {
                 1 => AdbInputMethods.AdbShell,
@@ -573,12 +577,47 @@ public partial class TaskQueueViewModel : ViewModelBase
         }
         else
         {
-            Instances.ConnectSettingsUserControlModel.Win32ControlInputType = input switch
+            var mouse = controller.Win32?.Mouse;
+            if (mouse != null)
             {
-                1 => Win32InputMethod.Seize,
-                2 => Win32InputMethod.SendMessage,
-                _ => Instances.ConnectSettingsUserControlModel.Win32ControlInputType
-            };
+                Instances.ConnectSettingsUserControlModel.Win32ControlMouseType = mouse switch
+                {
+                    1 => Win32InputMethod.Seize,
+                    2 => Win32InputMethod.SendMessage,
+                    4 => Win32InputMethod.PostMessage,
+                    8 => Win32InputMethod.LegacyEvent,
+                    16 => Win32InputMethod.PostThreadMessage,
+                    _ => Instances.ConnectSettingsUserControlModel.Win32ControlMouseType
+                };
+            }
+            var keyboard = controller.Win32?.Keyboard;
+            if (keyboard != null)
+            {
+                Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType = keyboard switch
+                {
+                    1 => Win32InputMethod.Seize,
+                    2 => Win32InputMethod.SendMessage,
+                    4 => Win32InputMethod.PostMessage,
+                    8 => Win32InputMethod.LegacyEvent,
+                    16 => Win32InputMethod.PostThreadMessage,
+                    _ => Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType
+                };
+            }
+            var input = controller.Win32?.Input;
+            if (keyboard == null && mouse == null && input != null)
+            {
+                var type = input switch
+                {
+                    1 => Win32InputMethod.Seize,
+                    2 => Win32InputMethod.SendMessage,
+                    4 => Win32InputMethod.PostMessage,
+                    8 => Win32InputMethod.LegacyEvent,
+                    16 => Win32InputMethod.PostThreadMessage,
+                    _ => Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType
+                };
+                Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType = type;
+                Instances.ConnectSettingsUserControlModel.Win32ControlMouseType = type;
+            }
         }
     }
 
@@ -606,7 +645,10 @@ public partial class TaskQueueViewModel : ViewModelBase
             {
                 1 => Win32ScreencapMethod.GDI,
                 2 => Win32ScreencapMethod.FramePool,
-                4 => Win32ScreencapMethod.DXGIDesktopDup,
+                4 => Win32ScreencapMethod.DXGI_DesktopDup,
+                8 => Win32ScreencapMethod.DXGI_DesktopDup_Window,
+                16 => Win32ScreencapMethod.PrintWindow,
+                32 => Win32ScreencapMethod.ScreenDC,
                 _ => Instances.ConnectSettingsUserControlModel.Win32ControlScreenCapType
             };
         }
@@ -644,11 +686,12 @@ public partial class TaskQueueViewModel : ViewModelBase
             _refreshCancellationTokenSource?.Cancel();
             _refreshCancellationTokenSource = new CancellationTokenSource();
             if (InTask)
-                TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token));
+                TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token), name: "刷新设备");
             else
                 AutoDetectDevice(_refreshCancellationTokenSource.Token);
             return;
         }
+        LoggerHelper.Info("Reading saved ADB device from configuration.");
         DispatcherHelper.PostOnMainThread(() =>
         {
             Devices = [device];
