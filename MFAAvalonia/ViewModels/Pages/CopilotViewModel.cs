@@ -118,6 +118,34 @@ public partial class CopilotViewModel : ObservableObject
         throw lastError ?? new Exception("Unknown error on fallback requests");
     }
 
+    // 统一的主备域回退 POST：按序尝试主域与备域，任一成功（2xx）即返回
+    private static async Task<bool> PostJsonWithFallbackAsync(HttpClient http, string relativePath, string json)
+    {
+        var path = relativePath.StartsWith('/') ? relativePath : "/" + relativePath;
+        var urls = new[] { $"{SharePrimaryBase}{path}", $"{ShareBackupBase}{path}" };
+        Exception? lastError = null;
+        foreach (var url in urls)
+        {
+            try
+            {
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                using var resp = await http.PostAsync(url, content);
+                if (resp.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+                lastError = new HttpRequestException($"Request failed with status {(int)resp.StatusCode} {resp.StatusCode} for {url}");
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                // 尝试下一个域名
+            }
+        }
+        if (lastError != null) throw lastError;
+        return false;
+    }
+
     #region 右侧列（连接与日志）- 与 TaskQueue 右栏对齐
     // 说明：为复用 TaskQueue 的右侧列 UI，本 ViewModel 补齐必要的同名属性/命令，
     // 实现采取最小必要封装，直接转发到 Instances.TaskQueueViewModel，避免重复逻辑。
@@ -423,6 +451,92 @@ public partial class CopilotViewModel : ObservableObject
         {
             LoggerHelper.Error(ex);
             ToastHelper.Error("本地导入失败");
+        }
+    }
+
+    [RelayCommand]
+    private async Task LikeAsync()
+    {
+        try
+        {
+            if (SelectedFile == null)
+            {
+                ToastHelper.Warn("请选择要点赞的作业");
+                return;
+            }
+
+            // 从缓存 JSON 读取 id（神秘代码）
+            JsonNode? root = null;
+            try
+            {
+                var text = await File.ReadAllTextAsync(SelectedFile.FullPath, Encoding.UTF8);
+                root = JsonNode.Parse(text);
+            }
+            catch
+            {
+                ToastHelper.Error("读取作业文件失败");
+                return;
+            }
+
+            if (root is not JsonObject obj)
+            {
+                ToastHelper.Error("作业文件格式不正确");
+                return;
+            }
+
+            // 兼容数字或字符串 id
+            bool hasId = false;
+            long idNum = 0;
+            string? idStr = null;
+            if (obj["id"] is JsonValue idVal)
+            {
+                if (idVal.TryGetValue<long>(out var asLong))
+                {
+                    hasId = true; idNum = asLong; idStr = null;
+                }
+                else if (idVal.TryGetValue<string>(out var asStr) && !string.IsNullOrWhiteSpace(asStr))
+                {
+                    hasId = true; idStr = asStr.Trim();
+                    // 若是 maay:// 前缀，尽量提取数字部分
+                    if (idStr.StartsWith("maay://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var tail = idStr.Substring("maay://".Length);
+                        if (long.TryParse(tail, out var parsed))
+                        {
+                            idNum = parsed; idStr = null; // 优先数字
+                        }
+                    }
+                }
+            }
+
+            if (!hasId)
+            {
+                ToastHelper.Warn("未找到作业 id（神秘代码）");
+                return;
+            }
+
+            var payload = new JsonObject
+            {
+                ["rating"] = "Like"
+            };
+            if (idStr != null) payload["id"] = idStr;
+            else payload["id"] = idNum;
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            var ok = await PostJsonWithFallbackAsync(http, "/api/copilot/rating", payload.ToJsonString());
+            if (ok)
+            {
+                ToastHelper.Success("已点赞，感谢反馈！");
+            }
+            else
+            {
+                ToastHelper.Warn("点赞失败，请稍后重试");
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Warning(ex);
+            ToastHelper.Error("点赞失败");
         }
     }
 
@@ -1285,4 +1399,3 @@ public sealed class CopilotFileItem
         return $"{v:F1} {units[i]}";
     }
 }
-
