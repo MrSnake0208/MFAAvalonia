@@ -327,6 +327,15 @@
                                     ToolTip.Tip="点赞">
                                     <TextBlock Text="👍"/>
                                 </Button>
+                                <Button
+                                    Classes="Basic Round"
+                                    Command="{Binding OpenJobPageCommand}"
+                                    IsEnabled="{Binding HasSelection}"
+                                    Margin="3,0,3,0"
+                                    Padding="0"
+                                    ToolTip.Tip="打开作业页">
+                                    <TextBlock Text="🔗"/>
+                                </Button>
                             </StackPanel>
                         </Grid>
                     </suki:GroupBox.Header>

@@ -18,6 +18,7 @@ using MaaFramework.Binding;
 using Avalonia;
 using Avalonia.Threading;
 using Avalonia.Controls.ApplicationLifetimes;
+using System.Diagnostics;
 
 namespace MFAAvalonia.ViewModels.Pages;
 
@@ -144,6 +145,26 @@ public partial class CopilotViewModel : ObservableObject
         }
         if (lastError != null) throw lastError;
         return false;
+    }
+
+    // 选择可用的主/备域名，用于构造跳转链接（轻量探测）
+    private static async Task<string> PickAvailableBaseAsync()
+    {
+        // 尝试快速探测主域是否可用，超时后回退到备域
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+            using var resp = await http.GetAsync(SharePrimaryBase);
+            if (resp.IsSuccessStatusCode)
+            {
+                return SharePrimaryBase;
+            }
+        }
+        catch
+        {
+            // ignore and fallback
+        }
+        return ShareBackupBase;
     }
 
     #region 右侧列（连接与日志）- 与 TaskQueue 右栏对齐
@@ -537,6 +558,92 @@ public partial class CopilotViewModel : ObservableObject
         {
             LoggerHelper.Warning(ex);
             ToastHelper.Error("点赞失败");
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenJobPageAsync()
+    {
+        try
+        {
+            if (SelectedFile == null)
+            {
+                ToastHelper.Warn("请选择要跳转的作业");
+                return;
+            }
+
+            // 从缓存 JSON 读取 id（神秘代码）
+            JsonNode? root = null;
+            try
+            {
+                var text = await File.ReadAllTextAsync(SelectedFile.FullPath, Encoding.UTF8);
+                root = JsonNode.Parse(text);
+            }
+            catch
+            {
+                ToastHelper.Error("读取作业文件失败");
+                return;
+            }
+
+            if (root is not JsonObject obj)
+            {
+                ToastHelper.Error("作业文件格式不正确");
+                return;
+            }
+
+            // 兼容数字或字符串 id
+            bool hasId = false;
+            long idNum = 0;
+            string? idStr = null;
+            if (obj["id"] is JsonValue idVal)
+            {
+                if (idVal.TryGetValue<long>(out var asLong))
+                {
+                    hasId = true; idNum = asLong; idStr = null;
+                }
+                else if (idVal.TryGetValue<string>(out var asStr) && !string.IsNullOrWhiteSpace(asStr))
+                {
+                    hasId = true; idStr = asStr.Trim();
+                    if (idStr.StartsWith("maay://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var tail = idStr.Substring("maay://".Length);
+                        if (long.TryParse(tail, out var parsed))
+                        {
+                            idNum = parsed; idStr = null;
+                        }
+                    }
+                }
+            }
+
+            if (!hasId)
+            {
+                ToastHelper.Warn("未找到作业 id（神秘代码）");
+                return;
+            }
+
+            var op = idStr ?? idNum.ToString();
+            var baseUrl = await PickAvailableBaseAsync();
+            var url = $"{baseUrl}/?op={Uri.EscapeDataString(op)}";
+
+            try
+            {
+                // 调用系统默认浏览器打开
+                var psi = new ProcessStartInfo(url)
+                {
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.Error(ex);
+                ToastHelper.Error("无法打开浏览器");
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Warning(ex);
+            ToastHelper.Error("跳转失败");
         }
     }
 
