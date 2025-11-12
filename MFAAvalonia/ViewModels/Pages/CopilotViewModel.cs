@@ -18,12 +18,16 @@ using MaaFramework.Binding;
 using Avalonia;
 using Avalonia.Threading;
 using Avalonia.Controls.ApplicationLifetimes;
+using System.Diagnostics;
 
 namespace MFAAvalonia.ViewModels.Pages;
 
 public partial class CopilotViewModel : ObservableObject
 {
     private const string DefaultCopilotTaskName = "✨ 自动抄作业V3";
+    // 主备域：当主域不可用时自动回退到备域
+    private static readonly string SharePrimaryBase = "https://share.maayuan.top";
+    private static readonly string ShareBackupBase = "https://share-backend.maayuan.fun:16666";
 
     private static string ResourceRoot => MaaProcessor.Resource; // 资源根目录（与 base/pipeline 同级）
     private static string ResourceBase => MaaProcessor.ResourceBase; // 简中基准资源，用于缓存与默认路径
@@ -72,9 +76,13 @@ public partial class CopilotViewModel : ObservableObject
     [ObservableProperty]
     private string _activeJob = string.Empty;
 
+    [ObservableProperty]
+    private bool _canLike;
+
     partial void OnSelectedFileChanged(CopilotFileItem? value)
     {
         HasSelection = value != null;
+        try { UpdateCanLikeFromSelection(); } catch { /* ignore */ }
     }
 
     partial void OnSelectedNodeChanged(CopilotTreeItem? value)
@@ -87,6 +95,81 @@ public partial class CopilotViewModel : ObservableObject
         EnsureDirs();
         _ = RefreshAsync();
         _ = UpdateActiveJobFromDiskAsync();
+        try { UpdateCanLikeFromSelection(); } catch { /* ignore */ }
+    }
+    // 统一的主备域回退请求封装：按序尝试主域与备域，仅两者均失败时抛出异常
+    private static async Task<string> GetStringWithFallbackAsync(HttpClient http, string relativePath)
+    {
+        // 确保相对路径以 '/'
+        var path = relativePath.StartsWith('/') ? relativePath : "/" + relativePath;
+        var urls = new[] { $"{SharePrimaryBase}{path}", $"{ShareBackupBase}{path}" };
+        Exception? lastError = null;
+        foreach (var url in urls)
+        {
+            try
+            {
+                using var resp = await http.GetAsync(url);
+                if (resp.IsSuccessStatusCode)
+                {
+                    return await resp.Content.ReadAsStringAsync();
+                }
+                lastError = new HttpRequestException($"Request failed with status {(int)resp.StatusCode} {resp.StatusCode} for {url}");
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                // 尝试下一个域名
+            }
+        }
+        throw lastError ?? new Exception("Unknown error on fallback requests");
+    }
+
+    // 统一的主备域回退 POST：按序尝试主域与备域，任一成功（2xx）即返回
+    private static async Task<bool> PostJsonWithFallbackAsync(HttpClient http, string relativePath, string json)
+    {
+        var path = relativePath.StartsWith('/') ? relativePath : "/" + relativePath;
+        var urls = new[] { $"{SharePrimaryBase}{path}", $"{ShareBackupBase}{path}" };
+        Exception? lastError = null;
+        foreach (var url in urls)
+        {
+            try
+            {
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                using var resp = await http.PostAsync(url, content);
+                if (resp.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+                lastError = new HttpRequestException($"Request failed with status {(int)resp.StatusCode} {resp.StatusCode} for {url}");
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                // 尝试下一个域名
+            }
+        }
+        if (lastError != null) throw lastError;
+        return false;
+    }
+
+    // 选择可用的主/备域名，用于构造跳转链接（轻量探测）
+    private static async Task<string> PickAvailableBaseAsync()
+    {
+        // 尝试快速探测主域是否可用，超时后回退到备域
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+            using var resp = await http.GetAsync(SharePrimaryBase);
+            if (resp.IsSuccessStatusCode)
+            {
+                return SharePrimaryBase;
+            }
+        }
+        catch
+        {
+            // ignore and fallback
+        }
+        return ShareBackupBase;
     }
 
     #region 右侧列（连接与日志）- 与 TaskQueue 右栏对齐
@@ -397,6 +480,234 @@ public partial class CopilotViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private async Task LikeAsync()
+    {
+        try
+        {
+            if (SelectedFile == null)
+            {
+                ToastHelper.Warn("请选择要点赞的作业");
+                return;
+            }
+
+            // 从缓存 JSON 读取 id（神秘代码）
+            JsonNode? root = null;
+            try
+            {
+                var text = await File.ReadAllTextAsync(SelectedFile.FullPath, Encoding.UTF8);
+                root = JsonNode.Parse(text);
+            }
+            catch
+            {
+                ToastHelper.Error("读取作业文件失败");
+                return;
+            }
+
+            if (root is not JsonObject obj)
+            {
+                ToastHelper.Error("作业文件格式不正确");
+                return;
+            }
+
+            // 兼容数字或字符串 id
+            bool hasId = false;
+            long idNum = 0;
+            string? idStr = null;
+            if (obj["id"] is JsonValue idVal)
+            {
+                if (idVal.TryGetValue<long>(out var asLong))
+                {
+                    hasId = true; idNum = asLong; idStr = null;
+                }
+                else if (idVal.TryGetValue<string>(out var asStr) && !string.IsNullOrWhiteSpace(asStr))
+                {
+                    hasId = true; idStr = asStr.Trim();
+                    // 若是 maay:// 前缀，尽量提取数字部分
+                    if (idStr.StartsWith("maay://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var tail = idStr.Substring("maay://".Length);
+                        if (long.TryParse(tail, out var parsed))
+                        {
+                            idNum = parsed; idStr = null; // 优先数字
+                        }
+                    }
+                }
+            }
+
+            if (!hasId)
+            {
+                ToastHelper.Warn("未找到作业 id（神秘代码）");
+                return;
+            }
+
+            var payload = new JsonObject
+            {
+                ["rating"] = "Like"
+            };
+            if (idStr != null) payload["id"] = idStr;
+            else payload["id"] = idNum;
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            var ok = await PostJsonWithFallbackAsync(http, "/api/copilot/rating", payload.ToJsonString());
+            if (ok)
+            {
+                ToastHelper.Success("已点赞，感谢反馈！");
+                // 点赞成功后，写入本地历史并禁用按钮
+                string? key = idStr ?? idNum.ToString();
+                try { LikeHistoryHelper.MarkLiked(key); } catch { /* ignore */ }
+                CanLike = false;
+            }
+            else
+            {
+                ToastHelper.Warn("点赞失败，请稍后重试");
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Warning(ex);
+            ToastHelper.Error("点赞失败");
+        }
+    }
+
+    private void UpdateCanLikeFromSelection()
+    {
+        if (SelectedFile == null)
+        {
+            CanLike = false;
+            return;
+        }
+
+        try
+        {
+            // 读取所选作业的 id，决定是否允许点赞
+            var text = File.ReadAllText(SelectedFile.FullPath, Encoding.UTF8);
+            var root = JsonNode.Parse(text) as JsonObject;
+            if (root == null)
+            {
+                CanLike = HasSelection; // 无法解析则默认允许
+                return;
+            }
+
+            long idNum = 0;
+            string? idStr = null;
+            if (root["id"] is JsonValue idVal)
+            {
+                if (idVal.TryGetValue<long>(out var asLong))
+                {
+                    idNum = asLong; idStr = null;
+                }
+                else if (idVal.TryGetValue<string>(out var asStr) && !string.IsNullOrWhiteSpace(asStr))
+                {
+                    idStr = asStr.Trim();
+                    if (idStr.StartsWith("maay://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var tail = idStr.Substring("maay://".Length);
+                        if (long.TryParse(tail, out var parsed))
+                        {
+                            idNum = parsed; idStr = null;
+                        }
+                    }
+                }
+            }
+
+            string key = idStr ?? idNum.ToString();
+            var liked = LikeHistoryHelper.HasLiked(key);
+            CanLike = HasSelection && !liked;
+        }
+        catch
+        {
+            // 任何异常下不阻塞交互：保持默认允许点赞
+            CanLike = HasSelection;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenJobPageAsync()
+    {
+        try
+        {
+            if (SelectedFile == null)
+            {
+                ToastHelper.Warn("请选择要跳转的作业");
+                return;
+            }
+
+            // 从缓存 JSON 读取 id（神秘代码）
+            JsonNode? root = null;
+            try
+            {
+                var text = await File.ReadAllTextAsync(SelectedFile.FullPath, Encoding.UTF8);
+                root = JsonNode.Parse(text);
+            }
+            catch
+            {
+                ToastHelper.Error("读取作业文件失败");
+                return;
+            }
+
+            if (root is not JsonObject obj)
+            {
+                ToastHelper.Error("作业文件格式不正确");
+                return;
+            }
+
+            // 兼容数字或字符串 id
+            bool hasId = false;
+            long idNum = 0;
+            string? idStr = null;
+            if (obj["id"] is JsonValue idVal)
+            {
+                if (idVal.TryGetValue<long>(out var asLong))
+                {
+                    hasId = true; idNum = asLong; idStr = null;
+                }
+                else if (idVal.TryGetValue<string>(out var asStr) && !string.IsNullOrWhiteSpace(asStr))
+                {
+                    hasId = true; idStr = asStr.Trim();
+                    if (idStr.StartsWith("maay://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var tail = idStr.Substring("maay://".Length);
+                        if (long.TryParse(tail, out var parsed))
+                        {
+                            idNum = parsed; idStr = null;
+                        }
+                    }
+                }
+            }
+
+            if (!hasId)
+            {
+                ToastHelper.Warn("未找到作业 id（神秘代码）");
+                return;
+            }
+
+            var op = idStr ?? idNum.ToString();
+            var baseUrl = await PickAvailableBaseAsync();
+            var url = $"{baseUrl}/?op={Uri.EscapeDataString(op)}";
+
+            try
+            {
+                // 调用系统默认浏览器打开
+                var psi = new ProcessStartInfo(url)
+                {
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.Error(ex);
+                ToastHelper.Error("无法打开浏览器");
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Warning(ex);
+            ToastHelper.Error("跳转失败");
+        }
+    }
+
             public async Task ImportMysteryCodeAsync(string code, bool skipClipboard = false, string? targetDirectory = null)
     {
         if (!skipClipboard)
@@ -437,9 +748,11 @@ public partial class CopilotViewModel : ObservableObject
         Directory.CreateDirectory(destinationDir);
         try
         {
-            var url = $"https://share.maayuan.top/api/copilot/get/{id}";
-            using var http = new HttpClient();
-            var json = await http.GetStringAsync(url);
+            using var http = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(10)
+            };
+            var json = await GetStringWithFallbackAsync(http, $"/api/copilot/get/{id}");
 
             JsonNode? root;
             try { root = JsonNode.Parse(json); }
@@ -512,6 +825,36 @@ public partial class CopilotViewModel : ObservableObject
             }
             levelMeta = contentObj["level_meta"] ?? contentObj["levelMeta"];
 
+            // 附加需求：在导入的 JSON 中增加 id（去除 maay:// 的纯数字）与 tags（来自响应的 data.tags）
+            try
+            {
+                // 写入 id：优先以数字写入，失败则写入字符串
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    if (long.TryParse(id, out var idNum))
+                        contentObj["id"] = idNum;
+                    else
+                        contentObj["id"] = id;
+                }
+
+                // 写入 tags：从 data 节点提取（兼容大小写与数组/对象情况）
+                JsonNode? tagsNode = null;
+                if (data != null)
+                {
+                    if (data is JsonObject dObj)
+                        tagsNode = dObj["tags"] ?? dObj["Tags"];
+                    else if (data is JsonArray dArr && dArr.Count > 0 && dArr[0] is JsonObject dObj0)
+                        tagsNode = dObj0["tags"] ?? dObj0["Tags"];
+                }
+
+                if (tagsNode != null)
+                {
+                    // 直接挂载即可；如为数组则保持原样
+                    contentObj["tags"] = tagsNode;
+                }
+            }
+            catch { /* 忽略增强字段写入失败，保持导入主流程 */ }
+
             string fileName = string.IsNullOrWhiteSpace(title) ? $"{id}-{DateTime.Now:yyyyMMddHHmmss}.json" : title;
             fileName = SanitizeFileName(fileName);
             if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) fileName += ".json";
@@ -565,9 +908,11 @@ public partial class CopilotViewModel : ObservableObject
 
         try
         {
-            var url = $"https://share.maayuan.top/api/set/get?id={id}";
-            using var http = new HttpClient();
-            var json = await http.GetStringAsync(url);
+            using var http = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(10)
+            };
+            var json = await GetStringWithFallbackAsync(http, $"/api/set/get?id={id}");
 
             JsonNode? root;
             try { root = JsonNode.Parse(json); }
@@ -957,115 +1302,100 @@ public partial class CopilotViewModel : ObservableObject
         return true;
     }
     public async Task DeleteSelectedAsync()
-
     {
-
         var node = SelectedNode;
-
         if (node == null)
-
         {
-
             ToastHelper.Warn("请选择要删除的作业");
-
             return;
-
         }
-
-
 
         try
-
         {
+            // 若将要删除的目标包含当前激活作业，则先卸载
+            try
+            {
+                string? activePath = null;
+                if (Directory.Exists(CopilotActiveDir))
+                {
+                    activePath = Directory.EnumerateFiles(CopilotActiveDir, "*.json", SearchOption.TopDirectoryOnly)
+                        .Select(p => new FileInfo(p))
+                        .Where(f => !string.Equals(f.Name, "copilot_config.json", StringComparison.OrdinalIgnoreCase))
+                        .OrderByDescending(f => f.LastWriteTimeUtc)
+                        .FirstOrDefault()?.FullName;
+                }
+
+                if (!string.IsNullOrWhiteSpace(activePath))
+                {
+                    var activeBase = Path.GetFileNameWithoutExtension(activePath);
+                    bool targetIncludesActive = false;
+
+                    if (node.IsFile && node.File != null)
+                    {
+                        var baseName = Path.GetFileNameWithoutExtension(node.File.Name);
+                        targetIncludesActive = string.Equals(baseName, activeBase, StringComparison.OrdinalIgnoreCase);
+                    }
+                    else if (Directory.Exists(node.FullPath))
+                    {
+                        targetIncludesActive = Directory.EnumerateFiles(node.FullPath, "*.json", SearchOption.AllDirectories)
+                            .Any(f => string.Equals(Path.GetFileNameWithoutExtension(f), activeBase, StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    if (targetIncludesActive)
+                    {
+                        await UnloadActiveJobAsync();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                // 卸载判定失败不应阻断删除流程，仅记录告警
+                LoggerHelper.Warning($"删除前卸载判定失败: {e.Message}");
+            }
 
             string successMessage;
-
             if (node.IsFile && node.File != null)
-
             {
-
                 var path = node.File.FullPath;
-
                 await Task.Run(() =>
-
                 {
-
                     try
-
                     {
-
                         if (File.Exists(path)) File.Delete(path);
-
                     }
-
                     catch (Exception e)
-
                     {
-
                         throw new IOException($"删除失败: {path}", e);
-
                     }
-
                 });
-
                 successMessage = "删除成功";
-
             }
-
             else
-
             {
-
                 var path = node.FullPath;
-
                 await Task.Run(() =>
-
                 {
-
                     try
-
                     {
-
                         if (Directory.Exists(path)) Directory.Delete(path, true);
-
                     }
-
                     catch (Exception e)
-
                     {
-
                         throw new IOException($"删除失败: {path}", e);
-
                     }
-
                 });
-
                 successMessage = "删除成功";
-
             }
-
-
 
             SelectedNode = null;
-
-
-
             await RefreshAsync();
-
             ToastHelper.Success(successMessage);
-
         }
-
         catch (Exception ex)
-
         {
-
             LoggerHelper.Error(ex);
-
             ToastHelper.Error("删除失败");
-
         }
-
     }
 
 
@@ -1180,6 +1510,42 @@ public sealed class CopilotFileItem
             {
                 display = $"{game}-{baseName}";
             }
+
+            // Prefix display name by tags rules:
+            // - If tags contain "如鸢" and NOT contain "代号鸢" → add 【如鸢】
+            // - Else if NOT contain "如鸢" but contain "代号鸢" → add 【代号鸢】
+            // - Otherwise no prefix
+            if (node != null && node["tags"] is JsonArray tagsArr)
+            {
+                bool hasRuYuan = tagsArr.Any(it =>
+                {
+                    if (it is JsonValue v && v.TryGetValue<string>(out var s))
+                    {
+                        s = s?.Trim();
+                        return !string.IsNullOrEmpty(s) && s.Contains("如鸢", StringComparison.Ordinal);
+                    }
+                    return false;
+                });
+
+                bool hasDaiHaoYuan = tagsArr.Any(it =>
+                {
+                    if (it is JsonValue v && v.TryGetValue<string>(out var s))
+                    {
+                        s = s?.Trim();
+                        return !string.IsNullOrEmpty(s) && s.Contains("代号鸢", StringComparison.Ordinal);
+                    }
+                    return false;
+                });
+
+                if (hasRuYuan && !hasDaiHaoYuan)
+                {
+                    display = $"【如鸢】{display}";
+                }
+                else if (!hasRuYuan && hasDaiHaoYuan)
+                {
+                    display = $"【代号鸢】{display}";
+                }
+            }
         }
         catch { /* ignore parse errors */ }
 
@@ -1201,5 +1567,3 @@ public sealed class CopilotFileItem
         return $"{v:F1} {units[i]}";
     }
 }
-
-

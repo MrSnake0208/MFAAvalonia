@@ -47,7 +47,9 @@ public partial class CopilotView : UserControl
     private bool _mysteryImportInProgress;
     private DateTime _lastMysteryImportUtc = DateTime.MinValue;
     private static readonly TimeSpan MysteryImportCooldown = TimeSpan.FromMilliseconds(500);
-
+    // 用于区分最近一次指针按下是否为右键，用来抑制右键导致的 SelectionChanged 触发加载
+    private bool _lastPointerWasRightClick;
+    private DateTime _lastPointerEventTimeUtc = DateTime.MinValue;
     public CopilotView()
     {
         // 兜底：在编译的 XAML 未刷新时（--no-build），仍确保 DataContext 正确
@@ -61,6 +63,7 @@ public partial class CopilotView : UserControl
             Dispatcher.UIThread.Post(async () => await RenderDefaultTaskSettingsAsync(), DispatcherPriority.Background);
             // 选中即预览并重载
             TryHookSelectionChanged();
+            TryHookPointerPressedForTree();
         };
     }
 
@@ -198,10 +201,33 @@ public partial class CopilotView : UserControl
     {
         try
         {
-            var url = "https://share.maayuan.top/";
+            // 主域与备用域
+            var primary = "https://share.maayuan.top/";
+            var backup = "https://share.maayuan.fun:16666/";
+            // 快速探测主域可用性（短超时，避免阻塞）
+            var openUrl = primary;
+            try
+            {
+                using var http = new System.Net.Http.HttpClient
+                {
+                    Timeout = TimeSpan.FromSeconds(2)
+                };
+                using var req = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, primary);
+                using var resp = await http.SendAsync(req, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    openUrl = backup;
+                }
+            }
+            catch
+            {
+                // 网络异常/超时：切换备用域
+                openUrl = backup;
+            }
+
             var psi = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = url,
+                FileName = openUrl,
                 UseShellExecute = true
             };
             System.Diagnostics.Process.Start(psi);
@@ -225,10 +251,41 @@ public partial class CopilotView : UserControl
         }
         catch { /* ignore */ }
     }
+    private void TryHookPointerPressedForTree()
+    {
+        try
+        {
+            var tree = this.FindControl<TreeView>("CopilotTree");
+            if (tree == null) return;
+            // 捕获指针按下以判断是否为右键，从而在 SelectionChanged 中抑制自动加载
+            tree.AddHandler(InputElement.PointerPressedEvent, OnTreePointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
+        }
+        catch { /* ignore */ }
+    }
+    private void OnTreePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        try
+        {
+            var visual = sender as Visual ?? this;
+            var point = e.GetCurrentPoint(visual);
+            _lastPointerWasRightClick = point.Properties.IsRightButtonPressed;
+            _lastPointerEventTimeUtc = DateTime.UtcNow;
+            // 不要设置 e.Handled，保持 ContextMenu 正常弹出
+        }
+        catch { /* ignore */ }
+    }
 
     private async void OnListSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_isSelectionRefreshBusy) return;
+                // 如果最近一次指针事件为右键（常见于右键打开上下文菜单时改变选中项），则不触发自动加载
+        // 允许一个很短的时间窗口来判断该次 SelectionChanged 是否由右键导致
+        if (_lastPointerWasRightClick && (DateTime.UtcNow - _lastPointerEventTimeUtc) < TimeSpan.FromSeconds(1))
+        {
+            // 重置标记，避免影响后续左键行为
+            _lastPointerWasRightClick = false;
+            return;
+        }
         var tree = sender as TreeView ?? this.FindControl<TreeView>("CopilotTree");
         var vm = DataContext as CopilotViewModel;
         var node = e.AddedItems?.OfType<CopilotTreeItem>().FirstOrDefault() ?? tree?.SelectedItem as CopilotTreeItem;

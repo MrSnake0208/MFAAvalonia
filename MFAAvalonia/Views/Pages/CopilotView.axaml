@@ -306,8 +306,38 @@
             <suki:GlassCard Grid.Row="2" Margin="0,8,15,25">
                 <suki:GroupBox>
                     <suki:GroupBox.Header>
-                        <TextBlock FontSize="11" FontWeight="Bold" Foreground="{DynamicResource SukiLowText}"
-                                   Margin="2,0,0,0" Text="{markup:I18n {x:Static helper:LangKeys.TaskDescription}}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource SukiLowText}"
+                                       Margin="2,0,0,0"
+                                       Text="{markup:I18n {x:Static helper:LangKeys.TaskDescription}}" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button
+                                    Classes="Basic Round"
+                                    Command="{Binding LikeCommand}"
+                                    IsEnabled="{Binding CanLike}"
+                                    Margin="3,0,3,0"
+                                    Padding="0"
+                                    ToolTip.Tip="点赞">
+                                    <TextBlock Text="👍"/>
+                                </Button>
+                                <Button
+                                    Classes="Basic Round"
+                                    Command="{Binding OpenJobPageCommand}"
+                                    IsEnabled="{Binding HasSelection}"
+                                    Margin="3,0,3,0"
+                                    Padding="0"
+                                    ToolTip.Tip="打开作业页">
+                                    <TextBlock Text="🔗"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
                     </suki:GroupBox.Header>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,2,8,2">
                         <mdxaml:MarkdownScrollViewer Margin="10,0,10,0" x:Name="CopilotIntroduction">
