@@ -24,9 +24,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Management;
-using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -54,14 +51,14 @@ public partial class RootView : SukiWindow
                         // 直接设置窗口初始大小
                         Width = width;
                         Height = height;
-                        LoggerHelper.Info($"窗口初始大小设置为: 宽度={width}, 高度={height}");
+                        LoggerHelper.Info($"Initial window size set to: width={width}, height={height}");
                     }
                 }
             }
         }
         catch (Exception ex)
         {
-            LoggerHelper.Error($"加载初始窗口大小失败: {ex.Message}");
+            LoggerHelper.Error($"Failed to load initial window size: {ex.Message}");
         }
 
         // 初始化组件
@@ -82,7 +79,7 @@ public partial class RootView : SukiWindow
         // 修改Loaded事件处理
         Loaded += (_, _) =>
         {
-            LoggerHelper.Info("窗口Loaded事件触发");
+            LoggerHelper.Info("UI initialization started");
 
             // 确保在UI线程上执行
             Dispatcher.UIThread.Post(() =>
@@ -161,12 +158,12 @@ public partial class RootView : SukiWindow
 
         var result = await SukiMessageBox.ShowDialog(new SukiMessageBoxHost
         {
-            Content = "ConfirmExitText".ToLocalization(),
+            Content = LangKeys.ConfirmExitText.ToLocalization(),
             ActionButtonsPreset = SukiMessageBoxButtons.YesNo,
             IconPreset = SukiMessageBoxIcons.Warning,
         }, new SukiMessageBoxOptions()
         {
-            Title = "ConfirmExitTitle".ToLocalization(),
+            Title = LangKeys.ConfirmExitTitle.ToLocalization(),
         });
 
         if (result is SukiMessageBoxResult.Yes)
@@ -217,6 +214,7 @@ public partial class RootView : SukiWindow
                     (Action)(async () =>
                     {
                         await Task.Delay(300);
+
                        if (!ConfigurationManager.Current.ContainsKey(ConfigurationKeys.CurrentController))
                            Instances.TaskQueueViewModel.CurrentController = (MaaProcessor.Interface?.Controller?.FirstOrDefault()?.Type).ToMaaControllerTypes(Instances.TaskQueueViewModel.CurrentController);
                         if (!Convert.ToBoolean(GlobalConfiguration.GetValue(ConfigurationKeys.NoAutoStart, bool.FalseString))
@@ -248,7 +246,7 @@ public partial class RootView : SukiWindow
 
                         GlobalConfiguration.SetValue(ConfigurationKeys.NoAutoStart, bool.FalseString);
 
-                        Instances.RootViewModel.LockController = (MaaProcessor.Interface?.Controller?.Count ?? 0) < 2;
+                        Instances.RootViewModel.LockController = (MaaProcessor.Interface?.Controller?.Count ?? 0) == 1;
 
                         ConfigurationManager.Current.SetValue(ConfigurationKeys.EnableEdit, ConfigurationManager.Current.GetValue(ConfigurationKeys.EnableEdit, false));
                         DragItemViewModel tempTask = null;
@@ -288,6 +286,7 @@ public partial class RootView : SukiWindow
                             Hide();
                         }
                     });
+   
                 }, name: "公告和最新版本检测");
             }
             else
@@ -295,8 +294,8 @@ public partial class RootView : SukiWindow
                 DispatcherHelper.RunOnMainThread(async () =>
                 {
                     await Task.Delay(1000);
-                    Instances.DialogManager.CreateDialog().OfType(NotificationType.Error).WithContent("UiDoesNotSupportCurrentResource".ToLocalization())
-                        .WithActionButton("Ok".ToLocalization(), _ => { Instances.ShutdownApplication(); }, true).TryShow();
+                    Instances.DialogManager.CreateDialog().OfType(NotificationType.Error).WithContent(LangKeys.UiDoesNotSupportCurrentResource.ToLocalization())
+                        .WithActionButton(LangKeys.Ok.ToLocalization(), _ => { Instances.ShutdownApplication(); }, true).TryShow();
                 });
             }
         }
@@ -305,8 +304,8 @@ public partial class RootView : SukiWindow
             DispatcherHelper.RunOnMainThread(async () =>
             {
                 await Task.Delay(1000);
-                Instances.DialogManager.CreateDialog().OfType(NotificationType.Warning).WithContent("MultiInstanceUnderSamePath".ToLocalization())
-                    .WithActionButton("Ok".ToLocalization(), dialog => { Instances.ShutdownApplication(); }, true).TryShow();
+                Instances.DialogManager.CreateDialog().OfType(NotificationType.Warning).WithContent(LangKeys.MultiInstanceUnderSamePath.ToLocalization())
+                    .WithActionButton(LangKeys.Ok.ToLocalization(), dialog => { Instances.ShutdownApplication(); }, true).TryShow();
             });
         }
     }

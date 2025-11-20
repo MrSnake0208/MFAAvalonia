@@ -15,6 +15,7 @@
     xmlns:converters="clr-namespace:MFAAvalonia.Helper.Converters"
     xmlns:type="clr-namespace:MFAAvalonia.Helper.ValueType"
     xmlns:calcBinding="clr-namespace:CalcBinding;assembly=CalcBindingAva"
+    xmlns:extensions="clr-namespace:MFAAvalonia.Extensions"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="MFAAvalonia.Views.Windows.ChangelogView">

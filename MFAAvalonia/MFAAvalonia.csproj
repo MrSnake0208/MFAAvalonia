@@ -1,19 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-		<TargetFramework>net8.0</TargetFramework>
-		<TargetFramework Condition="'$(OS)' == 'Windows_NT'">net8.0-windows10.0.17763.0</TargetFramework>
         <Nullable>annotations</Nullable>
-		<BuiltInComInteropSupport Condition="'$(OS)' == 'Windows_NT'">true</BuiltInComInteropSupport>
 		<PublishSingleFile>true</PublishSingleFile>
 		<Platforms>x64</Platforms>
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
         <LangVersion>default</LangVersion>
+        <TargetFramework>net10.0</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>
+        <Folder Include="Assets\Sound\" />
         <Folder Include="Img\" />
         <Folder Include="Models\" />
         <AvaloniaResource Include="Assets\**" />
@@ -21,7 +20,6 @@
 
 
 	<ItemGroup Condition="'$(OS)' == 'Windows_NT'">
-		<PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
 		<PackageReference Update="Packaging.Targets">
 		  <Version>0.1.232</Version>
 		</PackageReference>
@@ -38,8 +36,8 @@
         <ApplicationRevision>0</ApplicationRevision>
         <ApplicationVersion>1.1.0</ApplicationVersion>
         <Version>1.1</Version>
-        <FileVersion>1.7.1</FileVersion>
-        <AssemblyVersion>1.7.1</AssemblyVersion>
+        <FileVersion>1.8.2</FileVersion>
+        <AssemblyVersion>1.8.2</AssemblyVersion>
         <InformationalVersion>0.0.1</InformationalVersion>
     </PropertyGroup>
 
@@ -62,28 +60,29 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="11.3.8" />
-        <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.8" />
-        <PackageReference Include="Avalonia.Desktop" Version="11.3.8" />
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.8" />
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.8" />
-        <PackageReference Include="Avalonia.Themes.Simple" Version="11.3.8" />
+        <PackageReference Include="Avalonia" Version="11.3.9" />
+        <PackageReference Include="Avalonia.Controls.ColorPicker" Version="11.3.9" />
+        <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.9" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.9" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.9" />
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.9" />
+        <PackageReference Include="Avalonia.Themes.Simple" Version="11.3.9" />
         <PackageReference Include="AvaloniaEdit.TextMate" Version="11.3.0" />
-        <PackageReference Include="AvaloniaExtensions.Axaml" Version="1.0.4.1" />
+        <PackageReference Include="AvaloniaExtensions.Axaml" Version="1.0.4.2" />
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="Avalonia.Xaml.Interactions" Version="11.3.0.6" />
 		<PackageReference Include="Avalonia.Xaml.Interactivity" Version="11.3.0.6" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-		<PackageReference Include="DesktopNotifications.Windows" Version="1.3.1" />
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.3.8" />
+        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.3.9" />
         <PackageReference Include="CalcBindingAva" Version="2.5.3" />
-		<PackageReference Include="DesktopNotifications.Apple" Version="1.3.1" />
-        <PackageReference Include="DesktopNotifications.Avalonia" Version="1.3.1" />
-        <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="1.2.313" />
-        <PackageReference Include="Maa.AgentBinary" Version="1.1.0" />
-        <PackageReference Include="Maa.Framework.Binding.Extensions" Version="5.0.0-preview.2" />
-        <PackageReference Include="Maa.Framework.Binding.Native" Version="5.0.0-preview.2" />
-        <PackageReference Include="Maa.Framework.Runtimes" Version="5.0.1" />
+        <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="1.2.315" />
+        <PackageReference Include="Lang.Avalonia" Version="1.0.0.3" />
+        <PackageReference Include="Maa.AgentBinary" Version="1.2.0" />
+        <PackageReference Include="Maa.Framework" Version="5.0.0-preview.3" />
+        <PackageReference Include="Maa.Framework.Binding.Extensions" Version="5.0.0-preview.3" />
+        <PackageReference Include="Maa.Framework.Binding.Native" Version="5.0.0-preview.3" />
+        <PackageReference Include="Maa.Framework.Native" Version="5.0.0-preview.3" />
+        <PackageReference Include="Maa.Framework.Runtimes" Version="5.0.5" />
         <PackageReference Include="MailKit" Version="4.14.1" />
         <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.13.0" />
@@ -95,6 +94,7 @@
 		<PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="10.0.0-preview.2.25163.2" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0-preview.2.25163.2" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0-preview.2.25163.2" />
+        <PackageReference Include="NAudio" Version="2.2.1" />
         <PackageReference Include="NETCore.Encrypt" Version="2.1.1" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="Semver" Version="3.0.0" />
@@ -102,11 +102,10 @@
         <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
         <PackageReference Include="SharpCompress" Version="0.41.0" />
-        <PackageReference Include="SharpHook" Version="7.0.3" />
-		<PackageReference Include="SkiaSharp" Version="3.119.1" />
-		<PackageReference Include="System.Drawing.Common" Version="9.0.7" />
-        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.10" />
-        <PackageReference Include="System.Management" Version="10.0.0-preview.2.25163.2" />
+        <PackageReference Include="SharpHook" Version="7.1.0" />
+        <PackageReference Include="System.Drawing.Common" Version="9.0.7" />
+        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.0" />
+        <PackageReference Include="System.Management" Version="10.0.0" />
 
 		<ProjectReference Include="../LazyStaticGenerator/LazyStaticGenerator.csproj" OutputItemType="Analyzer" ExcludeAssets="runtime;build;native;contentfiles" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\MFAUpdater\MFAUpdater.csproj" />
@@ -186,6 +185,40 @@
         <LastGenOutput>Strings.Designer.cs</LastGenOutput>
       </EmbeddedResource>
     </ItemGroup>
+    <!-- 根据发布的目标系统，仅复制对应脚本到publish目录 -->
+    <ItemGroup>
+        <!-- Windows 脚本：匹配 win-x64 或 win-arm64 -->
+        <Content Include="DependencySetup_依赖库安装_win.bat"
+                 Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))"
+                 CopyToPublishDirectory="PreserveNewest">
+            <Link>DependencySetup_依赖库安装_win.bat</Link>
+        </Content>
+
+        <!-- Linux 脚本：匹配 linux-x64 或 linux-arm64 -->
+        <Content Include="DependencySetup_依赖库安装_linux.sh"
+                 Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux'))"
+                 CopyToPublishDirectory="PreserveNewest">
+            <Link>DependencySetup_依赖库安装_linux.sh</Link>
+        </Content>
+
+        <!-- macOS 脚本：匹配 osx-x64 或 osx-arm64 -->
+        <Content Include="DependencySetup_依赖库安装_mac.sh"
+                 Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('osx'))"
+                 CopyToPublishDirectory="PreserveNewest">
+            <Link>DependencySetup_依赖库安装_mac.sh</Link>
+        </Content>
+    </ItemGroup>
+
+    <!-- 为Linux/macOS脚本添加可执行权限（仅对应系统发布时生效） -->
+<!--    <Target Name="SetScriptExecutionPermission" AfterTargets="Publish">-->
+<!--        &lt;!&ndash; Linux 脚本授权 &ndash;&gt;-->
+<!--        <Exec Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux'))"-->
+<!--              Command="chmod +x '$(MainPublishDir)/DependencySetup_依赖库安装_linux.sh'" />-->
+
+<!--        &lt;!&ndash; macOS 脚本授权 &ndash;&gt;-->
+<!--        <Exec Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('osx'))"-->
+<!--              Command="chmod +x '$(MainPublishDir)/DependencySetup_依赖库安装_mac.sh'" />-->
+<!--    </Target>-->
 	<Target Name="CopyUpdaterAfterPublish" AfterTargets="Publish">
 	  <PropertyGroup>
 		<!-- 标准化路径分隔符 -->

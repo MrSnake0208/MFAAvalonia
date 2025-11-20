@@ -36,7 +36,7 @@ public partial class RootViewModel : ViewModelBase
             // var minor = version.Minor >= 0 ? version.Minor : 0;
             // var patch = version.Build >= 0 ? version.Build : 0;
             // return $"v{SemVersion.Parse($"{major}.{minor}.{patch}")}";
-            return "v1.7.2-alpha.1"; // Hardcoded version for now, replace with dynamic versioning later
+            return "v1.8.2-beta.1"; // Hardcoded version for now, replace with dynamic versioning later
         }
     }
 
@@ -71,13 +71,14 @@ public partial class RootViewModel : ViewModelBase
             Instances.TaskQueueViewModel.ShouldShow = (int)(MaaProcessor.Interface?.Controller?.FirstOrDefault()?.Type).ToMaaControllerTypes(Instances.TaskQueueViewModel.CurrentController);
         }
     }
+    
     public void CheckDebug()
     {
         if (IsDebugMode && _shouldTip && !MaaProcessor.Instance.IsV2)
         {
             DispatcherHelper.PostOnMainThread(() =>
             {
-                Instances.DialogManager.CreateDialog().OfType(NotificationType.Warning).WithContent("DebugModeWarning".ToLocalization()).WithActionButton("Ok".ToLocalization(), dialog => { }, true).TryShow();
+                Instances.DialogManager.CreateDialog().OfType(NotificationType.Warning).WithContent(LangKeys.DebugModeWarning.ToLocalization()).WithActionButton(LangKeys.Ok.ToLocalization(), dialog => { }, true).TryShow();
                 _shouldTip = false;
             });
         }
