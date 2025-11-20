@@ -1119,7 +1119,7 @@
         <value>Alpha</value>
     </data>
     <data name="UIUpdateChannel" xml:space="preserve">
-        <value>UI Update Channel</value>
+        <value>GUI Update Channel</value>
     </data>
     <data name="ExportLog" xml:space="preserve">
         <value>Export Log</value>

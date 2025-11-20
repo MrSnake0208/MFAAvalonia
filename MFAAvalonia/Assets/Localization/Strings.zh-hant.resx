@@ -1119,7 +1119,7 @@
         <value>內測版</value>
     </data>
     <data name="UIUpdateChannel" xml:space="preserve">
-        <value>UI 更新渠道</value>
+        <value>GUI 更新渠道</value>
     </data>
     <data name="ExportLog" xml:space="preserve">
         <value>導出日誌</value>
