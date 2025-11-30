@@ -126,21 +126,6 @@ jobs:
           dotnet-version: 10.0.x
           config-file: NuGet.config
 
-      - name: Fix broken NuGet sources
-        run: |
-          echo "Cleaning existing NuGet sources..."
-          dotnet nuget list source
-          dotnet nuget disable source nuget.cdn.azure.cn || true
-          dotnet nuget remove source nuget.cdn.azure.cn || true
-          dotnet nuget remove source AzureChina || true
-          dotnet nuget remove source azurenuget || true
-
-          echo "Adding nuget.org source..."
-          dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
-
-          echo "Final source list:"
-          dotnet nuget list source
-
       - name: Restore Dependencies
         run: dotnet restore
         env:
