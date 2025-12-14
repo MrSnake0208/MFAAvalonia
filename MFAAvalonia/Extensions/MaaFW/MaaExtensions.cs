@@ -1,494 +1,852 @@
 ﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Input;
 using Avalonia.Media;
-using MaaFramework.Binding;
+using Avalonia.Media.Imaging;
+using Lang.Avalonia;
 using MaaFramework.Binding.Buffers;
-using MFAAvalonia.Extensions.MaaFW.Custom;
+using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper;
-using MFAAvalonia.Views.Windows;
-using Newtonsoft.Json;
+using MFAAvalonia.Helper.Converters;
+using MFAAvalonia.ViewModels.Other;
+using Newtonsoft.Json.Linq;
+using SukiUI;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
+using Bitmap = Avalonia.Media.Imaging.Bitmap;
 
-namespace MFAAvalonia.Extensions.MaaFW;
+namespace MFAAvalonia.Extensions;
 
-public static class MaaExtensions
+public static class MFAExtensions
 {
-    public class RecognitionQuery
+    public static string GetFallbackCommand()
     {
-        [JsonProperty("all")] public List<RecognitionResult>? All;
-        [JsonProperty("best")] public RecognitionResult? Best;
-        [JsonProperty("filtered")] public List<RecognitionResult>? Filtered;
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? "cmd.exe"
+            : "/bin/bash";
     }
 
-    public class RecognitionResult
-    {
-        [JsonProperty("box")] public List<int>? Box;
-        [JsonProperty("score")] public double? Score;
-        [JsonProperty("text")] public string? Text;
-    }
+    /// <summary>
+    /// 解析 Markdown 内容：支持国际化字符串、文件路径、URL 或直接文本
+    /// </summary>
+    /// <param name="input">输入内容（可能是 $key、文件路径、URL 或直接文本）</param>
+    /// <param name="projectDir">项目目录（用于解析相对路径）</param>
+    /// <returns>解析后的 Markdown 文本</returns>
+    /// <summary>
+    /// 可获取内容的文本文件扩展名
+    /// </summary>
+    private static readonly string[] TextFileExtensions = [".md", ".markdown", ".txt", ".text"];
 
-    public static bool IsHit(
-        this RecognitionDetail? detail)
+    public async static Task<string> ResolveContentAsync(this string? input, string? projectDir = null, bool transform = true)
     {
-        if (detail is null || detail.HitBox?.IsDefaultHitBox() == true || !detail.Hit)
-            return false;
-        return true;
-    }
-
-    private static bool IsDefaultHitBox(this IMaaRectBuffer hitBox)
-    {
-        return hitBox is null or { X: 0, Y: 0, Width: 0, Height: 0 };
-    }
-
-    public static MaaTaskJob AppendTask(this IMaaTasker maaTasker, MaaNode task)
-    {
-        return maaTasker.AppendTask(task.Name, task.ToString());
-    }
-
-
-    public static void Click(this IMaaTasker maaTasker, int x, int y)
-    {
-        if (maaTasker.IsStopping)
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+        if (string.IsNullOrWhiteSpace(projectDir))
+            projectDir = AppContext.BaseDirectory;
+        try
         {
-            return;
+            // 1. 国际化处理（以$开头）
+            var content = transform ? LanguageHelper.GetLocalizedString(input) : input;
+            // 2. 判断是否为 URL
+            if (Uri.TryCreate(content, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                // 如果是文本文件 URL，获取内容；否则返回超链接格式
+                var path = uri.AbsolutePath;
+                if (TextFileExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return await content.FetchUrlContentAsync().ConfigureAwait(false);
+                }
+                // 返回 Markdown 超链接格式
+                return $"[{content}]({content})";
+            }
+            // 3. 判断是否为文件路径
+            var filePath = MaaInterface.ReplacePlaceholder(content, projectDir, true);
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            {
+                // 使用 ConfigureAwait(false) 避免在 UI 线程上使用 .Result 时死锁
+                return await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
+            }
+
+            // 4. 直接返回文本（可能是 Markdown）
+            return content;
         }
-        maaTasker.Controller.Click(x, y).Wait();
+        catch (Exception ex)
+        {
+            LoggerHelper.Error($"解析 Markdown 内容失败: {input}, 错误: {ex.Message}");
+            return string.Empty;
+        }
     }
 
-    public static void Swipe(this IMaaTasker maaTasker, int x1, int y1, int x2, int y2, int duration)
+
+    public static MaaToken ToMaaToken(
+        this Dictionary<string, JToken>? taskModels)
     {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.Swipe(x1, y1, x2, y2, duration).Wait();
+        // 空安全处理：输入为 null 时返回空字典，避免空引用异常
+        var nonNullModels = taskModels ?? new Dictionary<string, JToken>();
+
+        // 转换逻辑：遍历集合，将每个 JToken 转为 MaaToken，构建字典
+        return MaaToken.FromDictionary(nonNullModels);
     }
 
-    public static void TouchDown(this IMaaTasker maaTasker, int contact, int x, int y, int pressure)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.TouchDown(contact, x, y, pressure).Wait();
-    }
 
-    public static void TouchMove(this IMaaTasker maaTasker, int contact, int x, int y, int pressure)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.TouchMove(contact, x, y, pressure).Wait();
-
-    }
-    public static void TouchUp(this IMaaTasker maaTasker, int contact)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.TouchUp(contact).Wait();
-    }
-
-    public static void PressKey(this IMaaTasker maaTasker, int key)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.ClickKey(key).Wait();
-    }
-    public static void InputText(this IMaaTasker maaTasker, string text)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.InputText(text).Wait();
-    }
-
-    public static void Screencap(this IMaaTasker maaTasker)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.Screencap().Wait();
-    }
-
-    public static bool GetCachedImage(this IMaaTasker maaTasker, IMaaImageBuffer imageBuffer)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return false;
-        }
-        return maaTasker.Controller.GetCachedImage(imageBuffer);
-    }
-
-    public static void StartApp(this IMaaTasker maaTasker, string intent)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.StartApp(intent).Wait();
-    }
-
-    public static void StopApp(this IMaaTasker maaTasker, string intent)
-    {
-        if (maaTasker.IsStopping)
-        {
-            return;
-        }
-        maaTasker.Controller.StopApp(intent).Wait();
-    }
+    // public static Dictionary<TKey, JToken> MergeJTokens<TKey>(
+    //     this IEnumerable<KeyValuePair<TKey, JToken>>? taskModels,
+    //     IEnumerable<KeyValuePair<TKey, JToken>>? additionalModels) where TKey : notnull
+    // {
     //
-    public static void Click(this IMaaContext maaContext, int x, int y)
+    //     if (additionalModels == null)
+    //         return taskModels?.ToDictionary() ?? new Dictionary<TKey, JToken>();
+    //     return taskModels?
+    //             .Concat(additionalModels)
+    //             .GroupBy(pair => pair.Key)
+    //             .ToDictionary(
+    //                 group => group.Key,
+    //                 group =>
+    //                 {
+    //                     var mergedModel = group.First().Value;
+    //                     foreach (var taskModel in group.Skip(1))
+    //                     {
+    //                         mergedModel.Merge(taskModel.Value);
+    //                     }
+    //                     return mergedModel;
+    //                 }
+    //             )
+    //         ?? new Dictionary<TKey, JToken>();
+    // }
+
+    // public static JToken Merge(this JToken? target, JToken? source)
+    // {
+    //     if (target == null) return source;
+    //     if (source == null) return target;
+    //
+    //     // 确保目标和源都是 JObject 类型
+    //     if (target.Type != JTokenType.Object || source.Type != JTokenType.Object)
+    //         return target;
+    //
+    //     var targetObj = (JObject)target;
+    //     var sourceObj = (JObject)source;
+    //
+    //     // 遍历源对象的所有属性
+    //     foreach (var property in sourceObj.Properties())
+    //     {
+    //         string propName = property.Name;
+    //         JToken? targetProp = targetObj.Property(propName)?.Value;
+    //         JToken sourceProp = property.Value;
+    //         if (propName == "attach")
+    //         {
+    //             // 仅当双方都是对象类型时才进行第一层字段合并
+    //             if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+    //             {
+    //                 JObject targetAttach = (JObject)targetProp;
+    //                 JObject sourceAttach = (JObject)sourceProp;
+    //
+    //                 // 遍历sourceAttach的所有第一层字段，直接覆盖或添加（不递归）
+    //                 foreach (var attachProp in sourceAttach.Properties())
+    //                 {
+    //                     string attachPropName = attachProp.Name;
+    //                     JToken sourceAttachValue = attachProp.Value;
+    //
+    //                     // 目标存在该字段则直接用源覆盖（不递归），否则添加
+    //                     targetAttach[attachPropName] = sourceAttachValue.DeepClone();
+    //                 }
+    //
+    //                 targetObj[propName] = targetAttach;
+    //             }
+    //             // 目标不存在attach字段时，直接克隆源的attach
+    //             else if (targetProp == null)
+    //             {
+    //                 targetObj[propName] = sourceProp.DeepClone();
+    //             }
+    //             // 若类型不匹配（如一方不是对象），则用源覆盖目标
+    //             else
+    //             {
+    //                 targetObj[propName] = sourceProp.DeepClone();
+    //             }
+    //             continue;
+    //         }
+    //         // if (propName == "attach")
+    //         // {
+    //         //     // 仅当双方都是对象类型时才进行字段合并
+    //         //     if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+    //         //     {
+    //         //         JObject targetAttach = (JObject)targetProp;
+    //         //         JObject sourceAttach = (JObject)sourceProp;
+    //         //
+    //         //         // 遍历sourceAttach的所有字段，逐个合并到targetAttach
+    //         //         foreach (var attachProp in sourceAttach.Properties())
+    //         //         {
+    //         //             string attachPropName = attachProp.Name;
+    //         //             JToken sourceAttachValue = attachProp.Value;
+    //         //
+    //         //             // 目标存在该字段则递归合并，否则直接添加
+    //         //             if (targetAttach.ContainsKey(attachPropName))
+    //         //             {
+    //         //                 targetAttach[attachPropName] = Merge(targetAttach[attachPropName], sourceAttachValue);
+    //         //             }
+    //         //             else
+    //         //             {
+    //         //                 targetAttach[attachPropName] = sourceAttachValue.DeepClone();
+    //         //             }
+    //         //         }
+    //         //
+    //         //         targetObj[propName] = targetAttach;
+    //         //     }
+    //         //     // 目标不存在attach字段时，直接克隆源的attach
+    //         //     else if (targetProp == null)
+    //         //     {
+    //         //         targetObj[propName] = sourceProp.DeepClone();
+    //         //     }
+    //         //     // 若类型不匹配（如一方不是对象），则用源覆盖目标
+    //         //     else
+    //         //     {
+    //         //         targetObj[propName] = sourceProp.DeepClone();
+    //         //     }
+    //         //     continue;
+    //         // }
+    //         //
+    //         // 处理 recognition 相关合并逻辑
+    //         if (propName == "recognition")
+    //         {
+    //             if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+    //             {
+    //                 JObject targetRecognition = (JObject)targetProp;
+    //                 JObject sourceRecognition = (JObject)sourceProp;
+    //
+    //                 // 覆盖 type 属性
+    //                 if (sourceRecognition.ContainsKey("type"))
+    //                 {
+    //                     targetRecognition["type"] = sourceRecognition["type"]?.DeepClone() ?? new JValue((string)null);
+    //                 }
+    //
+    //                 // 处理 recognition 内部的 param 属性，递归合并
+    //                 if (sourceRecognition.ContainsKey("param") && targetRecognition.ContainsKey("param") && targetRecognition["param"]?.Type == JTokenType.Object && sourceRecognition["param"]?.Type == JTokenType.Object)
+    //                 {
+    //                     targetRecognition["param"] = Merge(targetRecognition["param"], sourceRecognition["param"]);
+    //                 }
+    //                 else if (sourceRecognition.ContainsKey("param") && targetRecognition["param"] == null)
+    //                 {
+    //                     targetRecognition["param"] = sourceRecognition["param"]?.DeepClone();
+    //                 }
+    //
+    //                 targetObj[propName] = targetRecognition;
+    //             }
+    //             else if (targetProp == null)
+    //             {
+    //                 targetObj[propName] = sourceProp.DeepClone();
+    //             }
+    //             continue;
+    //         }
+    //
+    //         // 处理 action 相关合并逻辑
+    //         if (propName == "action")
+    //         {
+    //             if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+    //             {
+    //                 JObject targetAction = (JObject)targetProp;
+    //                 JObject sourceAction = (JObject)sourceProp;
+    //
+    //                 // 覆盖 type 属性
+    //                 if (sourceAction.ContainsKey("type"))
+    //                 {
+    //                     targetAction["type"] = sourceAction["type"]?.DeepClone() ?? new JValue((string)null);
+    //                 }
+    //
+    //                 // 处理 action 内部的 param 属性，递归合并
+    //                 if (sourceAction.ContainsKey("param") && targetAction.ContainsKey("param") && targetAction["param"]?.Type == JTokenType.Object && sourceAction["param"]?.Type == JTokenType.Object)
+    //                 {
+    //                     targetAction["param"] = Merge(targetAction["param"], sourceAction["param"]);
+    //                 }
+    //                 else if (sourceAction.ContainsKey("param") && targetAction["param"] == null)
+    //                 {
+    //                     targetAction["param"] = sourceAction["param"]?.DeepClone();
+    //                 }
+    //
+    //                 targetObj[propName] = targetAction;
+    //             }
+    //             else if (targetProp == null)
+    //             {
+    //                 targetObj[propName] = sourceProp.DeepClone();
+    //             }
+    //             continue;
+    //         }
+    //
+    //         // 其他普通属性直接替换或添加
+    //         targetObj[propName] = sourceProp.DeepClone();
+    //     }
+    //
+    //     return target;
+    // }
+
+    public static string FormatWith(this string format, params object[] args)
     {
-        maaContext.Tasker.Click(x, y);
+        return string.Format(format, args);
     }
 
-    public static void Swipe(this IMaaContext maaContext, int x1, int y1, int x2, int y2, int duration)
+    public static void AddRange<T>(this ICollection<T>? collection, IEnumerable<T> newItems)
     {
-        maaContext.Tasker.Swipe(x1, y1, x2, y2, duration);
-    }
-
-    public static void TouchDown(this IMaaContext maaContext, int contact, int x, int y, int pressure)
-    {
-        maaContext.Tasker.TouchDown(contact, x, y, pressure);
-    }
-
-    public static void TouchMove(this IMaaContext maaContext, int contact, int x, int y, int pressure)
-    {
-        maaContext.Tasker.TouchMove(contact, x, y, pressure);
-
-    }
-    public static void SmoothTouchMove(this IMaaContext maaContext, int contact, int startX, int startY, int endX, int endY, int durationMs, int steps = 1)
-    {
-        if (steps <= 0)
+        if (collection == null)
+            return;
+        if (collection is List<T> objList)
         {
-            throw new ArgumentException("步数必须大于0", nameof(steps));
-        }
-
-        if (durationMs <= 0)
-        {
-            throw new ArgumentException("持续时间必须大于0", nameof(durationMs));
-        }
-
-        var xStep = (endX - startX) / steps;
-        var yStep = (endY - startY) / steps;
-
-        for (var i = 0; i < steps; i++)
-        {
-            var currentX = startX + i * xStep;
-            var currentY = startY + i * yStep;
-            maaContext.TouchMove(contact, currentX, currentY, 100);
-            int sleepTime = durationMs / steps;
-            Thread.Sleep(sleepTime);
-        }
-    }
-    public static void TouchUp(this IMaaContext maaContext, int contact)
-    {
-        maaContext.Tasker.TouchUp(contact);
-    }
-
-    public static void PressKey(this IMaaContext maaContext, int key)
-    {
-        maaContext.Tasker.PressKey(key);
-    }
-    public static void InputText(this IMaaContext maaContext, string text)
-    {
-        maaContext.Tasker.InputText(text);
-    }
-
-    public static void Screencap(this IMaaContext maaContext)
-    {
-        maaContext.Tasker.Screencap();
-    }
-
-    public static bool GetCachedImage(this IMaaContext maaContext, IMaaImageBuffer imageBuffer)
-    {
-        return maaContext.Tasker.GetCachedImage(imageBuffer);
-    }
-
-        public static IMaaImageBuffer? GetImage(this IMaaContext maaContext)
-        {
-            maaContext.Screencap();
-            var imageBuffer = new MaaImageBuffer();
-            if (!maaContext.GetCachedImage(imageBuffer))
-            {
-                // 如果获取图像失败，释放 buffer避免内存泄漏
-                imageBuffer.Dispose();
-                return null;
-            }
-            return imageBuffer;
-        }
-
-    public static IMaaImageBuffer GetImage(this IMaaContext maaContext, ref IMaaImageBuffer buffer)
-    {
-        maaContext.Screencap();
-        if (!maaContext.GetCachedImage(buffer))
-            return null;
-        return buffer;
-    }
-
-    public static void StartApp(this IMaaContext maaContext, string intent)
-    {
-        maaContext.Tasker.StartApp(intent);
-    }
-
-    public static void StopApp(this IMaaContext maaContext, string intent)
-    {
-        maaContext.Tasker.StopApp(intent);
-    }
-
-    public static bool TemplateMatch(this IMaaTasker maaTasker, string template, double threshold = 0.8D, int x = 0, int y = 0, int w = 0, int h = 0)
-    {
-        var job = maaTasker.AppendTask(new MaaNode()
-        {
-            Template = [template],
-            Recognition = "TemplateMatch",
-            Threshold = threshold,
-            Roi = new[]
-            {
-                x,
-                y,
-                w,
-                h
-            }
-        });
-        if (job.WaitFor(MaaJobStatus.Succeeded) == null)
-            return false;
-        return job.QueryRecognitionDetail().IsHit();
-    }
-
-    public static bool OCR(this IMaaTasker maaTasker, string text, int x = 0, int y = 0, int w = 0, int h = 0)
-    {
-        var job = maaTasker.AppendTask(new MaaNode
-        {
-            Expected = [text],
-            Recognition = "OCR",
-            Roi = new[]
-            {
-                x,
-                y,
-                w,
-                h
-            }
-        });
-        if (job.WaitFor(MaaJobStatus.Succeeded) == null)
-            return false;
-        return job.QueryRecognitionDetail().IsHit();
-    }
-
-    public static bool TemplateMatch(this IMaaContext maaContext,
-        string template,
-        IMaaImageBuffer imageBuffer,
-        out RecognitionDetail? detail,
-        double threshold = 0.8D,
-        int x = 0,
-        int y = 0,
-        int w = 0,
-        int h = 0,
-        bool greenmask = false,
-        string order = "Score")
-    {
-        detail = maaContext.RunRecognition(new MaaNode
-        {
-            Template = [template],
-            GreenMask = greenmask,
-            Recognition = "TemplateMatch",
-            Threshold = threshold,
-            OrderBy = order,
-            Roi = new[]
-            {
-                x,
-                y,
-                w,
-                h
-            },
-        }, imageBuffer);
-        LoggerHelper.Info(detail?.Detail);
-        LoggerHelper.Info($"TemplateMatch: {template} ,roi: [{x},{y},{w},{h}], Hit: {detail.IsHit()}");
-        return detail.IsHit();
-    }
-
-    public static bool ColorMatch(this IMaaContext maaContext,
-        int ru,
-        int gu,
-        int bu,
-        int rl,
-        int gl,
-        int bl,
-        IMaaImageBuffer imageBuffer,
-        out RecognitionDetail? detail,
-        double threshold = 0.8D,
-        int x = 0,
-        int y = 0,
-        int w = 0,
-        int h = 0,
-        int count = 1)
-    {
-        detail = maaContext.RunRecognition(new MaaNode
-        {
-            Upper = new List<int>
-            {
-                ru,
-                gu,
-                bu
-            },
-            Lower = new List<int>
-            {
-                rl,
-                gl,
-                bl
-            },
-            Count = count,
-            Recognition = "ColorMatch",
-            Threshold = threshold,
-            OrderBy = "Score",
-            Roi = new[]
-            {
-                x,
-                y,
-                w,
-                h
-            },
-        }, imageBuffer);
-        LoggerHelper.Info(detail?.Detail);
-        LoggerHelper.Info($"ColorMatch: upper:{string.Join(",", new List<int>
-        {
-            rl,
-            gl,
-            bl
-        })} lower::{string.Join(",", new List<int>
-    {
-        ru,
-        gu,
-        bu
-    })} ,Hit: {detail.IsHit()}");
-        return detail.IsHit();
-    }
-
-    public static bool OCR(this IMaaContext maaContext, string text, IMaaImageBuffer imageBuffer, out RecognitionDetail? detail, int x = 0, int y = 0, int w = 0, int h = 0)
-    {
-        detail = maaContext.RunRecognition(new MaaNode
-        {
-            Expected = [text],
-            Recognition = "OCR",
-            Roi = new[]
-            {
-                x,
-                y,
-                w,
-                h
-            },
-        }, imageBuffer);
-        LoggerHelper.Info($"OCR: {text} ,Hit: {detail?.IsHit()}");
-        return detail?.IsHit() == true;
-    }
-
-    public static RecognitionDetail? RunRecognition(this IMaaContext maaContext, MaaNode taskModel, IMaaImageBuffer imageBuffer)
-    {
-        if (maaContext.Tasker.IsStopping)
-        {
-            return null;
-        }
-        return maaContext.RunRecognition(taskModel.Name ?? "测试", imageBuffer, taskModel.ToJson() ?? "{}");
-    }
-
-
-    public static string GetText(this IMaaContext maaContext, int x, int y, int w, int h, IMaaImageBuffer imageBuffer)
-    {
-        if (maaContext.Tasker.IsStopping)
-        {
-            throw new MaaStopException();
-        }
-        var result = string.Empty;
-        var taskModel = new MaaNode()
-        {
-            Name = "AppendOCR",
-            Recognition = "OCR",
-            Roi = new List<int>
-            {
-                x,
-                y,
-                w,
-                h
-            },
-        };
-        var detail = maaContext.RunRecognition(taskModel, imageBuffer);
-
-        if (detail != null)
-        {
-            var query = JsonConvert.DeserializeObject<RecognitionQuery>(detail.Detail);
-            if (!string.IsNullOrWhiteSpace(query?.Best?.Text))
-                result = query.Best.Text;
+            objList.AddRange(newItems);
         }
         else
         {
-            RootView.AddLog("识别失败！");
+            foreach (T newItem in newItems)
+                collection.Add(newItem);
         }
-
-        LoggerHelper.Info($"识别结果: {result}");
-
-        return result;
     }
 
-    public static int ToInt(this string str)
+    public static string ToLocalization(this string? key)
     {
-        string numberStr = new string(str.Replace(" ", "").Replace('b', '6').Replace('B', '8')
-            .Where(char.IsDigit).ToArray());
-        if (int.TryParse(numberStr, out int result))
-        {
-            return result;
-        }
-        return 0;
+        if (string.IsNullOrWhiteSpace(key))
+            return string.Empty;
+
+        return I18nManager.Instance.GetResource(key) ?? key;
     }
 
-    public static bool Until(
-        this Func<bool> action,
-        IMaaContext context,
-        int sleepMilliseconds = 500,
-        bool condition = true,
-        int maxCount = 50,
-        Action? errorAction = null,
-        bool outE = false
-    )
+    public static string ToLocalizationFormatted(this string? key, bool transformKey = true, params string[] args)
     {
-        int count = 0;
-        while (true)
+        if (string.IsNullOrWhiteSpace(key)) return string.Empty;
+
+        var localizedKey = key.ToLocalization();
+        var processedArgs = transformKey
+            ? Array.ConvertAll(args, a => a.ToLocalization() as object)
+            : Array.ConvertAll(args, a => a as object);
+
+        try
         {
-            if (context.Tasker.IsStopping)
-            {
-                throw new MaaStopException();
-            }
-
-            if (action() == condition)
-                break;
-
-            if (++count >= maxCount)
-            {
-                if (!outE)
-                {
-                    errorAction?.Invoke();
-                    throw new MaaErrorHandleException();
-                }
-                else
-                {
-                    throw new Exception("条件未满足，超出最大尝试次数");
-                }
-            }
-
-            if (sleepMilliseconds >= 0)
-                Thread.Sleep(sleepMilliseconds);
+            return Regex.Unescape(localizedKey.FormatWith(processedArgs));
         }
+        catch
+        {
+            return localizedKey.FormatWith(processedArgs);
+        }
+    }
+
+    public static bool ContainsKey(this IEnumerable<LocalizationViewModel> settingViewModels, string key)
+    {
+        return settingViewModels.Any(vm => vm.ResourceKey == key);
+    }
+
+    public static bool ShouldSwitchButton(this List<MaaInterface.MaaInterfaceOptionCase>? cases, out int yes, out int no)
+    {
+        yes = -1;
+        no = -1;
+
+        if (cases == null || cases.Count != 2)
+            return false;
+
+        var yesItem = cases
+            .Select((c, index) => new
+            {
+                c.Name,
+                Index = index
+            })
+            .Where(x => x.Name?.Equals("yes", StringComparison.OrdinalIgnoreCase) == true).ToList();
+
+        var noItem = cases
+            .Select((c, index) => new
+            {
+                c.Name,
+                Index = index
+            })
+            .Where(x => x.Name?.Equals("no", StringComparison.OrdinalIgnoreCase) == true).ToList();
+
+        if (yesItem.Count == 0 || noItem.Count == 0)
+            return false;
+
+        yes = yesItem[0].Index;
+        no = noItem[0].Index;
 
         return true;
     }
-}
+
+    public static void SafeCancel(this CancellationTokenSource? cts, bool useCancel = true)
+    {
+        if (cts == null || cts.IsCancellationRequested) return;
+
+        try
+        {
+            if (useCancel) cts.Cancel();
+            cts.Dispose();
+        }
+        catch (Exception e) { LoggerHelper.Error(e); }
+    }
+
+    /// <summary>
+    /// 安全移动元素的扩展方法（泛型版本）
+    /// </summary>
+    /// <param name="targetIndex">目标位置索引应先于实际插入位置</param>
+    /// <remarks>当移动方向为向后移动时，实际插入位置会比targetIndex大1[8](@ref)</remarks>
+    public static void MoveTo<T>(this IList<T> list, int sourceIndex, int targetIndex) where T : class
+    {
+        ValidateIndexes(list, sourceIndex, targetIndex);
+        if (sourceIndex == targetIndex) return;
+
+        var item = list[sourceIndex];
+
+        list.RemoveAt(sourceIndex);
+
+        list.Insert(targetIndex > sourceIndex ? targetIndex - 1 : targetIndex, item);
+    }
+
+    /// <summary>
+    /// 安全移动元素的扩展方法（非泛型版本）
+    /// </summary>
+    public static void MoveTo(this IList list, int sourceIndex, int targetIndex)
+    {
+        ValidateIndexes(list, sourceIndex, targetIndex);
+        if (sourceIndex == targetIndex) return;
+
+        var item = list[sourceIndex];
+
+        list.RemoveAt(sourceIndex);
+
+        list.Insert(targetIndex > sourceIndex ? targetIndex - 1 : targetIndex, item);
+    }
+
+    // 扩展方法：范围判断
+    public static bool Between(this double value, double min, double max)
+        => value >= min && value <= max;
+    private static void ValidateIndexes(IList list, int source, int target)
+    {
+        if (source < 0 || source >= list.Count)
+            throw new ArgumentOutOfRangeException(nameof(source), "源索引越界");
+        if (target < 0 || target > list.Count)
+            throw new ArgumentOutOfRangeException(nameof(target), "目标索引越界");
+    }
+    private static void ValidateIndexes<T>(IList<T> list, int source, int target)
+    {
+        if (source < 0 || source >= list.Count)
+            throw new ArgumentOutOfRangeException(nameof(source), "源索引越界");
+        if (target < 0 || target > list.Count)
+            throw new ArgumentOutOfRangeException(nameof(target), "目标索引越界");
+    }
+
+    public static string GetName(this VersionChecker.VersionType type)
+    {
+        return type.ToString().ToLower();
+    }
+
+    public static VersionChecker.VersionType ToVersionType(this string version)
+    {
+        if (version.Contains("alpha", StringComparison.OrdinalIgnoreCase))
+            return VersionChecker.VersionType.Alpha;
+        if (version.Contains("beta", StringComparison.OrdinalIgnoreCase)) return VersionChecker.VersionType.Beta;
+        return VersionChecker.VersionType.Stable;
+    }
+
+    public static VersionChecker.VersionType ToVersionType(this int version)
+    {
+        if (version == 0)
+            return VersionChecker.VersionType.Alpha;
+        if (version == 1) return VersionChecker.VersionType.Beta;
+        return VersionChecker.VersionType.Stable;
+    }
+
+        public static Bitmap? ToBitmap(this MaaImageBuffer buffer)
+        {
+            if (!buffer.TryGetEncodedData(out Stream EncodedDataStream)) return null;
+    
+            try
+            {
+                // 使用 using 确保 Stream 被正确释放，避免 unmanaged memory 泄漏
+                using (EncodedDataStream)
+                {
+                    EncodedDataStream.Seek(0, SeekOrigin.Begin);
+                    return new Bitmap(EncodedDataStream);
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                LoggerHelper.Error($"解码失败: {ex.Message}");
+                // 确保异常情况下也释放 Stream
+                EncodedDataStream?.Dispose();
+                return null;
+            }
+        }
+    // public static System.Drawing.Bitmap? ToDrawingBitmap(this Bitmap? bitmap)
+    // {
+    //     if (bitmap == null)
+    //         return null;
+    //
+    //     using var memory = new MemoryStream();
+    //
+    //     bitmap.Save(memory);
+    //     memory.Position = 0;
+    //     
+    //     return new System.Drawing.Bitmap(memory);
+    // }
+        public static Bitmap DrawRectangle(this Bitmap sourceBitmap, MaaRectBuffer rect, IBrush color, double thickness = 1.5)
+        {
+            if (sourceBitmap == null)
+                throw new ArgumentNullException(nameof(sourceBitmap));
+    
+            // 提前获取需要的值，避免在异步操作中访问可能已释放的对象
+            var bitmapSize = sourceBitmap.Size;
+            var pixelSize = sourceBitmap.PixelSize;
+            var dpi = sourceBitmap.Dpi;
+    
+            var renderBitmap = new RenderTargetBitmap(pixelSize, dpi);
+    
+            DispatcherHelper.PostOnMainThread(() =>
+            {
+                try
+                {
+                    // 二次检查：确保 sourceBitmap 仍然有效
+                    if (sourceBitmap == null)
+                    {
+                        LoggerHelper.Warning("DrawRectangle: sourceBitmap在异步操作中变为 null");
+                        return;
+                    }
+    
+                    // 使用 DrawingContext 绘制
+                    using var context = renderBitmap.CreateDrawingContext();
+    
+                    // 1. 绘制原始图像作为背景
+                    context.DrawImage(sourceBitmap, new Rect(bitmapSize));
+    
+                    // 2. 创建抗锯齿画笔
+                    var pen = new Avalonia.Media.Pen(color, thickness)
+                    {
+                        LineJoin = PenLineJoin.Round,
+                        LineCap = PenLineCap.Round
+                    };
+    
+                    // 3. 绘制矩形边框
+                    context.DrawRectangle(pen, new Rect(rect.X, rect.Y, rect.Width, rect.Height));
+                }
+                catch (Exception ex)
+                {
+                    LoggerHelper.Error($"DrawRectangle 绘制失败: {ex.Message}");
+                }
+            });
+            return renderBitmap;
+        }
+
+    // public static Bitmap? ToAvaloniaBitmap(this System.Drawing.Bitmap? bitmap)
+    // {
+    //     if (bitmap == null)
+    //         return null;
+    //     var bitmapTmp = new System.Drawing.Bitmap(bitmap);
+    //     var bd = bitmapTmp.LockBits(new Rectangle(0, 0, bitmapTmp.Width, bitmapTmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+    //     var bitmap1 = new Bitmap(Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul,
+    //         bd.Scan0,
+    //         new Avalonia.PixelSize(bd.Width, bd.Height),
+    //         new Avalonia.Vector(96, 96),
+    //         bd.Stride);
+    //     bitmapTmp.UnlockBits(bd);
+    //     bitmapTmp.Dispose();
+    //     return bitmap1;
+    // }
+
+    public static bool TryGetText(this IDataTransfer dataTransfer, out string? result)
+    {
+        result = null;
+        var textFormat = DataFormat.Text;
+        if (!dataTransfer.Formats.Contains(textFormat))
+            return false;
+
+        var rawData = dataTransfer.TryGetText();
+
+        result = rawData;
+        return true;
+    }
+
+    /// <summary>
+    /// 专为 SukiUI 适配：精准查找 Light/Dark.axaml 中的主题资源
+    /// </summary>
+    public static T? FindSukiUiResource<T>(object resourceKey) where T : struct
+    {
+
+        // 1. 直接通过 SukiUI 提供的 GetInstance() 获取 SukiTheme 实例（最靠谱）
+        var sukiTheme = SukiTheme.GetInstance();
+        var currentThemeVariant = sukiTheme.ActiveBaseTheme; // 当前主题（Light/Dark）
+        var sukiResources = sukiTheme.Resources; // SukiTheme 自身的资源字典（包含 ThemeDictionaries）
+
+        return sukiResources.TryGetResource(resourceKey, currentThemeVariant, out var value) && value is T t ? t : null;
+    }
+
+    extension(string url)
+    {
+        /// <summary>
+        /// 判断是否为本地绝对路径
+        /// </summary>
+        public bool IsAbsolutePath() => Path.IsPathRooted(url);
+
+        /// <summary>
+        /// 判断是否为网络URL（http/https）
+        /// </summary>
+        public bool IsUrl()
+        {
+            // 网络链接（http/https/ftp等）
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeFtp))
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 从 URL 获取文本内容
+        /// </summary>
+        public async Task<string> FetchUrlContentAsync()
+        {
+            try
+            {
+                using var httpClient = VersionChecker.CreateHttpClientWithProxy();
+                httpClient.Timeout = TimeSpan.FromSeconds(10);
+                return await httpClient.GetStringAsync(url);
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.Warning($"获取 URL 内容失败: {url}, 错误: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        public string ResolveUrl(string basePath)
+        {
+            // 1. 处理http链接
+            if (url.IsUrl())
+            {
+                return url;
+            }
+
+            // 获取基准目录（basePath 可能是文件路径或目录路径）
+            string? baseDir = null;
+            if (!string.IsNullOrWhiteSpace(basePath))
+            {
+                // 如果 basePath 是文件路径，获取其目录；如果是目录路径，直接使用
+                if (File.Exists(basePath))
+                    baseDir = Path.GetDirectoryName(basePath);
+                else if (Directory.Exists(basePath))
+                    baseDir = basePath;
+                else
+                    baseDir = Path.GetDirectoryName(basePath);
+            }
+
+            // 判断是否为 Windows 平台
+            bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+            // 2. 处理以 / 或 \ 开头的路径
+            if (url.StartsWith("/") || url.StartsWith("\\"))
+            {
+                // 在 Linux/macOS 上，/ 开头是真正的绝对路径
+                if (!isWindows && url.StartsWith("/"))
+                {
+                    // 先检查文件是否存在
+                    if (File.Exists(url))
+                        return url;
+
+                    // 如果不存在，尝试在基准目录中查找
+                    string fileName = Path.GetFileName(url);
+                    if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(baseDir) && Directory.Exists(baseDir))
+                    {
+                        string foundPath = baseDir.FindFileInDirectoryAndSubfolders(fileName);
+                        if (!string.IsNullOrEmpty(foundPath))
+                            return foundPath;
+                    }
+                    // 找不到则返回原始路径
+                    return url;
+                }
+
+                // 在 Windows 上，/ 开头不是真正的绝对路径，作为相对路径处理
+                // 去掉开头的 / 或 \，作为相对路径处理
+                string relativePath = url.TrimStart('/', '\\');
+
+                if (!string.IsNullOrEmpty(baseDir) && Directory.Exists(baseDir))
+                {
+                    // 先尝试直接组合路径
+                    string combinedPath = Path.Combine(baseDir, relativePath);
+                    if (File.Exists(combinedPath))
+                        return combinedPath;
+
+                    // 尝试在基准目录及子目录中查找文件
+                    string fileName = Path.GetFileName(relativePath);
+                    if (!string.IsNullOrEmpty(fileName))
+                    {
+                        string foundPath = baseDir.FindFileInDirectoryAndSubfolders(fileName);
+                        if (!string.IsNullOrEmpty(foundPath))
+                            return foundPath;
+                    }
+                }
+
+                // 找不到则返回组合后的路径
+                return !string.IsNullOrEmpty(baseDir)
+                    ? Path.Combine(baseDir, relativePath)
+                    : relativePath;
+            }
+
+            // 3. 检查真正的绝对路径
+            // Windows: 带盘符的路径（如 C:\xxx 或 D:\xxx）
+            // Linux/macOS: 以 / 开头的路径（已在上面处理）
+            bool isRealAbsolutePath = isWindows
+                ? (url.Length > 1 && url[1] == ':') // Windows: C:\xxx
+                : url.StartsWith("/"); // Linux/macOS: /xxx
+
+            if (isRealAbsolutePath)
+            {
+                if (File.Exists(url))
+                    return url;
+
+                // 提取文件名尝试在基准目录查找
+                string fileName = Path.GetFileName(url);
+                if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(baseDir) && Directory.Exists(baseDir))
+                {
+                    string foundPath = baseDir.FindFileInDirectoryAndSubfolders(fileName);
+                    if (!string.IsNullOrEmpty(foundPath))
+                        return foundPath;
+                }
+                // 找不到则返回原始绝对路径
+                return url;
+            }
+
+            // 4. 处理相对路径
+            // 若没有有效基准目录，直接返回
+            if (string.IsNullOrEmpty(baseDir) || !Directory.Exists(baseDir))
+                return url;
+
+            // 解析相对路径为绝对路径
+            string absolutePath = Path.Combine(baseDir, url);
+            string normalizedPath = Path.GetFullPath(absolutePath);
+
+            // 检查解析后的路径是否存在
+            if (File.Exists(normalizedPath))
+                return normalizedPath;
+
+            // 提取文件名尝试在基准目录查找
+            string targetFileName = Path.GetFileName(normalizedPath);
+            if (!string.IsNullOrEmpty(targetFileName) && Directory.Exists(baseDir))
+            {
+                string foundPath = baseDir.FindFileInDirectoryAndSubfolders(targetFileName, true);
+                if (!string.IsNullOrEmpty(foundPath))
+                    return foundPath;
+            }
+            // 所有尝试失败，返回规范化后的路径
+            return normalizedPath;
+        }
+    }
+
+    /// <summary>
+    /// 常见图片扩展名（用于智能匹配）
+    /// </summary>
+    private static readonly string[] ImageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico"];
+
+    public static string FindFileInDirectoryAndSubfolders(this string rootDir, string fileName, bool tryAlternativeExtensions = false)
+    {
+        try
+        {
+            // 检查当前目录是否包含目标文件
+            string currentDirFile = Path.Combine(rootDir, fileName);
+            if (File.Exists(currentDirFile))
+                return currentDirFile;
+
+            // 如果启用了扩展名智能匹配，尝试查找同名但不同扩展名的文件
+            if (tryAlternativeExtensions)
+            {
+                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                string currentExt = Path.GetExtension(fileName).ToLowerInvariant();
+
+                // 只对图片文件进行扩展名智能匹配
+                if (ImageExtensions.Contains(currentExt))
+                {
+                    foreach (var ext in ImageExtensions)
+                    {
+                        if (ext == currentExt) continue; // 跳过当前扩展名
+
+                        string alternativeFile = Path.Combine(rootDir, fileNameWithoutExt + ext);
+                        if (File.Exists(alternativeFile))
+                            return alternativeFile;
+                    }
+                }
+            }
+
+            // 递归查找所有子目录
+            foreach (string subDir in Directory.EnumerateDirectories(rootDir))
+            {
+                string foundFile = FindFileInDirectoryAndSubfolders(subDir, fileName, tryAlternativeExtensions);
+                if (!string.IsNullOrEmpty(foundFile))
+                    return foundFile;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // 忽略无权限目录
+            LoggerHelper.Info($"无权限访问目录：{rootDir}");
+        }
+        catch (PathTooLongException)
+        {
+            // 忽略路径过长
+            LoggerHelper.Info($"路径过长：{rootDir}");
+        }
+        catch (IOException)
+        {
+            // 忽略I/O错误
+            LoggerHelper.Info($"I/O错误：{rootDir}");
+        }
+
+        // 未找到文件
+        return string.Empty;
+    }
+
+    /// <summary>
+        /// 生成ADB设备的指纹字符串，用于设备匹配
+        /// 指纹由 Name + AdbPath + Index 组成，可以稳定识别同一个模拟器实例
+        /// </summary>
+        /// <param name="device">ADB设备信息</param>
+        /// <returns>设备指纹字符串</returns>
+        public static string GenerateDeviceFingerprint(this MaaFramework.Binding.AdbDeviceInfo device)
+        {
+            var index = DeviceDisplayConverter.GetFirstEmulatorIndex(device.Config);
+            return GenerateDeviceFingerprint(device.Name, device.AdbPath, index);
+        }
+    
+        /// <summary>
+        /// 生成ADB设备的指纹字符串
+        /// </summary>
+        /// <param name="name">设备名称</param>
+        /// <param name="adbPath">ADB路径</param>
+        /// <param name="index">模拟器索引（-1表示无索引）</param>
+        /// <returns>设备指纹字符串</returns>
+        public static string GenerateDeviceFingerprint(string name, string adbPath, int index)
+        {
+            // 规范化AdbPath：只保留文件名部分，忽略路径差异
+            var normalizedAdbPath = adbPath;
+    
+            // 指纹格式：Name|AdbPath|Index
+            return $"{name}|{normalizedAdbPath}|{index}";
+        }
+    
+        /// <summary>
+        /// 比较两个设备是否匹配（基于指纹）
+        /// 当任一方 index 为 -1 时，只比较 Name 和 AdbPath
+        /// </summary>
+        /// <param name="device">当前设备</param>
+        /// <param name="savedDevice">保存的设备</param>
+        /// <returns>是否匹配</returns>
+        public static bool MatchesFingerprint(this MaaFramework.Binding.AdbDeviceInfo device, MaaFramework.Binding.AdbDeviceInfo savedDevice)
+        {
+            var deviceIndex = DeviceDisplayConverter.GetFirstEmulatorIndex(device.Config);
+            var savedIndex = DeviceDisplayConverter.GetFirstEmulatorIndex(savedDevice.Config);
+            
+            // 比较 Name 和 AdbPath
+            bool nameMatches = device.Name == savedDevice.Name;
+            bool adbPathMatches = device.AdbPath == savedDevice.AdbPath;
+            
+            // 如果 Name 或 AdbPath 不匹配，直接返回 false
+            if (!nameMatches || !adbPathMatches)return false;
+            
+            // 如果任一方 index 为 -1，则不比较 index，只要 Name 和 AdbPath 匹配即可
+            if (deviceIndex == -1 || savedIndex == -1)
+                return true;
+            
+            // 两方 index 都有效时，需要 index 也匹配
+            return deviceIndex == savedIndex;
+        }
+    }
