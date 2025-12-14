@@ -60,7 +60,7 @@
         <Grid Grid.Column="0"
               x:Name="cs">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" MaxHeight="150" />
+                <RowDefinition Height="Auto" MaxHeight="240" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <suki:GlassCard Grid.Row="0" Margin="15,15,0,5">
