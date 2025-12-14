@@ -80,7 +80,11 @@ public partial class ConnectSettingsUserControlModel : ViewModelBase
     [
         Win32ScreencapMethod.FramePool, Win32ScreencapMethod.DXGI_DesktopDup, Win32ScreencapMethod.DXGI_DesktopDup_Window, Win32ScreencapMethod.PrintWindow, Win32ScreencapMethod.ScreenDC, Win32ScreencapMethod.GDI
     ];
-    public static ObservableCollection<Win32InputMethod> Win32ControlInputTypes => [Win32InputMethod.SendMessage, Win32InputMethod.Seize, Win32InputMethod.PostMessage, Win32InputMethod.LegacyEvent, Win32InputMethod.PostThreadMessage];
+    public static ObservableCollection<Win32InputMethod> Win32ControlInputTypes =>
+    [
+        Win32InputMethod.SendMessage, Win32InputMethod.Seize, Win32InputMethod.PostMessage, Win32InputMethod.LegacyEvent, Win32InputMethod.PostThreadMessage, Win32InputMethod.SendMessageWithCursorPos,
+        Win32InputMethod.PostMessageWithCursorPos
+    ];
 
     [ObservableProperty] private AdbScreencapMethods _adbControlScreenCapType =
         ConfigurationManager.Current.GetValue(ConfigurationKeys.AdbControlScreenCapType, AdbScreencapMethods.None, [AdbScreencapMethods.All, AdbScreencapMethods.Default], new UniversalEnumConverter<AdbScreencapMethods>());
@@ -89,7 +93,7 @@ public partial class ConnectSettingsUserControlModel : ViewModelBase
     [ObservableProperty] private Win32ScreencapMethod _win32ControlScreenCapType =
         ConfigurationManager.Current.GetValue(ConfigurationKeys.Win32ControlScreenCapType, Win32ScreencapMethod.FramePool, Win32ScreencapMethod.None, new UniversalEnumConverter<Win32ScreencapMethod>());
     [ObservableProperty] private Win32InputMethod _win32ControlMouseType =
-        ConfigurationManager.Current.GetValue(ConfigurationKeys.Win32ControlScreenCapType, Win32InputMethod.SendMessage, Win32InputMethod.None, new UniversalEnumConverter<Win32InputMethod>());
+        ConfigurationManager.Current.GetValue(ConfigurationKeys.Win32ControlMouseType, Win32InputMethod.SendMessage, Win32InputMethod.None, new UniversalEnumConverter<Win32InputMethod>());
     [ObservableProperty] private Win32InputMethod _win32ControlKeyboardType =
         ConfigurationManager.Current.GetValue(ConfigurationKeys.Win32ControlKeyboardType, Win32InputMethod.SendMessage, Win32InputMethod.None, new UniversalEnumConverter<Win32InputMethod>());
 

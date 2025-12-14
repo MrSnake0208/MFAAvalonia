@@ -6,6 +6,7 @@ using MFAAvalonia.Extensions;
 using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper;
 using SukiUI.Dialogs;
+using System;
 using System.Linq;
 
 namespace MFAAvalonia.ViewModels.Windows;
@@ -36,9 +37,11 @@ public partial class RootViewModel : ViewModelBase
             // var minor = version.Minor >= 0 ? version.Minor : 0;
             // var patch = version.Build >= 0 ? version.Build : 0;
             // return $"v{SemVersion.Parse($"{major}.{minor}.{patch}")}";
-            return "v1.8.2"; // Hardcoded version for now, replace with dynamic versioning later
+            return "v2.2.0"; // Hardcoded version for now, replace with dynamic versioning later
         }
     }
+
+    [ObservableProperty] private string? _windowUpdateInfo = "";
 
     [ObservableProperty] private string? _resourceName;
 
@@ -52,7 +55,8 @@ public partial class RootViewModel : ViewModelBase
 
     [ObservableProperty] private bool _lockController;
 
-    [ObservableProperty] private bool _isDebugMode = ConfigurationManager.Maa.GetValue(ConfigurationKeys.Recording, false)
+    [ObservableProperty]
+    private bool _isDebugMode = ConfigurationManager.Maa.GetValue(ConfigurationKeys.Recording, false)
         || ConfigurationManager.Maa.GetValue(ConfigurationKeys.SaveDraw, false)
         || ConfigurationManager.Maa.GetValue(ConfigurationKeys.ShowHitDraw, false);
     private bool _shouldTip = true;
@@ -71,10 +75,10 @@ public partial class RootViewModel : ViewModelBase
             Instances.TaskQueueViewModel.ShouldShow = (int)(MaaProcessor.Interface?.Controller?.FirstOrDefault()?.Type).ToMaaControllerTypes(Instances.TaskQueueViewModel.CurrentController);
         }
     }
-    
+
     public void CheckDebug()
     {
-        if (IsDebugMode && _shouldTip && !MaaProcessor.Instance.IsV2)
+        if (IsDebugMode && _shouldTip && !MaaProcessor.Instance.IsV3)
         {
             DispatcherHelper.PostOnMainThread(() =>
             {
@@ -94,15 +98,38 @@ public partial class RootViewModel : ViewModelBase
         if (value)
             CheckDebug();
     }
-
+    private string _resourceNameKey = "";
+    private string _resourceFallbackKey = "";
+    private string _customTitleKey = "";
+    private string _customTitleFallbackKey = "";
     public void ShowResourceName(string name)
     {
         ResourceName = name;
         IsResourceNameVisible = true;
+
+    }
+
+    public void ShowResourceKeyAndFallBack(string? key, string? fallback)
+    {
+        _resourceNameKey = key ?? string.Empty;
+        _resourceFallbackKey = fallback ?? string.Empty;
+        UpdateName();
+        LanguageHelper.LanguageChanged += (_, __) => UpdateName();
+        IsResourceNameVisible = true;
+    }
+
+    public void UpdateName()
+    {
+        var result = LanguageHelper.GetLocalizedDisplayName(_resourceNameKey, _resourceFallbackKey);
+        if (result.Equals("debug", StringComparison.OrdinalIgnoreCase))
+            IsResourceNameVisible = false;
+        else
+            ResourceName = result;
     }
 
     public void ShowResourceVersion(string version)
     {
+        version = version.StartsWith("v") ? version : "v" + version;
         ResourceVersion = version;
     }
 
@@ -111,6 +138,24 @@ public partial class RootViewModel : ViewModelBase
         CustomTitle = title;
         IsCustomTitleVisible = true;
         IsResourceNameVisible = false;
+    }
+
+    public void ShowCustomTitleAndFallBack(string? key, string? fallback)
+    {
+        _customTitleKey = key ?? string.Empty;
+        _customTitleFallbackKey = fallback ?? string.Empty;
+        UpdateCustomTitle();
+        LanguageHelper.LanguageChanged += (_, __) => UpdateCustomTitle();
+        if (!string.IsNullOrWhiteSpace(CustomTitle))
+        {
+            IsCustomTitleVisible = true;
+            IsResourceNameVisible = false;
+        }
+    }
+
+    public void UpdateCustomTitle()
+    {
+        CustomTitle = LanguageHelper.GetLocalizedDisplayName(_customTitleKey, _customTitleFallbackKey);
     }
 
     [RelayCommand]

@@ -12,15 +12,15 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Nullable>enable</Nullable>
         <LangVersion>preview</LangVersion>
+		<DebugSymbols>False</DebugSymbols>
+		<DebugType>None</DebugType>
     </PropertyGroup>
 
     <PropertyGroup>
         <IsPackable>true</IsPackable>
         <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
         <PackageVersion>6.0.1</PackageVersion>
-        <PackageDescription></PackageDescription>
         <PackageTags>avalonia;avaloniaui;ui;theme;sukiui</PackageTags>
-        <PackageProjectUrl>https://github.com/kikipoulet/SukiUI</PackageProjectUrl>
         <PackageIcon>OIG.N5o-removebg-preview.png</PackageIcon>
     </PropertyGroup>
 
@@ -39,7 +39,7 @@
         <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.1" />
         <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.9" />
         <PackageReference Include="Avalonia.Themes.Simple" Version="11.3.9" />
-        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.0" />
+        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.1" />
         <PackageReference Update="Packaging.Targets">
           <Version>0.1.232</Version>
         </PackageReference>
@@ -48,27 +48,27 @@
     <ItemGroup>
         <AvaloniaResource Include="**\*.xaml"/>
         <AvaloniaResource Include="Content\Images\icons8-file-explorer-new-48.png"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-Bold.ttf"/>
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Bold.ttf"/>-->
 
-        <None Remove="CustomFont\MiSans\MiSansLatin-Demibold.ttf"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-ExtraLight.ttf"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-Heavy.ttf"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-Light.ttf"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-Medium.ttf"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-Normal.ttf"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-Regular.ttf"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-Semibold.ttf"/>
-        <None Remove="CustomFont\MiSans\MiSansLatin-Thin.ttf"/>
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Demibold.ttf"/>-->
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-ExtraLight.ttf"/>-->
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Heavy.ttf"/>-->
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Light.ttf"/>-->
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Medium.ttf"/>-->
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Normal.ttf"/>-->
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Regular.ttf"/>-->
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Semibold.ttf"/>-->
+<!--        <None Remove="CustomFont\MiSans\MiSansLatin-Thin.ttf"/>-->
     </ItemGroup>
 
     <ItemGroup>
         <AvaloniaResource Include="Roboto-Regular.ttf"/>
         <AvaloniaResource Include="Roboto-Medium.ttf"/>
-        <AvaloniaResource Include="CustomFont\Quicksand-Bold.ttf"/>
-        <AvaloniaResource Include="CustomFont\Quicksand-Light.ttf"/>
-        <AvaloniaResource Include="CustomFont\Quicksand-Medium.ttf"/>
-        <AvaloniaResource Include="CustomFont\Quicksand-Regular.ttf"/>
-        <AvaloniaResource Include="CustomFont\Quicksand-SemiBold.ttf"/>
+        <AvaloniaResource Include="CustomFont\AlibabaPuHuiTi-Bold.ttf"/>
+        <AvaloniaResource Include="CustomFont\AlibabaPuHuiTi-Light.ttf"/>
+        <AvaloniaResource Include="CustomFont\AlibabaPuHuiTi-Medium.ttf"/>
+        <AvaloniaResource Include="CustomFont\AlibabaPuHuiTi-Regular.ttf"/>
+        <AvaloniaResource Include="CustomFont\AlibabaPuHuiTi-SemiBold.ttf"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -39,7 +39,7 @@ public static class ConfigurationKeys
     public const string UseDirectML = "UseDirectML";
     public const string GPUOption = "GPUOption";
     public const string GPUs = "GPUs";
-    
+
     #endregion
 
     #region 连接设置
@@ -64,10 +64,11 @@ public static class ConfigurationKeys
     public const string Recording = "recording";
     public const string SaveDraw = "save_draw";
     public const string ShowHitDraw = "show_hit_box";
+    public const string SaveOnError = "save_on_error";
     public const string Prescript = "Prescript";
     public const string Postscript = "Post-script";
     public const string ContinueRunningWhenError = "ContinueRunningWhenError";
-    
+
     #endregion
 
     #region 界面设置
@@ -77,6 +78,7 @@ public static class ConfigurationKeys
     public const string ThemeIndex = "ThemeIndex";
     public const string ShouldMinimizeToTray = "ShouldMinimizeToTray";
     public const string EnableShowIcon = "EnableShowIcon";
+    public const string EnableToastNotification = "EnableToastNotification";
 
     public const string OtherColorTheme = "OtherColorTheme";
     public const string BackgroundStyle = "BackgroundStyle";
@@ -84,6 +86,10 @@ public static class ConfigurationKeys
     public const string BackgroundAnimations = "BackgroundAnimations";
     public const string BackgroundTransitions = "BackgroundTransitions";
     public const string ColorTheme = "ColorTheme";
+    public const string BackgroundImagePath = "BackgroundImagePath";
+    public const string BackgroundImageOpacity = "BackgroundImageOpacity";
+    public const string FontScale = "FontScale";
+    public const string FontFamily = "FontFamily";
 
     #endregion
 
@@ -94,6 +100,7 @@ public static class ConfigurationKeys
     public const string ExternalNotificationDingTalkSecret = "ExternalNotificationDingTalkSecret";
     public const string ExternalNotificationEmailAccount = "ExternalNotificationEmailAccount";
     public const string ExternalNotificationEmailSecret = "ExternalNotificationEmailSecret";
+    public const string ExternalNotificationLarkWebhookUrl = "ExternalNotificationLarkWebhookUrl";
     public const string ExternalNotificationLarkID = "ExternalNotificationLarkID";
     public const string ExternalNotificationLarkToken = "ExternalNotificationLarkToken";
     public const string ExternalNotificationWxPusherToken = "ExternalNotificationWxPusherToken";
@@ -120,7 +127,10 @@ public static class ConfigurationKeys
     public const string ExternalNotificationOneBotKey = "ExternalNotificationOneBotKey";
     public const string ExternalNotificationOneBotUser = "ExternalNotificationOneBotUser";
     public const string ExternalNotificationServerChanKey = "ExternalNotificationServerChanKey";
-    
+    public const string ExternalNotificationCustomWebhookUrl = "ExternalNotificationCustomWebhookUrl";
+    public const string ExternalNotificationCustomWebhookContentType = "ExternalNotificationCustomWebhookContentType";
+    public const string ExternalNotificationCustomWebhookPayloadTemplate = "ExternalNotificationCustomWebhookPayloadTemplate";
+
     #endregion
 
     #region 更新
@@ -133,20 +143,23 @@ public static class ConfigurationKeys
     public const string EnableCheckVersion = "EnableCheckVersion";
     public const string DownloadCDK = "DownloadCDK";
     public const string GitHubToken = "GitHubToken";
-    public const string ProxyAddress  = "ProxyAddress";   
+    public const string ProxyAddress = "ProxyAddress";
     public const string ProxyType = "ProxyType";
     public const string CurrentTasks = "CurrentTasks";
-    
+    public const string ResourceUpdateChannelInitialized = "ResourceUpdateChannelInitialized";
+
     #endregion
 
     #region UI设置
-    
+
     public const string TaskQueueColumn1Width = "UI.TaskQueue.Column1Width";
     public const string TaskQueueColumn2Width = "UI.TaskQueue.Column2Width";
     public const string TaskQueueColumn3Width = "UI.TaskQueue.Column3Width";
     public const string MainWindowWidth = "UI.MainWindow.Width";
     public const string MainWindowHeight = "UI.MainWindow.Height";
-    
+    public const string MainWindowPositionX = "UI.MainWindow.PositionX";
+    public const string MainWindowPositionY = "UI.MainWindow.PositionY";
+    public const string MainWindowMaximized = "UI.MainWindow.Maximized";
+
     #endregion
-    
 }

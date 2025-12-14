@@ -1,42 +1,51 @@
-﻿<UserControl
-    d:DesignHeight="450"
-    d:DesignWidth="800"
-    mc:Ignorable="d"
-    x:Class="MFAAvalonia.Views.Pages.TaskQueueView"
-    x:DataType="pages:TaskQueueViewModel"
-    xmlns="https://github.com/avaloniaui"
-    xmlns:System="clr-namespace:System;assembly=System.Runtime"
-    xmlns:binding="clr-namespace:MaaFramework.Binding;assembly=MaaFramework.Binding"
-    xmlns:calcBinding="clr-namespace:CalcBinding;assembly=CalcBindingAva"
-    xmlns:converters="clr-namespace:MFAAvalonia.Helper.Converters"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:ex="clr-namespace:MFAAvalonia.Extensions"
-    xmlns:fluent="clr-namespace:FluentIcons.Avalonia.Fluent;assembly=FluentIcons.Avalonia.Fluent"
-    xmlns:helper="clr-namespace:MFAAvalonia.Helper"
-    xmlns:maa="clr-namespace:MFAAvalonia.Extensions.MaaFW"
-    xmlns:markup="https://codewf.com"
-    xmlns:controls="clr-namespace:MFAAvalonia.Views.UserControls"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
-    xmlns:pages="clr-namespace:MFAAvalonia.ViewModels.Pages"
-    xmlns:suki="https://github.com/kikipoulet/SukiUI"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:behaviors="using:Avalonia.Xaml.Interactions.Core"
-    xmlns:interaction="using:Avalonia.Xaml.Interactivity"
-    xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight">
+<?xml version="1.0" encoding="UTF-8"?>
+
+<UserControl d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d"
+             x:Class="MFAAvalonia.Views.Pages.TaskQueueView"
+             x:DataType="pages:TaskQueueViewModel"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:System="clr-namespace:System;assembly=System.Runtime"
+             xmlns:binding="clr-namespace:MaaFramework.Binding;assembly=MaaFramework.Binding"
+             xmlns:calcBinding="clr-namespace:CalcBinding;assembly=CalcBindingAva"
+             xmlns:converters="clr-namespace:MFAAvalonia.Helper.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:ex="clr-namespace:MFAAvalonia.Extensions"
+             xmlns:fluent="clr-namespace:FluentIcons.Avalonia.Fluent.Markup;assembly=FluentIcons.Avalonia.Fluent"
+             xmlns:valueType="clr-namespace:MFAAvalonia.Helper.ValueType"
+             xmlns:maa="clr-namespace:MFAAvalonia.Extensions.MaaFW"
+             xmlns:markup="https://codewf.com"
+             xmlns:controls="clr-namespace:MFAAvalonia.Views.UserControls"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
+             xmlns:pages="clr-namespace:MFAAvalonia.ViewModels.Pages"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="using:Avalonia.Xaml.Interactions.Core"
+             xmlns:interaction="using:Avalonia.Xaml.Interactivity"
+             xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight"
+             xmlns:helper="clr-namespace:MFAAvalonia.Helper"
+             xmlns:avalonia1="clr-namespace:FluentIcons.Avalonia;assembly=FluentIcons.Avalonia">
     <Design.DataContext>
         <pages:TaskQueueViewModel />
     </Design.DataContext>
-
     <UserControl.Resources>
         <ContextMenu x:Key="TaskMenu">
-            <MenuItem IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}" Click="Run"
-                      Header="{markup:I18n {x:Static helper:LangKeys.Execute}}" />
-            <MenuItem Click="Delete" Header="{markup:I18n {x:Static helper:LangKeys.Delete}}" />
+            <MenuItem IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                      Click="RunSingleTask"
+                      Header="{markup:I18n {x:Static helper:LangKeys.RunSingle}}" />
+            <MenuItem IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                      Click="RunCheckedFromCurrent"
+                      Header="{markup:I18n {x:Static helper:LangKeys.RunCheckedFromCurrent}}" />
+            <MenuItem Click="Delete"
+                      Header="{markup:I18n {x:Static helper:LangKeys.Delete}}" />
         </ContextMenu>
         <helper:MFALinkCommand x:Key="myLinkCommand" />
     </UserControl.Resources>
-    <Grid ClipToBounds="False" Margin="0,0,0,0" x:Name="MainGrid">
+    <Grid ClipToBounds="False"
+          Margin="0,0,0,0"
+          x:Name="MainGrid">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding Column1Width, Source={x:Static helper:Instances.TaskQueueViewModel}}"
                               MinWidth="200" />
@@ -47,9 +56,9 @@
             <ColumnDefinition Width="{Binding Column3Width, Source={x:Static helper:Instances.TaskQueueViewModel}}"
                               MinWidth="200" />
         </Grid.ColumnDefinitions>
-
         <!-- 左侧列 -->
-        <Grid Grid.Column="0" x:Name="cs">
+        <Grid Grid.Column="0"
+              x:Name="cs">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" MaxHeight="230" />
                 <RowDefinition Height="*" />
@@ -118,66 +127,67 @@
                 </suki:GroupBox>
             </suki:GlassCard>
             <Grid Grid.Row="1">
-                <suki:GlassCard Grid.Column="0" Margin="15,5,0,25">
+                <suki:GlassCard Grid.Column="0"
+                                Margin="15,5,0,25">
                     <suki:GroupBox>
                         <suki:GroupBox.Header>
                             <Grid Grid.Row="0">
-                                <TextBlock
-                                    FontSize="11"
-                                    FontWeight="Bold"
-                                    Foreground="{DynamicResource SukiLowText}"
-                                    HorizontalAlignment="Left"
-                                    Margin="2,0,0,0"
-                                    Text="{markup:I18n {x:Static helper:LangKeys.TaskList}}"
-                                    VerticalAlignment="Center" />
-                                <StackPanel
-                                    HorizontalAlignment="Right"
-                                    Margin="2,0,2,0"
-                                    Orientation="Horizontal"
-                                    VerticalAlignment="Center">
-                                    <Button
-                                        Classes="Basic Round"
-                                        Command="{Binding SelectAllCommand}"
-                                        Height="16"
-                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                        Margin="7,0,0,0"
-                                        Padding="0"
-
-                                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.SelectAll}}"
-                                        Width="16">
-                                        <fluent:FluentIcon
-                                            Icon="SelectAllOn"
-                                            IconSize="Size16"
-                                            IconVariant="Regular" />
+                                <TextBlock FontSize="11"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource SukiLowText}"
+                                           HorizontalAlignment="Left"
+                                           Margin="2,0,0,0"
+                                           Text="{markup:I18n {x:Static helper:LangKeys.TaskList}}"
+                                           VerticalAlignment="Center" />
+                                <StackPanel HorizontalAlignment="Right"
+                                            Margin="2,0,2,0"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <Button Classes="Basic Round" ClipToBounds="False"
+                                            Command="{Binding SelectAllCommand}"
+                                            Height="16"
+                                            IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                            Margin="7,0,0,0"
+                                            Padding="0"
+                                            ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.SelectAll}}"
+                                            Width="16">
+                                        <fluent:FluentIcon Icon="SelectAllOn"
+                                                           IconSize="Size16"
+                                                           IconVariant="Regular" />
+                                    </Button>
+                                    <Button Classes="Basic Round" ClipToBounds="False"
+                                            Command="{Binding SelectNoneCommand}"
+                                            Height="16"
+                                            IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                            Margin="7,0,0,0"
+                                            Padding="0"
+                                            ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.DeselectAll}}"
+                                            Width="16">
+                                        <fluent:FluentIcon Icon="SelectAllOff"
+                                                           IconSize="Size16"
+                                                           IconVariant="Regular" />
+                                    </Button>
+                                    <Button Classes="Basic Round" ClipToBounds="False"
+                                            Command="{Binding AddTaskCommand}"
+                                            Height="16"
+                                            IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                            Margin="7,0,0,0"
+                                            Padding="0"
+                                            ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.AddTask}}">
+                                        <fluent:FluentIcon Icon="AddSquareMultiple"
+                                                           IconSize="Size16"
+                                                           IconVariant="Regular" />
                                     </Button>
                                     <Button
-                                        Classes="Basic Round"
-                                        Command="{Binding SelectNoneCommand}"
-                                        Height="16"
-                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                        Margin="7,0,0,0"
-                                        Padding="0"
-
-                                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.DeselectAll}}"
-                                        Width="16">
-                                        <fluent:FluentIcon
-                                            Icon="SelectAllOff"
-                                            IconSize="Size16"
-                                            IconVariant="Regular" />
-                                    </Button>
-                                    <Button
-                                        Classes="Basic Round"
-                                        Command="{Binding AddTaskCommand}"
-                                        Height="16"
+                                        Command="{Binding ResetTasksCommand}" Classes="Basic Round"
                                         IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
                                         Margin="7,0,8,0"
                                         Padding="0"
-
-                                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.AddTask}}">
-                                        <fluent:FluentIcon
-                                            Icon="AddSquareMultiple"
-                                            IconSize="Size16"
-                                            IconVariant="Regular" />
+                                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Reset}}">
+                                        <avalonia1:FluentIcon Height="18"
+                                                           Icon="ArrowSync"
+                                                           IconSize="Size16"
+                                                           IconVariant="Regular" />
                                     </Button>
                                 </StackPanel>
                             </Grid>
@@ -200,54 +210,67 @@
                                         <StackPanel />
                                     </ItemsPanelTemplate>
                                 </ListBox.ItemsPanel>
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem" x:DataType="valueType:DragItemViewModel">
+                                        <Setter Property="IsVisible" Value="{Binding IsResourceSupported}" />
+                                    </Style>
+                                </ListBox.Styles>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-
-                                        <Grid
-                                            ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.TooltipDragLabel}}"
-                                            Background="Transparent" ex:DragDropExtensions.LimitDragDrop="True"
-                                            ColumnDefinitions="30,1*,Auto" ContextMenu="{StaticResource TaskMenu}"
-                                            x:Name="ListGrid">
+                                        <Grid ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.TooltipDragLabel}}"
+                                              Background="Transparent"
+                                              ex:DragDropExtensions.LimitDragDrop="True"
+                                              ColumnDefinitions="*,Auto"
+                                              ContextMenu="{StaticResource TaskMenu}"
+                                              x:Name="ListGrid">
                                             <CheckBox IsThreeState="True"
-                                                      Grid.Column="0" MinWidth="150"
+                                                      Content="{Binding }"
+                                                      Grid.Column="0"
+                                                      MinWidth="150"
                                                       ex:CheckBoxExtensions.EnableRightClickNull="True"
                                                       HorizontalAlignment="Left"
                                                       ex:CheckBoxExtensions.LimitDragDrop="True"
                                                       IsEnabled="{Binding Idle,Source={x:Static helper:Instances.RootViewModel}}"
-                                                      IsChecked="{Binding IsCheckedWithNull}"
-                                                      Tapped="CheckBox_Tapped" />
-                                            <TextBlock
-                                                Grid.Column="1"
-                                                Text="{Binding Name}"
-                                                TextTrimming="CharacterEllipsis"
-                                                TextWrapping="NoWrap"
-                                                MinWidth="170"
-                                                Margin="3,0,25,0"
-                                                HorizontalAlignment="Left"
-                                                VerticalAlignment="Center"
-                                                Tapped="TextBlock_Tapped" />
-
-                                            <!--  ReSharper disable once Xaml.StaticResourceNotResolved  -->
+                                                      IsChecked="{Binding IsCheckedWithNull}">
+                                                <CheckBox.ContentTemplate>
+                                                    <DataTemplate x:DataType="valueType:DragItemViewModel">
+                                                        <Grid ColumnDefinitions="Auto,*">
+                                                            <controls:DisplayIcon Grid.Column="0"
+                                                                    IconSource="{Binding ResolvedIcon}"
+                                                                    IconSize="20"
+                                                                    IsVisible="{Binding HasIcon}"
+                                                                    Margin="0,0,6,0"
+                                                                    VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       TextWrapping="NoWrap" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </CheckBox.ContentTemplate>
+                                            </CheckBox>
+                                            <!-- ReSharper disable once Xaml.StaticResourceNotResolved -->
                                             <RadioButton Classes="Icon"
-                                                         Background="Transparent" IsHitTestVisible="False"
-                                                         BorderThickness="0" IsChecked="{Binding EnableSetting}"
-                                                         Grid.Column="2"
-                                                         ex:IconElement.Width="16" ex:IconElement.Height="16"
+                                                         Background="Transparent"
+                                                         IsHitTestVisible="False"
+                                                         BorderThickness="0"
+                                                         IsChecked="{Binding EnableSetting}"
+                                                         Grid.Column="1"
+                                                         ex:IconElement.Width="16"
+                                                         ex:IconElement.Height="16"
                                                          ex:IconElement.Geometry="{x:Static suki:Icons.Setting}"
-                                                         GroupName="TaskSettings" IsVisible="{Binding IsVisible}"
-                                                         HorizontalContentAlignment="Center" />
+                                                         GroupName="TaskSettings"
+                                                         IsVisible="{Binding IsVisible}"
+                                                         HorizontalContentAlignment="Right" />
                                         </Grid>
-
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
-
-
                         </Grid>
                     </suki:GroupBox>
-
                 </suki:GlassCard>
-                <StackPanel HorizontalAlignment="Center" Margin="15 0 0  7" Orientation="Horizontal">
+                <StackPanel HorizontalAlignment="Center"
+                            Margin="15 0 0  7"
+                            Orientation="Horizontal">
                     <StackPanel.Resources>
                         <markup:IfConditionConverter x:Key="StatusConditionConverter">
                             <markup:IfConditionConverter.True>
@@ -258,26 +281,25 @@
                             </markup:IfConditionConverter.False>
                         </markup:IfConditionConverter>
                     </StackPanel.Resources>
-                    <Button
-                        Classes="Flat Rounded"
-                        Command="{Binding ToggleCommand}"
-                        Content="{Binding IsRunning, Source={x:Static helper:Instances.RootViewModel}, Converter={StaticResource StatusConditionConverter}}"
-                        FontWeight="DemiBold"
-                        Height="40"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Bottom"
-                        Width="150" />
+                    <Button Classes="Flat Rounded" IsEnabled="{Binding ToggleEnable}"
+                            Command="{Binding ToggleCommand}"
+                            Content="{Binding IsRunning, Source={x:Static helper:Instances.RootViewModel}, Converter={StaticResource StatusConditionConverter}}"
+                            FontWeight="DemiBold"
+                            Height="40"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Bottom"
+                            Width="150" />
                 </StackPanel>
             </Grid>
         </Grid>
-
         <!-- 第一个分隔条 -->
         <GridSplitter Grid.Column="1"
                       Background="Transparent"
                       Margin="0"
                       Width="15"
                       HorizontalAlignment="Stretch"
-                      VerticalAlignment="Stretch" DragCompleted="GridSplitter_DragCompleted"
+                      VerticalAlignment="Stretch"
+                      DragCompleted="GridSplitter_DragCompleted"
                       x:Name="Splitter1">
             <GridSplitter.Template>
                 <ControlTemplate>
@@ -288,9 +310,15 @@
                         <StackPanel VerticalAlignment="Center"
                                     HorizontalAlignment="Center"
                                     Spacing="3">
-                            <Ellipse Width="4" Height="4" Fill="{DynamicResource SukiControlBorderBrush}" />
-                            <Ellipse Width="4" Height="4" Fill="{DynamicResource SukiControlBorderBrush}" />
-                            <Ellipse Width="4" Height="4" Fill="{DynamicResource SukiControlBorderBrush}" />
+                            <Ellipse Width="4"
+                                     Height="4"
+                                     Fill="{DynamicResource SukiControlBorderBrush}" />
+                            <Ellipse Width="4"
+                                     Height="4"
+                                     Fill="{DynamicResource SukiControlBorderBrush}" />
+                            <Ellipse Width="4"
+                                     Height="4"
+                                     Fill="{DynamicResource SukiControlBorderBrush}" />
                         </StackPanel>
                     </Border>
                 </ControlTemplate>
@@ -306,14 +334,16 @@
                 </behaviors:EventTriggerBehavior>
             </interaction:Interaction.Behaviors>
         </GridSplitter>
-
         <!-- 中间列 -->
-        <Grid Grid.Column="2" x:Name="Grid1">
+        <Grid Grid.Column="2"
+              x:Name="Grid1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <suki:GlassCard Grid.Row="0" Margin="0,15,0,5" x:Name="Row1">
+            <suki:GlassCard Grid.Row="0"
+                            Margin="0,15,0,5"
+                            x:Name="Row1">
                 <suki:GlassCard.Resources>
                     <suki:IfConditionConverter x:Key="IfConditionConverter">
                         <suki:IfConditionConverter.True>
@@ -326,7 +356,6 @@
                 </suki:GlassCard.Resources>
                 <suki:GroupBox SeparatorMargin="{Binding ShowSettings,Converter={StaticResource IfConditionConverter}}">
                     <suki:GroupBox.Header>
-
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Left"
                                        FontSize="11"
@@ -336,67 +365,68 @@
                                        Margin="2,0,0,0"
                                        Text="{markup:I18n {x:Static helper:LangKeys.TaskSettings}}"
                                        VerticalAlignment="Top" />
-                            <StackPanel Margin="2 0 0 5" Orientation="Horizontal" HorizontalAlignment="Right"
-                                        DockPanel.Dock="Right" IsVisible="{Binding ShowSettings}"
+                            <StackPanel Margin="2 0 0 5"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Right"
+                                        DockPanel.Dock="Right"
+                                        IsVisible="{Binding ShowSettings}"
                                         Spacing="8">
-                                <RadioButton FontSize="11" FontWeight="Bold" Classes="Inner"
-                                             IsChecked="{Binding IsCommon}" GroupName="SettingA">
-                                    <TextBlock Text="{markup:I18n {x:Static helper:LangKeys.CommonSetting}}"></TextBlock>
+                                <RadioButton FontSize="11"
+                                             FontWeight="Bold"
+                                             Classes="Inner"
+                                             IsChecked="{Binding IsCommon}"
+                                             GroupName="SettingA">
+                                    <TextBlock Text="{markup:I18n {x:Static helper:LangKeys.CommonSetting}}" />
                                 </RadioButton>
-                                <RadioButton FontSize="11" FontWeight="Bold" Classes="Inner" GroupName="SettingA"
+                                <RadioButton FontSize="11"
+                                             FontWeight="Bold"
+                                             Classes="Inner"
+                                             GroupName="SettingA"
                                              IsChecked="{calcBinding:Binding '!IsCommon'}">
-                                    <TextBlock Text="{markup:I18n {x:Static helper:LangKeys.AdvancedSetting}}"></TextBlock>
+                                    <TextBlock Text="{markup:I18n {x:Static helper:LangKeys.AdvancedSetting}}" />
                                 </RadioButton>
                             </StackPanel>
                         </DockPanel>
-
                     </suki:GroupBox.Header>
-                    <ScrollViewer
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Stretch"
+                                  VerticalScrollBarVisibility="Auto">
                         <Grid>
-
                             <StackPanel IsVisible="{calcBinding:Binding 'IsCommon'}"
-                                        x:Name="CommonOptionSettings" Orientation="Vertical">
-                            </StackPanel>
+                                        x:Name="CommonOptionSettings"
+                                        Orientation="Vertical" />
                             <StackPanel IsVisible="{calcBinding:Binding '!IsCommon'}"
-                                        x:Name="AdvancedOptionSettings" Orientation="Vertical">
-                            </StackPanel>
+                                        x:Name="AdvancedOptionSettings"
+                                        Orientation="Vertical" />
                         </Grid>
                     </ScrollViewer>
                 </suki:GroupBox>
             </suki:GlassCard>
-            <suki:GlassCard Grid.Row="1" Margin="0,8,0,25"
+            <suki:GlassCard Grid.Row="1"
+                            Margin="0,8,0,25"
                             MaxHeight="{calcBinding:Binding 'Bounds.Height / 2',RelativeSource={RelativeSource FindAncestor,AncestorType=Grid}}">
                 <suki:GroupBox>
                     <suki:GroupBox.Header>
-                        <TextBlock
-                            FontSize="11"
-                            FontWeight="Bold"
-                            Foreground="{DynamicResource SukiLowText}"
-                            HorizontalAlignment="Left"
-                            Margin="2,0,0,0"
-                            Text="{markup:I18n {x:Static helper:LangKeys.TaskDescription}}"
-                            VerticalAlignment="Center" />
+                        <TextBlock FontSize="11"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource SukiLowText}"
+                                   HorizontalAlignment="Left"
+                                   Margin="2,0,0,0"
+                                   Text="{markup:I18n {x:Static helper:LangKeys.TaskDescription}}"
+                                   VerticalAlignment="Center" />
                     </suki:GroupBox.Header>
-
                     <!-- <avaloniaEdit:TextEditor -->
-                    <!--     FontFamily="Cascadia Code,Consolas,Menlo,Monospace" -->
-                    <!--     IsReadOnly="True" VerticalScrollBarVisibility="Auto" -->
-                    <!--     x:Name="Introduction"> -->
+                    <!-- FontFamily="Cascadia Code,Consolas,Menlo,Monospace" -->
+                    <!-- IsReadOnly="True" VerticalScrollBarVisibility="Auto" -->
+                    <!-- x:Name="Introduction"> -->
                     <!-- </avaloniaEdit:TextEditor> -->
-                    <ScrollViewer
-                        HorizontalScrollBarVisibility="Disabled"
-                        VerticalScrollBarVisibility="Auto"
-                        Padding="2,2,8,2"
-                        Margin="0">
-                        <mdxaml:MarkdownScrollViewer
-                            Focusable="True" x:Name="Introduction"
-                            Margin="10,0,10,0">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <mdxaml:MarkdownScrollViewer Focusable="True"
+                                                     x:Name="Introduction"
+                                                     Margin="10,0,10,0">
                             <mdxaml:MarkdownScrollViewer.Engine>
-                                <avalonia:Markdown
-                                    HyperlinkCommand="{StaticResource myLinkCommand}" />
+                                <ex:MarkdownExtension />
                             </mdxaml:MarkdownScrollViewer.Engine>
                             <mdxaml:MarkdownScrollViewer.Styles>
                                 <StyleInclude Source="avares://MFAAvalonia/Assets/Style/MdXamlDocStyle.axaml" />
@@ -407,13 +437,12 @@
                         </mdxaml:MarkdownScrollViewer>
                     </ScrollViewer>
                 </suki:GroupBox>
-
             </suki:GlassCard>
         </Grid>
-
         <!-- 第二个分隔条 -->
         <GridSplitter Grid.Column="3"
-                      Background="Transparent" DragCompleted="GridSplitter_DragCompleted"
+                      Background="Transparent"
+                      DragCompleted="GridSplitter_DragCompleted"
                       Margin="0"
                       Width="15"
                       HorizontalAlignment="Stretch"
@@ -428,9 +457,15 @@
                         <StackPanel VerticalAlignment="Center"
                                     HorizontalAlignment="Center"
                                     Spacing="3">
-                            <Ellipse Width="4" Height="4" Fill="{DynamicResource SukiControlBorderBrush}" />
-                            <Ellipse Width="4" Height="4" Fill="{DynamicResource SukiControlBorderBrush}" />
-                            <Ellipse Width="4" Height="4" Fill="{DynamicResource SukiControlBorderBrush}" />
+                            <Ellipse Width="4"
+                                     Height="4"
+                                     Fill="{DynamicResource SukiControlBorderBrush}" />
+                            <Ellipse Width="4"
+                                     Height="4"
+                                     Fill="{DynamicResource SukiControlBorderBrush}" />
+                            <Ellipse Width="4"
+                                     Height="4"
+                                     Fill="{DynamicResource SukiControlBorderBrush}" />
                         </StackPanel>
                     </Border>
                 </ControlTemplate>
@@ -446,245 +481,323 @@
                 </behaviors:EventTriggerBehavior>
             </interaction:Interaction.Behaviors>
         </GridSplitter>
-
         <!-- 右侧列 -->
         <Grid Grid.Column="4">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <suki:GlassCard Grid.Row="0" Margin="0,15,15,8">
+            <suki:GlassCard Grid.Row="0"
+                            Margin="0,15,15,8">
                 <suki:GroupBox>
                     <suki:GroupBox.Header>
                         <Grid>
-                            <TextBlock
-                                FontSize="11"
-                                FontWeight="Bold"
-                                Foreground="{DynamicResource SukiLowText}"
-                                HorizontalAlignment="Left"
-                                Margin="2,0,0,0"
-                                Text="{markup:I18n {x:Static helper:LangKeys.Connection}}"
-                                VerticalAlignment="Center" />
-
-                            <StackPanel
-                                HorizontalAlignment="Right"
-                                Orientation="Horizontal"
-                                VerticalAlignment="Center">
+                            <TextBlock FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource SukiLowText}"
+                                       HorizontalAlignment="Left"
+                                       Margin="2,0,0,0"
+                                       Text="{markup:I18n {x:Static helper:LangKeys.Connection}}"
+                                       VerticalAlignment="Center" />
+                            <StackPanel HorizontalAlignment="Right"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
                                 <StackPanel.Resources>
                                     <markup:IfConditionConverter x:Key="ConnectedConditionConverter">
                                         <markup:IfConditionConverter.True>
-                                            <Path
-                                                Data="{StaticResource ConnectedGeometry}"
-                                                Fill="LimeGreen"
-                                                Height="11"
-                                                Margin="3,2,4,0"
-                                                Stretch="Uniform"
-
-                                                ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Connected}}" />
+                                            <Path Data="{StaticResource ConnectedGeometry}"
+                                                  Fill="LimeGreen"
+                                                  Height="11"
+                                                  Margin="3,2,4,0"
+                                                  Stretch="Uniform"
+                                                  ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Connected}}" />
                                         </markup:IfConditionConverter.True>
                                         <markup:IfConditionConverter.False>
-                                            <Path
-                                                Data="{StaticResource UnconnectedGeometry}"
-                                                Fill="Red"
-                                                Height="16"
-                                                Margin="3,3,4,0"
-                                                Stretch="Uniform"
-
-                                                ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Unconnected}}"
-                                                VerticalAlignment="Center" />
+                                            <Path Data="{StaticResource UnconnectedGeometry}"
+                                                  Fill="Red"
+                                                  Height="16"
+                                                  Margin="3,3,4,0"
+                                                  Stretch="Uniform"
+                                                  ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Unconnected}}"
+                                                  VerticalAlignment="Center" />
                                         </markup:IfConditionConverter.False>
                                     </markup:IfConditionConverter>
                                 </StackPanel.Resources>
-                                <Button
-                                    Classes="Basic Round"
-                                    Command="{Binding CustomAdbCommand}"
-                                    Height="16"
-                                    IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                    IsVisible="{calcBinding:Binding 'CurrentController == maa:MaaControllerTypes.Adb'}"
-                                    Margin="3,0,2,0"
-                                    Padding="0"
-
-                                    ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Custom}}">
-                                    <fluent:FluentIcon
-                                        Height="18"
-                                        Icon="DesktopEdit"
-                                        IconSize="Size16"
-                                        IconVariant="Regular" />
+                                <Button Classes="Basic Round" ClipToBounds="False"
+                                        Command="{Binding CustomAdbCommand}"
+                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                        IsVisible="{calcBinding:Binding 'CurrentController == maa:MaaControllerTypes.Adb'}"
+                                        Margin="3,0,2,0"
+                                        Padding="0"
+                                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Custom}}">
+                                    <avalonia1:FluentIcon Height="18"
+                                                       Icon="DesktopEdit"
+                                                       IconSize="Size16"
+                                                       IconVariant="Regular" />
                                 </Button>
-                                <Button
-                                    Classes="Basic Round"
-                                    Command="{Binding RefreshCommand}"
-                                    Height="17"
-                                    IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                    Margin="3,0,3,0"
-                                    Padding="0"
-
-                                    ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.TooltipRefresh}}"
-                                    VerticalAlignment="Center">
-
-                                    <fluent:FluentIcon
-                                        Height="18"
-                                        Icon="ArrowSync"
-                                        IconSize="Size16"
-                                        IconVariant="Regular" />
+                                <Button Classes="Basic Round" ClipToBounds="False"
+                                        Command="{Binding RefreshCommand}"
+                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                        Margin="3,0,3,0"
+                                        Padding="0"
+                                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.TooltipRefresh}}"
+                                        VerticalAlignment="Center">
+                                    <avalonia1:FluentIcon Height="18"
+                                                          Icon="ArrowSync"
+                                                          IconSize="Size16"
+                                                          IconVariant="Regular" />
                                 </Button>
-
                                 <ContentControl
                                     Content="{Binding IsConnected, Converter={StaticResource ConnectedConditionConverter}, Source={x:Static helper:Instances.TaskQueueViewModel}}" />
                             </StackPanel>
                         </Grid>
                     </suki:GroupBox.Header>
-                    <Grid x:Name="connectionGrid" HorizontalAlignment="Stretch">
-                        <RadioButton
-                            Classes="GigaChips"
-                            Content="{markup:I18n {x:Static helper:LangKeys.TabADB}}"
-                            FontSize="12"
-                            GroupName="Controller"
-                            IsChecked="{Binding CurrentController, Converter={converters:UniversalEqualityConverter}, ConverterParameter={x:Static maa:MaaControllerTypes.Adb}, Mode=TwoWay}"
-                            IsVisible="{calcBinding:Binding 'ShouldShow != 1'}"
-                            IsEnabled="{calcBinding:Binding '!LockController and Idle',
-                                                                Source={x:Static helper:Instances.RootViewModel}}"
-                            MinWidth="120"
-                            x:Name="FirstButton" />
-                        <RadioButton
-                            Classes="GigaChips"
-                            Content="{markup:I18n {x:Static helper:LangKeys.TabWin32}}"
-                            FontSize="12"
-                            GroupName="Controller"
-                            IsChecked="{Binding CurrentController, Converter={converters:UniversalEqualityConverter}, ConverterParameter={x:Static maa:MaaControllerTypes.Win32}, Mode=TwoWay}"
-                            IsVisible="{calcBinding:Binding 'ShouldShow != 2'}"
-                            IsEnabled="{calcBinding:Binding '!LockController and Idle',
-                                                                Source={x:Static helper:Instances.RootViewModel}}"
-                            MinWidth="120"
-                            x:Name="SecondButton" />
-
-                        <DockPanel x:Name="ControllerPanel"
-                                   HorizontalAlignment="Stretch"
-                                   LastChildFill="True"
-                                   Margin="5,0"
-                                   MinWidth="200">
-                            <TextBlock
-                                FontSize="12"
-                                Foreground="{DynamicResource SukiLowText}"
-                                Text="{markup:I18n {x:Static helper:LangKeys.CurrentController}}"
-                                VerticalAlignment="Center" />
-                            <ComboBox ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True" Classes="LimitWidth"
+                    <Grid x:Name="ConnectionGrid"
+                          HorizontalAlignment="Stretch">
+                        <!-- 控制器类型选择 -->
+                        <RadioButton x:Name="AdbRadioButton"
+                                     Classes="GigaChips"
+                                     FontSize="12"
+                                     GroupName="Controller"
+                                     IsChecked="{Binding CurrentController, Converter={converters:UniversalEqualityConverter}, ConverterParameter={x:Static maa:MaaControllerTypes.Adb}, Mode=TwoWay}"
+                                     IsVisible="{calcBinding:Binding 'ShouldShow != 1'}"
+                                     IsEnabled="{calcBinding:Binding '!LockController and Idle',
+                        &#xA;                                                                                    Source={x:Static helper:Instances.RootViewModel}}"
+                                     Margin="0,0,8,0"
+                                     MinWidth="110">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <controls:DisplayIcon IconSource="{Binding AdbIcon}"
+                                                      IconSize="24"
+                                                      IsVisible="{Binding HasAdbIcon}"
+                                                      VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Adb}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="Win32RadioButton"
+                                     Classes="GigaChips"
+                                     FontSize="12"
+                                     GroupName="Controller"
+                                     IsChecked="{Binding CurrentController, Converter={converters:UniversalEqualityConverter}, ConverterParameter={x:Static maa:MaaControllerTypes.Win32}, Mode=TwoWay}"
+                                     IsVisible="{calcBinding:Binding 'ShouldShow != 2'}"
+                                     IsEnabled="{calcBinding:Binding '!LockController and Idle',
+                        &#xA;                                                                                    Source={x:Static helper:Instances.RootViewModel}}"
+                                     Margin="0,0,8,0"
+                                     MinWidth="110">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <controls:DisplayIcon IconSource="{Binding Win32Icon}"
+                                                      IconSize="24"
+                                                      IsVisible="{Binding HasWin32Icon}"
+                                                      VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Win32}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+                        <!-- 设备选择器 -->
+                        <Grid x:Name="DeviceSelectorPanel"
+                              HorizontalAlignment="Stretch"
+                              MinWidth="300">
+                            <TextBlock x:Name="DeviceSelectorLabel"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SukiLowText}"
+                                       Text="{markup:I18n {x:Static helper:LangKeys.CurrentController}}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,2,8,0" />
+                            <ComboBox x:Name="DeviceComboBox"
+                                      ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
+                                      Classes="LimitWidth"
                                       IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
                                       ItemsSource="{Binding Devices}"
-                                      Margin="5,0,0,5"
+                                      MinWidth="100"
+                                      HorizontalAlignment="Stretch"
                                       SelectedValue="{Binding CurrentDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                <ToolTip.Tip>
+                                    <TextBlock
+                                        Text="{Binding CurrentDevice, Converter={converters:DeviceDisplayConverter}}" />
+                                </ToolTip.Tip>
                                 <ComboBox.DataTemplates>
                                     <DataTemplate DataType="binding:AdbDeviceInfo">
                                         <TextBlock HorizontalAlignment="Left"
                                                    Text="{Binding Converter={converters:DeviceDisplayConverter}}" />
                                     </DataTemplate>
-
                                     <DataTemplate DataType="binding:DesktopWindowInfo">
-                                        <TextBlock HorizontalAlignment="Left" Text="{Binding Name}" />
+                                        <TextBlock HorizontalAlignment="Left"
+                                                   Text="{Binding Name}" />
                                     </DataTemplate>
                                 </ComboBox.DataTemplates>
                             </ComboBox>
-                        </DockPanel>
+                        </Grid>
                     </Grid>
-
                 </suki:GroupBox>
             </suki:GlassCard>
-            <suki:GlassCard Grid.Row="1" Margin="0,8,15,25">
+            <suki:GlassCard Grid.Row="1"
+                            Margin="0,8,15,25">
                 <suki:GroupBox>
                     <suki:GroupBox.Header>
                         <Grid>
-
-                            <TextBlock
-                                FontSize="11"
-                                FontWeight="Bold"
-                                Foreground="{DynamicResource SukiLowText}"
-                                HorizontalAlignment="Left"
-                                Margin="2,0,0,0"
-                                Text="{markup:I18n {x:Static helper:LangKeys.LogRecord}}"
-                                VerticalAlignment="Center" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button
-                                    Classes="Basic Round"
-                                    Command="{Binding ExportCommand}"
-                                    Height="17"
-                                    IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                    Margin="3,0,3,0"
-                                    Padding="0"
-
-                                    ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.ExportLog}}"
-                                    VerticalAlignment="Center">
-
-                                    <fluent:FluentIcon
-                                        Height="18"
-                                        Icon="ArrowExport"
-                                        IconSize="Size16"
-                                        IconVariant="Regular" />
+                            <TextBlock FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource SukiLowText}"
+                                       HorizontalAlignment="Left"
+                                       Margin="2,0,0,0"
+                                       Text="{markup:I18n {x:Static helper:LangKeys.LogRecord}}"
+                                       VerticalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal"
+                                        ClipToBounds="False"
+                                        HorizontalAlignment="Right">
+                                <Button Classes="Basic Round"
+                                        Command="{Binding ExportCommand}"
+                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                        Padding="0" Margin="3,-3,3,0"
+                                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.ExportLog}}"
+                                        VerticalAlignment="Center">
+                                    <avalonia1:FluentIcon Height="20"
+                                                          Icon="FolderArrowRight"
+                                                          IconSize="Size16" VerticalAlignment="Center"
+                                                          IconVariant="Regular" />
                                 </Button>
-                                <Button
-                                    Classes="Basic Round"
-                                    Command="{Binding ClearCommand}"
-                                    Height="17"
-                                    IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                    Margin="3,0,3,0"
-                                    Padding="0"
 
-                                    ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.ButtonClear}}"
-                                    VerticalAlignment="Center">
-
+                                <Button Classes="Basic Round"
+                                        Command="{Binding ClearCommand}"
+                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                        Margin="3,0,3,0"
+                                        Padding="0"
+                                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.ButtonClear}}"
+                                        VerticalAlignment="Center">
                                     <fluent:FluentIcon
-                                        Height="18"
                                         Icon="ArrowSync"
                                         IconSize="Size16"
                                         IconVariant="Regular" />
                                 </Button>
                             </StackPanel>
                         </Grid>
-
                     </suki:GroupBox.Header>
-                    <ScrollViewer
-                        BorderBrush="LightGray"
-                        BorderThickness="1"
-                        ClipToBounds="False"
-                        Margin="15,8,10,5"
-                        VerticalAlignment="Top"
-                        VerticalContentAlignment="Top"
-                        ex:ScrollViewerExtensions.AutoScroll="True"
-                        ex:ScrollViewerExtensions.PanningMode="VerticalOnly">
+                    <ScrollViewer BorderBrush="LightGray"
+                                  BorderThickness="1"
+                                  ClipToBounds="False"
+                                  Margin="15,8,10,5"
+                                  VerticalAlignment="Top"
+                                  VerticalContentAlignment="Top"
+                                  ex:ScrollViewerExtensions.AutoScroll="True"
+                                  ex:ScrollViewerExtensions.PanningMode="VerticalOnly">
                         <ItemsControl ItemsSource="{Binding Path=LogItemViewModels}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid>
+                                    <Grid Name="ParentGrid">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock
-                                            FontSize="12"
-                                            Foreground="{DynamicResource SukiDisabledText}"
-                                            Grid.Column="0"
-                                            HorizontalAlignment="Left"
-                                            Margin="0,5,2,0"
-                                            MinWidth="55"
-                                            Text="{Binding Time}"
-                                            TextWrapping="Wrap"
-                                            VerticalAlignment="Stretch" />
-                                        <TextBlock
-                                            FontSize="12"
-                                            FontWeight="{Binding Weight}"
-                                            Foreground="{Binding Color}"
-                                            Grid.Column="1"
-                                            HorizontalAlignment="Stretch"
-                                            Margin="0,5" TextWrapping="WrapWithOverflow"
-                                            Text="{Binding Content}"
-                                            VerticalAlignment="Stretch" />
+                                        <TextBlock FontSize="12"
+                                                   Name="FirstCol"
+                                                   Foreground="{DynamicResource SukiDisabledText}"
+                                                   Grid.Column="0"
+                                                   HorizontalAlignment="Left"
+                                                   Margin="0,5,2,0"
+                                                   MinWidth="55"
+                                                   Text="{Binding Time}"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Stretch" />
+                                        <TextBlock FontSize="12"
+                                                   FontWeight="{Binding Weight}"
+                                                   Foreground="{Binding Color}"
+                                                   Background="{Binding  BackgroundColor}"
+                                                   Grid.Column="1"
+                                                   HorizontalAlignment="Stretch"
+                                                   Margin="0,5"
+                                                   TextWrapping="WrapWithOverflow"
+                                                   Text="{Binding Content}"
+                                                   VerticalAlignment="Stretch">
+                                            <TextBlock.MaxWidth>
+                                                <MultiBinding Converter="{converters:MaxWidthConverter}">
+                                                    <Binding ElementName="ParentGrid"
+                                                             Path="Bounds.Width" />
+                                                    <Binding ElementName="FirstCol"
+                                                             Path="Bounds.Width" />
+                                                </MultiBinding>
+                                            </TextBlock.MaxWidth>
+                                        </TextBlock>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+                    <!-- 使用虚拟化的 ListBox 替代 ItemsControl，大幅减少内存占用 -->
+                    <!-- <ListBox ItemsSource="{Binding Path=LogItemViewModels}" -->
+                    <!--          BorderBrush="Transparent" -->
+                    <!--          BorderThickness="0" -->
+                    <!--          Background="Transparent" -->
+                    <!--          Margin="15,8,10,5" -->
+                    <!--           -->
+                    <!--          ex:ScrollViewerExtensions.AutoScroll="True" -->
+                    <!--          ex:ScrollViewerExtensions.PanningMode="VerticalOnly" -->
+                    <!--          SelectionMode="Single"   -->
+                    <!--          x:Name="LogListBox" -->
+                    <!--          IsHitTestVisible="True"> -->
+                    <!--     <ListBox.Styles> -->
+                    <!--         <Style Selector="ListBoxItem"> -->
+                    <!--             <Setter Property="Padding" Value="0" /> -->
+                    <!--             <Setter Property="Margin" Value="0" /> -->
+                    <!--             <Setter Property="MinHeight" Value="0" /> -->
+                    <!--             <Setter Property="Background" Value="Transparent" /> -->
+                    <!--         </Style> -->
+                    <!--         <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter"> -->
+                    <!--             <Setter Property="Background" Value="Transparent" /> -->
+                    <!--         </Style> -->
+                    <!--         <Style Selector="ListBoxItem:selected /template/ ContentPresenter"> -->
+                    <!--             <Setter Property="Background" Value="Transparent" /> -->
+                    <!--         </Style> -->
+                    <!--     </ListBox.Styles> -->
+                    <!--     <ListBox.ItemsPanel> -->
+                    <!--         <ItemsPanelTemplate> -->
+                    <!--             <VirtualizingStackPanel /> -->
+                    <!--         </ItemsPanelTemplate> -->
+                    <!--     </ListBox.ItemsPanel> -->
+                    <!--     <ListBox.ItemTemplate> -->
+                    <!--         <DataTemplate> -->
+                    <!--             <Grid Name="ParentGrid"> -->
+                    <!--                 <Grid.ColumnDefinitions> -->
+                    <!--                     <ColumnDefinition Width="Auto" /> -->
+                    <!--                     <ColumnDefinition Width="Auto" /> -->
+                    <!--                 </Grid.ColumnDefinitions> -->
+                    <!--                 <TextBlock FontSize="12" -->
+                    <!--                            Name="FirstCol" -->
+                    <!--                            Foreground="{DynamicResource SukiDisabledText}" -->
+                    <!--                            Grid.Column="0" -->
+                    <!--                            HorizontalAlignment="Left" -->
+                    <!--                            Margin="0,5,2,0" -->
+                    <!--                            MinWidth="55" -->
+                    <!--                            Text="{Binding Time}" -->
+                    <!--                            TextWrapping="Wrap" -->
+                    <!--                            VerticalAlignment="Stretch" /> -->
+                    <!--                 <TextBlock FontSize="12" -->
+                    <!--                            FontWeight="{Binding Weight}" -->
+                    <!--                            Foreground="{Binding Color}" -->
+                    <!--                            Background="{Binding  BackgroundColor}" -->
+                    <!--                            Grid.Column="1" -->
+                    <!--                            HorizontalAlignment="Stretch" -->
+                    <!--                            Margin="0,5" -->
+                    <!--                            TextWrapping="WrapWithOverflow" -->
+                    <!--                            Text="{Binding Content}" -->
+                    <!--                            VerticalAlignment="Stretch"> -->
+                    <!--                     <TextBlock.MaxWidth> -->
+                    <!--                         <MultiBinding Converter="{converters:MaxWidthConverter}"> -->
+                    <!--                             <Binding ElementName="ParentGrid" -->
+                    <!--                                      Path="Bounds.Width" /> -->
+                    <!--                             <Binding ElementName="FirstCol" -->
+                    <!--                                      Path="Bounds.Width" /> -->
+                    <!--                         </MultiBinding> -->
+                    <!--                     </TextBlock.MaxWidth> -->
+                    <!--                 </TextBlock> -->
+                    <!--             </Grid> -->
+                    <!--         </DataTemplate> -->
+                    <!--     </ListBox.ItemTemplate> -->
+                    <!-- </ListBox> -->
                 </suki:GroupBox>
             </suki:GlassCard>
         </Grid>
-
     </Grid>
 </UserControl>

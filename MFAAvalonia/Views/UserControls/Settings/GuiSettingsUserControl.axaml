@@ -16,10 +16,12 @@
     xmlns:other="clr-namespace:MFAAvalonia.ViewModels.Other"
     xmlns:settings="clr-namespace:MFAAvalonia.ViewModels.UsersControls.Settings"
     xmlns:suki="https://github.com/kikipoulet/SukiUI"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:fluent="clr-namespace:FluentIcons.Avalonia.Fluent.Markup;assembly=FluentIcons.Avalonia.Fluent"
+    xmlns:avalonia="clr-namespace:FluentIcons.Avalonia;assembly=FluentIcons.Avalonia">
     <UserControl.Resources>
         <ContextMenu x:Key="ThemeColorContextMenu">
-            <MenuItem  Click="Delete"
+            <MenuItem Click="Delete"
                       Header="{markup:I18n {x:Static helper:LangKeys.Delete}}" />
         </ContextMenu>
     </UserControl.Resources>
@@ -181,6 +183,61 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>
+                <!-- Background Image Settings -->
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+                        <Button
+                            Command="{Binding ClearBackgroundImageCommand}" Classes="Basic Round"
+                            IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                            Margin="7,0,8,0"
+                            Padding="0"
+                            ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.ButtonClear}}">
+                            <avalonia:FluentIcon Height="18"
+                                                 Icon="ArrowSync"
+                                                 IconSize="Size16"
+                                                 IconVariant="Regular" />
+                        </Button>
+                        <Button
+                            Command="{Binding SelectBackgroundImageCommand}"
+                            Content="{markup:I18n {x:Static helper:LangKeys.Select}}"
+                            Height="40"
+                            Width="215" />
+                    </StackPanel>
+                    <StackPanel HorizontalAlignment="Left">
+                        <TextBlock
+                            FontSize="16"
+                            FontWeight="DemiBold"
+                            Text="{markup:I18n {x:Static helper:LangKeys.BackgroundImageTitle}}" />
+                        <TextBlock
+                            Foreground="{DynamicResource SukiLowText}"
+                            Margin="0,12,70,0"
+                            Text="{markup:I18n {x:Static helper:LangKeys.BackgroundImageDescription}}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- Background Image Opacity -->
+                <DockPanel IsVisible="{Binding HasBackgroundImage}">
+                    <Slider
+                        DockPanel.Dock="Right"
+                        Width="215"
+                        Minimum="0"
+                        Maximum="1"
+                        Value="{Binding BackgroundImageOpacity}"
+                        TickFrequency="0.1"
+                        IsSnapToTickEnabled="False" />
+                    <StackPanel HorizontalAlignment="Left">
+                        <TextBlock
+                            FontSize="16"
+                            FontWeight="DemiBold"
+                            Text="{markup:I18n {x:Static helper:LangKeys.BackgroundImageOpacityTitle}}" />
+                        <TextBlock
+                            Foreground="{DynamicResource SukiLowText}"
+                            Margin="0,12,70,0"
+                            Text="{markup:I18n {x:Static helper:LangKeys.BackgroundImageOpacityDescription}}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
             </StackPanel>
         </suki:GlassCard>
         <suki:GlassCard Margin="0,25,0,0" Padding="25">
@@ -205,6 +262,38 @@
                 </StackPanel>
             </DockPanel>
         </suki:GlassCard>
+        <!-- Font Scale Settings -->
+        <suki:GlassCard Margin="0,25,0,0" Padding="25">
+            <StackPanel Spacing="10">
+                <DockPanel>
+                    <TextBlock
+                        DockPanel.Dock="Right"
+                        Text="{Binding FontScaleDisplay}"
+                        VerticalAlignment="Center"
+                        Width="60"
+                        TextAlignment="Center"
+                        FontWeight="DemiBold" />
+                    <StackPanel HorizontalAlignment="Left">
+                        <TextBlock
+                            FontSize="16"
+                            FontWeight="DemiBold"
+                            Text="{markup:I18n {x:Static helper:LangKeys.FontScaleTitle}}" />
+                        <TextBlock
+                            Foreground="{DynamicResource SukiLowText}"
+                            Margin="0,12,70,0"
+                            Text="{markup:I18n {x:Static helper:LangKeys.FontScaleDescription}}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+                <Slider
+                    Minimum="0.8"
+                    Maximum="1.5"
+                    Value="{Binding FontScale}"
+                    TickFrequency="0.1"
+                    IsSnapToTickEnabled="True"
+                    TickPlacement="BottomRight" />
+            </StackPanel>
+        </suki:GlassCard>
         <suki:GlassCard Margin="0,25,0,0" Padding="25">
             <DockPanel>
                 <ToggleSwitch
@@ -212,13 +301,40 @@
                     DockPanel.Dock="Right"
                     IsChecked="{Binding ShouldMinimizeToTray}"
                     VerticalAlignment="Top" />
-                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
+                <StackPanel HorizontalAlignment="Left">
                     <TextBlock
                         FontSize="16"
                         FontWeight="SemiBold"
                         Text="{markup:I18n {x:Static helper:LangKeys.MinimizeToTray}}" />
+                    <TextBlock
+                        Foreground="{DynamicResource SukiLowText}"
+                        Margin="0,12,70,0"
+                        Text="{markup:I18n {x:Static helper:LangKeys.MinimizeToTrayDescription}}"
+                        TextWrapping="Wrap" />
                 </StackPanel>
             </DockPanel>
         </suki:GlassCard>
+        <suki:GlassCard Margin="0,25,0,0" Padding="25">
+            <DockPanel>
+                <ToggleSwitch
+                    Classes="Switch"
+                    DockPanel.Dock="Right"
+                    IsChecked="{Binding EnableToastNotification}"
+                    VerticalAlignment="Top" />
+                <StackPanel HorizontalAlignment="Left">
+                    <TextBlock
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="{markup:I18n {x:Static helper:LangKeys.Notification}}" />
+                    <TextBlock
+                        Foreground="{DynamicResource SukiLowText}"
+                        Margin="0,12,70,0"
+                        Text="{markup:I18n {x:Static helper:LangKeys.NotificationDescription}}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </DockPanel>
+        </suki:GlassCard>
+
     </StackPanel>
+
 </UserControl>

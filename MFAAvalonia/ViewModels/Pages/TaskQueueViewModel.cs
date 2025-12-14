@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,17 +12,14 @@ using MFAAvalonia.Helper.ValueType;
 using MFAAvalonia.ViewModels.Other;
 using MFAAvalonia.ViewModels.UsersControls;
 using MFAAvalonia.ViewModels.UsersControls.Settings;
-using MFAAvalonia.Views.Windows;
-using SukiUI;
+using Newtonsoft.Json;
 using SukiUI.Dialogs;
-using SukiUI.Enums;
-using SukiUI.Toasts;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Text.Json;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,8 +28,94 @@ namespace MFAAvalonia.ViewModels.Pages;
 
 public partial class TaskQueueViewModel : ViewModelBase
 {
+    private string adbKey = LangKeys.TabADB;
+    private string win32Key = LangKeys.TabWin32;
+    private string adbFallback = "";
+    private string win32Fallback = "";
+    private string? adbIconKey = null;
+    private string? win32IconKey = null;
+
+    private void UpdateControllerName()
+    {
+        Adb = adbKey == LangKeys.TabADB ? adbKey.ToLocalization() : LanguageHelper.GetLocalizedDisplayName(adbKey, adbFallback);
+        Win32 = win32Key == LangKeys.TabWin32 ? win32Key.ToLocalization() : LanguageHelper.GetLocalizedDisplayName(win32Key, win32Fallback);
+        UpdateControllerIcon();
+    }
+
+    private void UpdateControllerIcon()
+    {
+        // 处理 Adb 图标
+        if (!string.IsNullOrWhiteSpace(adbIconKey))
+        {
+            var iconValue = LanguageHelper.GetLocalizedString(adbIconKey);
+            AdbIcon = MaaInterface.ReplacePlaceholder(iconValue, MaaProcessor.ResourceBase, true);
+            HasAdbIcon = !string.IsNullOrWhiteSpace(AdbIcon);
+        }
+        else
+        {
+            AdbIcon = null;
+            HasAdbIcon = false;
+        }
+
+        // 处理 Win32 图标
+        if (!string.IsNullOrWhiteSpace(win32IconKey))
+        {
+            var iconValue = LanguageHelper.GetLocalizedString(win32IconKey);
+            Win32Icon = MaaInterface.ReplacePlaceholder(iconValue, MaaProcessor.ResourceBase, true);
+            HasWin32Icon = !string.IsNullOrWhiteSpace(Win32Icon);
+        }
+        else
+        {
+            Win32Icon = null;
+            HasWin32Icon = false;
+        }
+    }
+
+    public void InitializeControllerName()
+    {
+        try
+        {
+            var adb = MaaProcessor.Interface?.Controller?.Find(c => c.Type != null && c.Type.Equals(MaaControllerTypes.Adb.ToJsonKey(), StringComparison.OrdinalIgnoreCase));
+            var win32 = MaaProcessor.Interface?.Controller?.Find(c => c.Type != null && c.Type.Equals(MaaControllerTypes.Win32.ToJsonKey(), StringComparison.OrdinalIgnoreCase));
+
+            if (adb is { Label: not null } or { Name: not null })
+            {
+                adbKey = adb.Label ?? string.Empty;
+                adbFallback = adb.Name ?? string.Empty;
+            }
+            if (win32 is { Label: not null } or { Name: not null })
+            {
+                win32Key = win32.Label ?? string.Empty;
+                win32Fallback = win32.Name ?? string.Empty;
+            }
+
+            // 获取图标
+            adbIconKey = adb?.Icon;
+            win32IconKey = win32?.Icon;
+
+            LanguageHelper.LanguageChanged += (_, _) =>
+            {
+                UpdateControllerName();
+            };
+            UpdateControllerName();
+        }
+        catch (Exception e)
+        {
+            LoggerHelper.Error(e);
+        }
+    }
+
+
     protected override void Initialize()
     {
+        try
+        {
+            UpdateControllerName();
+        }
+        catch (Exception e)
+        {
+            LoggerHelper.Error(e);
+        }
         try
         {
             var col1Str = ConfigurationManager.Current.GetValue(ConfigurationKeys.TaskQueueColumn1Width, DefaultColumn1Width);
@@ -86,7 +168,7 @@ public partial class TaskQueueViewModel : ViewModelBase
 
     [ObservableProperty] private bool _isCommon = true;
     [ObservableProperty] private bool _showSettings;
-
+    [ObservableProperty] private bool _toggleEnable = true;
 
     [ObservableProperty] private ObservableCollection<DragItemViewModel> _taskItemViewModels = [];
 
@@ -140,11 +222,60 @@ public partial class TaskQueueViewModel : ViewModelBase
         Instances.DialogManager.CreateDialog().WithTitle(LangKeys.AdbEditor.ToLocalization()).WithViewModel(dialog => new AddTaskDialogViewModel(dialog, MaaProcessor.Instance.TasksSource)).TryShow();
     }
 
+    [RelayCommand]
+    private void ResetTasks()
+    {
+        // 清空当前任务列表
+        TaskItemViewModels.Clear();
+
+        // 从 TasksSource 重新填充任务（TasksSource 包含 interface 中定义的原始任务）
+        foreach (var item in MaaProcessor.Instance.TasksSource)
+        {
+            // 克隆任务以避免引用问题
+            TaskItemViewModels.Add(item.Clone());
+        }
+
+        // 更新任务的资源支持状态
+        UpdateTasksForResource(CurrentResource);
+
+        // 保存配置
+        ConfigurationManager.Current.SetValue(ConfigurationKeys.TaskItems, TaskItemViewModels.ToList().Select(model => model.InterfaceItem));
+    }
+
     #endregion
 
     #region 日志
 
-    public ObservableCollection<LogItemViewModel> LogItemViewModels { get; } = new();
+    /// <summary>
+    /// 日志最大数量限制，超出后自动清理旧日志
+    /// </summary>
+    private const int MaxLogCount = 50;
+
+    /// <summary>
+    /// 每次清理时移除的日志数量
+    /// </summary>
+    private const int LogCleanupBatchSize = 30;
+
+    /// <summary>
+    /// 使用 DisposableObservableCollection 自动管理 LogItemViewModel 的生命周期
+    /// 当元素被移除或集合被清空时，会自动调用 Dispose() 释放事件订阅
+    /// </summary>
+    public DisposableObservableCollection<LogItemViewModel> LogItemViewModels { get; } = new();
+
+    /// <summary>
+    /// 清理超出限制的旧日志，防止内存泄漏
+    /// DisposableObservableCollection 会自动调用被移除元素的 Dispose()
+    /// </summary>
+    private void TrimExcessLogs()
+    {
+        if (LogItemViewModels.Count <= MaxLogCount) return;
+
+        // 计算需要移除的数量
+        var removeCount = Math.Min(LogCleanupBatchSize, LogItemViewModels.Count - MaxLogCount + LogCleanupBatchSize);
+
+        // 使用 RemoveRange 批量移除，DisposableObservableCollection 会自动 Dispose
+        LogItemViewModels.RemoveRange(0, removeCount);
+    }
 
     public static string FormatFileSize(long size)
     {
@@ -258,9 +389,56 @@ public partial class TaskQueueViewModel : ViewModelBase
         // });
     }
 
-    public const string INFO = "info:";
-    public const string ERROR = "err:";
-    public const string WARN = "warn:";
+
+    public static readonly string INFO = "info:";
+    public static readonly string[] ERROR = ["err:", "error:"];
+    public static readonly string[] WARNING = ["warn:", "warning:"];
+    public static readonly string TRACE = "trace:";
+    public static readonly string DEBUG = "debug:";
+    public static readonly string CRITICAL = "critical:";
+
+    public static bool CheckShouldLog(string content)
+    {
+        const StringComparison comparison = StringComparison.Ordinal; // 指定匹配规则（避免大小写问题，按需调整）
+
+        if (content.StartsWith(TRACE, comparison))
+        {
+            return true;
+        }
+
+        if (content.StartsWith(DEBUG, comparison))
+        {
+            return true;
+        }
+
+        if (content.StartsWith(INFO, comparison))
+        {
+            return true;
+        }
+
+        var warnPrefix = WARNING.FirstOrDefault(prefix =>
+            !string.IsNullOrEmpty(prefix) && content.StartsWith(prefix, comparison)
+        );
+        if (warnPrefix != null)
+        {
+            return true;
+        }
+
+        var errorPrefix = ERROR.FirstOrDefault(prefix =>
+            !string.IsNullOrEmpty(prefix) && content.StartsWith(prefix, comparison)
+        );
+
+        if (errorPrefix != null)
+        {
+            return true;
+        }
+
+        if (content.StartsWith(CRITICAL, comparison))
+        {
+            return true;
+        }
+        return false;
+    }
     public void AddLog(string content,
         IBrush? brush,
         string weight = "Regular",
@@ -268,31 +446,74 @@ public partial class TaskQueueViewModel : ViewModelBase
         bool showTime = true)
     {
         brush ??= Brushes.Black;
-        if (content.StartsWith(INFO))
+
+        var backGroundBrush = Brushes.Transparent;
+        const StringComparison comparison = StringComparison.Ordinal; // 指定匹配规则（避免大小写问题，按需调整）
+
+        if (content.StartsWith(TRACE, comparison))
         {
-            brush = Brushes.Black;
-            content = content.Substring(INFO.Length);
+            brush = Brushes.MediumAquamarine;
+            content = content.Substring(TRACE.Length).TrimStart();
+            changeColor = false;
         }
-        if (content.StartsWith(WARN))
+
+        if (content.StartsWith(DEBUG, comparison))
+        {
+            brush = Brushes.DeepSkyBlue;
+            content = content.Substring(DEBUG.Length).TrimStart();
+            changeColor = false;
+        }
+
+        if (content.StartsWith(INFO, comparison))
+        {
+            content = content.Substring(INFO.Length).TrimStart();
+        }
+
+        var warnPrefix = WARNING.FirstOrDefault(prefix =>
+            !string.IsNullOrEmpty(prefix) && content.StartsWith(prefix, comparison)
+        );
+        if (warnPrefix != null)
         {
             brush = Brushes.Orange;
-            content = content.Substring(WARN.Length);
+            content = content.Substring(warnPrefix.Length).TrimStart();
             changeColor = false;
         }
-        if (content.StartsWith(ERROR))
+
+        var errorPrefix = ERROR.FirstOrDefault(prefix =>
+            !string.IsNullOrEmpty(prefix) && content.StartsWith(prefix, comparison)
+        );
+
+        if (errorPrefix != null)
         {
             brush = Brushes.OrangeRed;
-            content = content.Substring(ERROR.Length);
+            content = content.Substring(errorPrefix.Length).TrimStart();
             changeColor = false;
         }
-        Task.Run(() =>
+
+        if (content.StartsWith(CRITICAL, comparison))
         {
-            DispatcherHelper.RunOnMainThread(() =>
+            var color = DispatcherHelper.RunOnMainThread(() => MFAExtensions.FindSukiUiResource<Color>(
+                "SukiLightBorderBrush"
+            ));
+            if (color != null)
+                brush = DispatcherHelper.RunOnMainThread(() => new SolidColorBrush(color.Value));
+            else
+                brush = Brushes.White;
+            backGroundBrush = Brushes.OrangeRed;
+            content = content.Substring(CRITICAL.Length).TrimStart();
+        }
+
+        DispatcherHelper.PostOnMainThread(() =>
+        {
+            LogItemViewModels.Add(new LogItemViewModel(content, brush, weight, "HH':'mm':'ss",
+                showTime: showTime, changeColor: changeColor)
             {
-                LogItemViewModels.Add(new LogItemViewModel(content, brush, weight, "HH':'mm':'ss",
-                    showTime: showTime, changeColor: changeColor));
-                LoggerHelper.Info(content);
+                BackgroundColor = backGroundBrush
             });
+            LoggerHelper.Info($"[Record] {content}");
+
+            // 自动清理超出限制的旧日志
+            TrimExcessLogs();
         });
     }
 
@@ -311,11 +532,13 @@ public partial class TaskQueueViewModel : ViewModelBase
         brush ??= Brushes.Black;
         Task.Run(() =>
         {
-            DispatcherHelper.RunOnMainThread(() =>
+            DispatcherHelper.PostOnMainThread(() =>
             {
                 var log = new LogItemViewModel(key, brush, "Regular", true, "HH':'mm':'ss", changeColor: changeColor, showTime: true, transformKey: transformKey, formatArgsKeys);
                 LogItemViewModels.Add(log);
                 LoggerHelper.Info(log.Content);
+                // 自动清理超出限制的旧日志
+                TrimExcessLogs();
             });
         });
     }
@@ -330,10 +553,23 @@ public partial class TaskQueueViewModel : ViewModelBase
 
     #region 连接
 
-    [ObservableProperty] private int shouldShow = 0;
+    [ObservableProperty] private string _adb = string.Empty;
+    [ObservableProperty] private string _win32 = string.Empty;
+    [ObservableProperty] private string? _adbIcon;
+    [ObservableProperty] private string? _win32Icon;
+    [ObservableProperty] private bool _hasAdbIcon;
+    [ObservableProperty] private bool _hasWin32Icon;
+
+    [ObservableProperty] private int _shouldShow = 0;
     [ObservableProperty] private ObservableCollection<object> _devices = [];
     [ObservableProperty] private object? _currentDevice;
     private DateTime? _lastExecutionTime;
+
+    partial void OnShouldShowChanged(int value)
+    {
+        DispatcherHelper.PostOnMainThread(() => Instances.TaskQueueView.UpdateConnectionLayout(true));
+    }
+
     partial void OnCurrentDeviceChanged(object? value)
     {
         ChangedDevice(value);
@@ -384,57 +620,80 @@ public partial class TaskQueueViewModel : ViewModelBase
     partial void OnCurrentControllerChanged(MaaControllerTypes value)
     {
         ConfigurationManager.Current.SetValue(ConfigurationKeys.CurrentController, value.ToString());
+        UpdateResourcesForController();
         Refresh();
-        MaaProcessor.Instance.SetTasker();
+    }
+
+    /// <summary>
+    /// 根据当前控制器更新资源列表
+    /// </summary>
+    public void UpdateResourcesForController()
+    {
+        // 获取所有资源
+        var allResources = MaaProcessor.Interface?.Resources.Values.ToList() ?? new List<MaaInterface.MaaInterfaceResource>();
+
+        if (allResources.Count == 0)
+        {
+            allResources.Add(new MaaInterface.MaaInterfaceResource
+            {
+                Name = "Default",
+                Path = [MaaProcessor.ResourceBase]
+            });
+        }
+
+        // 获取当前控制器的名称
+        var currentControllerName = GetCurrentControllerName();
+
+        // 根据控制器过滤资源
+        var filteredResources = TaskLoader.FilterResourcesByController(allResources, currentControllerName);
+
+        foreach (var resource in filteredResources)
+        {
+            resource.InitializeDisplayName();
+        }
+
+        // 更新资源列表
+        CurrentResources = new ObservableCollection<MaaInterface.MaaInterfaceResource>(filteredResources);
+
+        // 如果当前选中的资源不在过滤后的列表中，则选择第一个
+        if (CurrentResources.Count > 0 && CurrentResources.All(r => r.Name != CurrentResource))
+        {
+            CurrentResource = CurrentResources[0].Name ?? "Default";
+        }
+    }
+
+    /// <summary>
+    /// 获取当前控制器的名称
+    /// </summary>
+    private string? GetCurrentControllerName()
+    {
+        var controllerTypeKey = CurrentController.ToJsonKey();
+
+        // 从 interface 的 controller 配置中查找匹配的控制器
+        var controller = MaaProcessor.Interface?.Controller?.Find(c =>
+            c.Type != null && c.Type.Equals(controllerTypeKey, StringComparison.OrdinalIgnoreCase));
+
+        return controller?.Name;
     }
 
     [ObservableProperty] private bool _isConnected;
     public void SetConnected(bool isConnected)
     {
-        IsConnected = isConnected;
+        // 使用异步投递避免从非UI线程修改属性时导致死锁
+        DispatcherHelper.PostOnMainThread(() => IsConnected = isConnected);
     }
 
-
     [RelayCommand]
-    public void CustomAdb()
+    private void CustomAdb()
     {
         var deviceInfo = CurrentDevice as AdbDeviceInfo;
 
         Instances.DialogManager.CreateDialog().WithTitle("AdbEditor").WithViewModel(dialog => new AdbEditorDialogViewModel(deviceInfo, dialog)).Dismiss().ByClickingBackground().TryShow();
     }
 
-    public static int ExtractNumberFromEmulatorConfig(string emulatorConfig)
-    {
-        var match = Regex.Match(emulatorConfig, @"\d+");
 
-        if (match.Success)
-        {
-            return int.Parse(match.Value);
-        }
-
-        return 0;
-    }
-
-    public bool TryGetIndexFromConfig(string config, out int index)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(config);
-            if (doc.RootElement.TryGetProperty("extras", out var extras) && extras.TryGetProperty("mumu", out var mumu) && mumu.TryGetProperty("index", out var indexElement))
-            {
-                index = indexElement.GetInt32();
-                return true;
-            }
-        }
-        catch (Exception ex)
-        {
-            LoggerHelper.Error(ex);
-        }
-
-        index = 0;
-        return false;
-    }
     private CancellationTokenSource? _refreshCancellationTokenSource;
+
     [RelayCommand]
     private void Refresh()
     {
@@ -443,6 +702,7 @@ public partial class TaskQueueViewModel : ViewModelBase
         TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token), _refreshCancellationTokenSource.Token, name: "刷新", handleError: (e) => HandleDetectionError(e, CurrentController == MaaControllerTypes.Adb),
             catchException: true, shouldLog: true);
     }
+
     [RelayCommand]
     private void CloseE()
     {
@@ -452,8 +712,10 @@ public partial class TaskQueueViewModel : ViewModelBase
     [RelayCommand]
     private void Clear()
     {
+        // DisposableObservableCollection 会自动调用所有元素的 Dispose()
         LogItemViewModels.Clear();
     }
+
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
     [RelayCommand]
     private void Export()
@@ -490,6 +752,31 @@ public partial class TaskQueueViewModel : ViewModelBase
 
     private int CalculateAdbDeviceIndex(IList<AdbDeviceInfo> devices)
     {
+        if (CurrentDevice is AdbDeviceInfo info)
+        {
+            LoggerHelper.Info($"Current device: {JsonConvert.SerializeObject(info)}");
+
+            // 使用指纹匹配设备
+            var matchedDevices = devices
+                .Where(device => device.MatchesFingerprint(info))
+                .ToList();
+
+            LoggerHelper.Info($"Found {matchedDevices.Count} devices matching fingerprint");
+
+            // 多匹配时排序：先比AdbSerial前缀（冒号前），再比设备名称
+            if (matchedDevices.Any())
+            {
+                matchedDevices.Sort((a, b) =>
+                {
+                    var aPrefix = a.AdbSerial.Split(':', 2)[0];
+                    var bPrefix = b.AdbSerial.Split(':', 2)[0];
+                    int prefixCompare = string.Compare(aPrefix, bPrefix, StringComparison.Ordinal);
+                    return prefixCompare != 0 ? prefixCompare : string.Compare(a.Name, b.Name, StringComparison.Ordinal);
+                });
+                return devices.IndexOf(matchedDevices.First());
+            }
+        }
+
         var config = ConfigurationManager.Current.GetValue(ConfigurationKeys.EmulatorConfig, string.Empty);
         if (string.IsNullOrWhiteSpace(config)) return 0;
 
@@ -499,28 +786,56 @@ public partial class TaskQueueViewModel : ViewModelBase
             .FirstOrDefault(i => i >= 0);
     }
 
+
+    public static int ExtractNumberFromEmulatorConfig(string emulatorConfig)
+    {
+        var match = Regex.Match(emulatorConfig, @"\d+");
+
+        if (match.Success)
+        {
+            return int.Parse(match.Value);
+        }
+
+        return 0;
+    }
+
+    private bool TryGetIndexFromConfig(string configJson, out int index)
+    {
+        index = DeviceDisplayConverter.GetFirstEmulatorIndex(configJson);
+        return index != -1;
+    }
+
+    private static bool TryExtractPortFromAdbSerial(string adbSerial, out int port)
+    {
+        port = -1;
+        var parts = adbSerial.Split(':', 2); // 分割为IP和端口（最多分割1次）
+        LoggerHelper.Info(JsonConvert.SerializeObject(parts));
+        return parts.Length == 2 && int.TryParse(parts[1], out port);
+    }
+
     private (ObservableCollection<object> devices, int index) DetectWin32Windows()
     {
         Thread.Sleep(500);
         var windows = MaaProcessor.Toolkit.Desktop.Window.Find().Where(win => !string.IsNullOrWhiteSpace(win.Name)).ToList();
-        var index = CalculateWindowIndex(windows);
-        return (new(windows), index);
+        var (index, filtered) = CalculateWindowIndex(windows);
+        return (new(filtered), index);
     }
 
-    private int CalculateWindowIndex(List<DesktopWindowInfo> windows)
+    private (int index, List<DesktopWindowInfo> afterFiltered) CalculateWindowIndex(List<DesktopWindowInfo> windows)
     {
         var controller = MaaProcessor.Interface?.Controller?
             .FirstOrDefault(c => c.Type?.Equals("win32", StringComparison.OrdinalIgnoreCase) == true);
 
         if (controller?.Win32 == null)
-            return windows.FindIndex(win => !string.IsNullOrWhiteSpace(win.Name));
+            return (windows.FindIndex(win => !string.IsNullOrWhiteSpace(win.Name)), windows);
 
         var filtered = windows.Where(win =>
             !string.IsNullOrWhiteSpace(win.Name)).ToList();
 
         filtered = ApplyRegexFilters(filtered, controller.Win32);
-        return filtered.Count > 0 ? windows.IndexOf(filtered.First()) : 0;
+        return (filtered.Count > 0 ? filtered.IndexOf(filtered.First()) : 0, filtered.ToList());
     }
+
 
     private List<DesktopWindowInfo> ApplyRegexFilters(List<DesktopWindowInfo> windows, MaaInterface.MaaResourceControllerWin32 win32)
     {
@@ -580,53 +895,95 @@ public partial class TaskQueueViewModel : ViewModelBase
             var mouse = controller.Win32?.Mouse;
             if (mouse != null)
             {
-                Instances.ConnectSettingsUserControlModel.Win32ControlMouseType = mouse switch
-                {
-                    1 => Win32InputMethod.Seize,
-                    2 => Win32InputMethod.SendMessage,
-                    4 => Win32InputMethod.PostMessage,
-                    8 => Win32InputMethod.LegacyEvent,
-                    16 => Win32InputMethod.PostThreadMessage,
-                    _ => Instances.ConnectSettingsUserControlModel.Win32ControlMouseType
-                };
+                var parsed = ParseWin32InputMethod(mouse);
+                if (parsed != null)
+                    Instances.ConnectSettingsUserControlModel.Win32ControlMouseType = parsed.Value;
             }
             var keyboard = controller.Win32?.Keyboard;
             if (keyboard != null)
             {
-                Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType = keyboard switch
-                {
-                    1 => Win32InputMethod.Seize,
-                    2 => Win32InputMethod.SendMessage,
-                    4 => Win32InputMethod.PostMessage,
-                    8 => Win32InputMethod.LegacyEvent,
-                    16 => Win32InputMethod.PostThreadMessage,
-                    _ => Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType
-                };
+                var parsed = ParseWin32InputMethod(keyboard);
+                if (parsed != null)
+                    Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType = parsed.Value;
             }
             var input = controller.Win32?.Input;
             if (keyboard == null && mouse == null && input != null)
             {
-                var type = input switch
+                var parsed = ParseWin32InputMethod(input);
+                if (parsed != null)
                 {
-                    1 => Win32InputMethod.Seize,
-                    2 => Win32InputMethod.SendMessage,
-                    4 => Win32InputMethod.PostMessage,
-                    8 => Win32InputMethod.LegacyEvent,
-                    16 => Win32InputMethod.PostThreadMessage,
-                    _ => Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType
-                };
-                Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType = type;
-                Instances.ConnectSettingsUserControlModel.Win32ControlMouseType = type;
+                    Instances.ConnectSettingsUserControlModel.Win32ControlKeyboardType = parsed.Value;
+                    Instances.ConnectSettingsUserControlModel.Win32ControlMouseType = parsed.Value;
+                }
             }
         }
     }
 
+    /// <summary>
+    /// 解析 Win32InputMethod，支持旧版 long 格式和新版 string 格式
+    /// </summary>
+    private static Win32InputMethod? ParseWin32InputMethod(object? value)
+    {
+        if (value == null) return null;
+
+        // 新版 string 格式（枚举名）
+        if (value is string strValue)
+        {
+            if (Enum.TryParse<Win32InputMethod>(strValue, ignoreCase: true, out var result))
+                return result;
+            return null;
+        }
+
+        // 旧版 long 格式
+        var longValue = Convert.ToInt64(value);
+        return longValue switch
+        {
+            1 => Win32InputMethod.Seize,
+            2 => Win32InputMethod.SendMessage,
+            4 => Win32InputMethod.PostMessage,
+            8 => Win32InputMethod.LegacyEvent,
+            16 => Win32InputMethod.PostThreadMessage,
+            32 => Win32InputMethod.SendMessageWithCursorPos,
+            64 => Win32InputMethod.PostMessageWithCursorPos,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// 解析 Win32ScreencapMethod，支持旧版 long 格式和新版 string 格式
+    /// </summary>
+    private static Win32ScreencapMethod? ParseWin32ScreencapMethod(object? value)
+    {
+        if (value == null) return null;
+
+        // 新版 string 格式（枚举名）
+        if (value is string strValue)
+        {
+            if (Enum.TryParse<Win32ScreencapMethod>(strValue, ignoreCase: true, out var result))
+                return result;
+            return null;
+        }
+
+        // 旧版 long 格式
+        var longValue = Convert.ToInt64(value);
+        return longValue switch
+        {
+            1 => Win32ScreencapMethod.GDI,
+            2 => Win32ScreencapMethod.FramePool,
+            4 => Win32ScreencapMethod.DXGI_DesktopDup,
+            8 => Win32ScreencapMethod.DXGI_DesktopDup_Window,
+            16 => Win32ScreencapMethod.PrintWindow,
+            32 => Win32ScreencapMethod.ScreenDC,
+            _ => null
+        };
+    }
+
     private void HandleScreenCapSettings(MaaInterface.MaaResourceController controller, bool isAdb)
     {
-        var screenCap = isAdb ? controller.Adb?.ScreenCap : controller.Win32?.ScreenCap;
-        if (screenCap == null) return;
         if (isAdb)
         {
+            var screenCap = controller.Adb?.ScreenCap;
+            if (screenCap == null) return;
             Instances.ConnectSettingsUserControlModel.AdbControlScreenCapType = screenCap switch
             {
                 1 => AdbScreencapMethods.EncodeToFileAndPull,
@@ -641,16 +998,11 @@ public partial class TaskQueueViewModel : ViewModelBase
         }
         else
         {
-            Instances.ConnectSettingsUserControlModel.Win32ControlScreenCapType = screenCap switch
-            {
-                1 => Win32ScreencapMethod.GDI,
-                2 => Win32ScreencapMethod.FramePool,
-                4 => Win32ScreencapMethod.DXGI_DesktopDup,
-                8 => Win32ScreencapMethod.DXGI_DesktopDup_Window,
-                16 => Win32ScreencapMethod.PrintWindow,
-                32 => Win32ScreencapMethod.ScreenDC,
-                _ => Instances.ConnectSettingsUserControlModel.Win32ControlScreenCapType
-            };
+            var screenCap = controller.Win32?.ScreenCap;
+            if (screenCap == null) return;
+            var parsed = ParseWin32ScreencapMethod(screenCap);
+            if (parsed != null)
+                Instances.ConnectSettingsUserControlModel.Win32ControlScreenCapType = parsed.Value;
         }
     }
 
@@ -659,13 +1011,15 @@ public partial class TaskQueueViewModel : ViewModelBase
         if (!hasDevices)
         {
             ToastHelper.Info((
-                isAdb ?  LangKeys.NoEmulatorFound :  LangKeys.NoWindowFound).ToLocalization());
+                isAdb ? LangKeys.NoEmulatorFound : LangKeys.NoWindowFound).ToLocalization(), (
+                isAdb ? LangKeys.NoEmulatorFoundDetail : "").ToLocalization());
+
         }
     }
 
     private void HandleDetectionError(Exception ex, bool isAdb)
     {
-        var targetType = isAdb ?  LangKeys.Emulator :  LangKeys.Window;
+        var targetType = isAdb ? LangKeys.Emulator : LangKeys.Window;
         ToastHelper.Warn(string.Format(
             LangKeys.TaskStackError.ToLocalization(),
             targetType.ToLocalization(),
@@ -680,7 +1034,7 @@ public partial class TaskQueueViewModel : ViewModelBase
             || CurrentController != MaaControllerTypes.Adb
             || !ConfigurationManager.Current.GetValue(ConfigurationKeys.RememberAdb, true)
             || MaaProcessor.Config.AdbDevice.AdbPath != "adb"
-            || !ConfigurationManager.Current.TryGetValue(ConfigurationKeys.AdbDevice, out AdbDeviceInfo device,
+            || !ConfigurationManager.Current.TryGetValue(ConfigurationKeys.AdbDevice, out AdbDeviceInfo savedDevice,
                 new UniversalEnumConverter<AdbInputMethods>(), new UniversalEnumConverter<AdbScreencapMethods>()))
         {
             _refreshCancellationTokenSource?.Cancel();
@@ -691,13 +1045,48 @@ public partial class TaskQueueViewModel : ViewModelBase
                 AutoDetectDevice(_refreshCancellationTokenSource.Token);
             return;
         }
-        LoggerHelper.Info("Reading saved ADB device from configuration.");
-        DispatcherHelper.PostOnMainThread(() =>
+        // 使用指纹匹配设备，而不是直接使用保存的设备信息
+        // 因为雷电模拟器等的AdbSerial每次启动都会变化
+        LoggerHelper.Info("Reading saved ADB device from configuration, using fingerprint matching.");
+        LoggerHelper.Info($"Saved device fingerprint: {savedDevice.GenerateDeviceFingerprint()}");
+
+        // 搜索当前可用的设备
+        var currentDevices = MaaProcessor.Toolkit.AdbDevice.Find();
+
+        // 尝试通过指纹匹配找到对应的设备（当任一方index为-1时不比较index）
+        AdbDeviceInfo? matchedDevice = null;
+        foreach (var device in currentDevices)
         {
-            Devices = [device];
-            CurrentDevice = device;
-        });
-        ChangedDevice(device);
+            if (device.MatchesFingerprint(savedDevice))
+            {
+                matchedDevice = device;
+                LoggerHelper.Info($"Found matching device by fingerprint: {device.Name} ({device.AdbSerial})");
+                break;
+            }
+        }
+
+
+        if (matchedDevice != null)
+        {
+            // 使用新搜索到的设备信息（AdbSerial等可能已更新）
+            DispatcherHelper.PostOnMainThread(() =>
+            {
+                Devices = new ObservableCollection<object>(currentDevices);
+                CurrentDevice = matchedDevice;
+            });
+            ChangedDevice(matchedDevice);
+        }
+        else
+        {
+            // 没有找到匹配的设备，执行自动检测
+            LoggerHelper.Info("No matching device found by fingerprint, performing auto detection.");
+            _refreshCancellationTokenSource?.Cancel();
+            _refreshCancellationTokenSource = new CancellationTokenSource();
+            if (InTask)
+                TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token), name: "刷新设备");
+            else
+                AutoDetectDevice(_refreshCancellationTokenSource.Token);
+        }
     }
 
     #endregion
@@ -706,19 +1095,32 @@ public partial class TaskQueueViewModel : ViewModelBase
 
     [ObservableProperty] private ObservableCollection<MaaInterface.MaaInterfaceResource> _currentResources = [];
 
-    private string _currentResource;
 
     public string CurrentResource
     {
-        get => _currentResource;
+        get => field;
         set
         {
             if (!string.IsNullOrWhiteSpace(value))
             {
                 MaaProcessor.Instance.SetTasker();
-                SetNewProperty(ref _currentResource, value);
+                SetNewProperty(ref field, value);
                 HandlePropertyChanged(ConfigurationKeys.Resource, value);
+                UpdateTasksForResource(value);
             }
+        }
+    }
+
+    /// <summary>
+    /// 根据当前资源更新任务列表的可见性
+    /// </summary>
+    /// <param name="resourceName">资源包名称</param>
+    public void UpdateTasksForResource(string? resourceName)
+    {
+        foreach (var task in TaskItemViewModels)
+        {
+            // 更新每个任务的资源支持状态
+            task.UpdateResourceSupport(resourceName);
         }
     }
 

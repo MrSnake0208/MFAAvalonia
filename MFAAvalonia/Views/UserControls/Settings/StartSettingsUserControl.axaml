@@ -7,13 +7,15 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:extensions="clr-namespace:MFAAvalonia.Extensions"
-    xmlns:fluent="clr-namespace:FluentIcons.Avalonia.Fluent;assembly=FluentIcons.Avalonia.Fluent"
+    xmlns:fluent="clr-namespace:FluentIcons.Avalonia.Fluent.Markup;assembly=FluentIcons.Avalonia.Fluent"
     xmlns:helper="clr-namespace:MFAAvalonia.Helper"
     xmlns:markup="https://codewf.com"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:settings="clr-namespace:MFAAvalonia.ViewModels.UsersControls.Settings"
     xmlns:suki="https://github.com/kikipoulet/SukiUI"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:calcBinding="clr-namespace:CalcBinding;assembly=CalcBindingAva"
+    xmlns:maa="clr-namespace:MFAAvalonia.Extensions.MaaFW">
     <StackPanel Spacing="25">
         <suki:GlassCard Padding="25">
             <StackPanel Spacing="8">
@@ -43,19 +45,37 @@
                             Text="{markup:I18n {x:Static helper:LangKeys.SoftwarePath}}" />
                     </StackPanel>
                 </DockPanel>
-                <DockPanel>
-                    <TextBox
-                        DockPanel.Dock="Right"
-                        HorizontalAlignment="Center"
-                        Text="{Binding EmulatorConfig}"
-                        Width="215" />
-                    <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center">
                         <TextBlock
                             FontSize="16"
                             FontWeight="SemiBold"
                             Text="{markup:I18n {x:Static helper:LangKeys.StartupParameter}}" />
                     </StackPanel>
-                </DockPanel>
+                    <WrapPanel  Grid.Column="1" HorizontalAlignment="Right" Margin="0,5,0,0" FlowDirection="RightToLeft">
+                        <TextBox  FlowDirection="LeftToRight"
+                                  HorizontalAlignment="Center"
+                                  Text="{Binding EmulatorConfig}"
+                                  Width="215" />
+                        <Button FlowDirection="RightToLeft"
+                                BorderBrush="Transparent"
+                                BorderThickness="0"
+                                IsVisible="{calcBinding:Binding 'CurrentController == maa:MaaControllerTypes.Adb',
+                                            Source={x:Static helper:Instances.TaskQueueViewModel}}"
+                                Command="{Binding QuickSettingsCommand}"
+                                Height="40"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,4,0">
+                            <TextBlock
+                                FontSize="14" Foreground="{DynamicResource SukiPrimaryColor}"
+                                Text="{markup:I18n {x:Static helper:LangKeys.EmulatorMultiInstanceQuickSettings}}" />
+                        </Button>
+                    </WrapPanel>
+                </Grid>
                 <DockPanel>
                     <NumericUpDown
                         DockPanel.Dock="Right"

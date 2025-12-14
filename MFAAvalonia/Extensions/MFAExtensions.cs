@@ -6,8 +6,10 @@ using Lang.Avalonia;
 using MaaFramework.Binding.Buffers;
 using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper;
+using MFAAvalonia.Helper.Converters;
 using MFAAvalonia.ViewModels.Other;
 using Newtonsoft.Json.Linq;
+using SukiUI;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,6 +18,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using Bitmap = Avalonia.Media.Imaging.Bitmap;
 
 namespace MFAAvalonia.Extensions;
@@ -29,218 +32,256 @@ public static class MFAExtensions
             : "/bin/bash";
     }
 
-    public static Dictionary<TKey, MaaNode> MergeMaaNodes<TKey>(
-        this IEnumerable<KeyValuePair<TKey, MaaNode>>? taskModels,
-        IEnumerable<KeyValuePair<TKey, MaaNode>>? additionalModels) where TKey : notnull
+    /// <summary>
+    /// 解析 Markdown 内容：支持国际化字符串、文件路径、URL 或直接文本
+    /// </summary>
+    /// <param name="input">输入内容（可能是 $key、文件路径、URL 或直接文本）</param>
+    /// <param name="projectDir">项目目录（用于解析相对路径）</param>
+    /// <returns>解析后的 Markdown 文本</returns>
+    /// <summary>
+    /// 可获取内容的文本文件扩展名
+    /// </summary>
+    private static readonly string[] TextFileExtensions = [".md", ".markdown", ".txt", ".text"];
+
+    public async static Task<string> ResolveContentAsync(this string? input, string? projectDir = null, bool transform = true)
     {
-
-        if (additionalModels == null)
-            return taskModels?.ToDictionary() ?? new Dictionary<TKey, MaaNode>();
-        return taskModels?
-                .Concat(additionalModels)
-                .GroupBy(pair => pair.Key)
-                .ToDictionary(
-                    group => group.Key,
-                    group =>
-                    {
-                        var mergedModel = group.First().Value;
-                        foreach (var taskModel in group.Skip(1))
-                        {
-                            mergedModel.Merge(taskModel.Value);
-                        }
-                        return mergedModel;
-                    }
-                )
-            ?? new Dictionary<TKey, MaaNode>();
-    }
-
-    public static Dictionary<TKey, JToken> MergeJTokens<TKey>(
-        this IEnumerable<KeyValuePair<TKey, JToken>>? taskModels,
-        IEnumerable<KeyValuePair<TKey, JToken>>? additionalModels) where TKey : notnull
-    {
-
-        if (additionalModels == null)
-            return taskModels?.ToDictionary() ?? new Dictionary<TKey, JToken>();
-        return taskModels?
-                .Concat(additionalModels)
-                .GroupBy(pair => pair.Key)
-                .ToDictionary(
-                    group => group.Key,
-                    group =>
-                    {
-                        var mergedModel = group.First().Value;
-                        foreach (var taskModel in group.Skip(1))
-                        {
-                            mergedModel.Merge(taskModel.Value);
-                        }
-                        return mergedModel;
-                    }
-                )
-            ?? new Dictionary<TKey, JToken>();
-    }
-
-    public static JToken Merge(this JToken? target, JToken? source)
-    {
-        if (target == null) return source;
-        if (source == null) return target;
-
-        // 确保目标和源都是 JObject 类型
-        if (target.Type != JTokenType.Object || source.Type != JTokenType.Object)
-            return target;
-
-        var targetObj = (JObject)target;
-        var sourceObj = (JObject)source;
-
-        // 遍历源对象的所有属性
-        foreach (var property in sourceObj.Properties())
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+        if (string.IsNullOrWhiteSpace(projectDir))
+            projectDir = AppContext.BaseDirectory;
+        try
         {
-            string propName = property.Name;
-            JToken? targetProp = targetObj.Property(propName)?.Value;
-            JToken sourceProp = property.Value;
-            if (propName == "attach")
+            // 1. 国际化处理（以$开头）
+            var content = transform ? LanguageHelper.GetLocalizedString(input) : input;
+            // 2. 判断是否为 URL
+            if (Uri.TryCreate(content, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
             {
-                // 仅当双方都是对象类型时才进行第一层字段合并
-                if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+                // 如果是文本文件 URL，获取内容；否则返回超链接格式
+                var path = uri.AbsolutePath;
+                if (TextFileExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
                 {
-                    JObject targetAttach = (JObject)targetProp;
-                    JObject sourceAttach = (JObject)sourceProp;
-
-                    // 遍历sourceAttach的所有第一层字段，直接覆盖或添加（不递归）
-                    foreach (var attachProp in sourceAttach.Properties())
-                    {
-                        string attachPropName = attachProp.Name;
-                        JToken sourceAttachValue = attachProp.Value;
-
-                        // 目标存在该字段则直接用源覆盖（不递归），否则添加
-                        targetAttach[attachPropName] = sourceAttachValue.DeepClone();
-                    }
-
-                    targetObj[propName] = targetAttach;
+                    return await content.FetchUrlContentAsync().ConfigureAwait(false);
                 }
-                // 目标不存在attach字段时，直接克隆源的attach
-                else if (targetProp == null)
-                {
-                    targetObj[propName] = sourceProp.DeepClone();
-                }
-                // 若类型不匹配（如一方不是对象），则用源覆盖目标
-                else
-                {
-                    targetObj[propName] = sourceProp.DeepClone();
-                }
-                continue;
+                // 返回 Markdown 超链接格式
+                return $"[{content}]({content})";
             }
-            // if (propName == "attach")
-            // {
-            //     // 仅当双方都是对象类型时才进行字段合并
-            //     if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
-            //     {
-            //         JObject targetAttach = (JObject)targetProp;
-            //         JObject sourceAttach = (JObject)sourceProp;
-            //
-            //         // 遍历sourceAttach的所有字段，逐个合并到targetAttach
-            //         foreach (var attachProp in sourceAttach.Properties())
-            //         {
-            //             string attachPropName = attachProp.Name;
-            //             JToken sourceAttachValue = attachProp.Value;
-            //
-            //             // 目标存在该字段则递归合并，否则直接添加
-            //             if (targetAttach.ContainsKey(attachPropName))
-            //             {
-            //                 targetAttach[attachPropName] = Merge(targetAttach[attachPropName], sourceAttachValue);
-            //             }
-            //             else
-            //             {
-            //                 targetAttach[attachPropName] = sourceAttachValue.DeepClone();
-            //             }
-            //         }
-            //
-            //         targetObj[propName] = targetAttach;
-            //     }
-            //     // 目标不存在attach字段时，直接克隆源的attach
-            //     else if (targetProp == null)
-            //     {
-            //         targetObj[propName] = sourceProp.DeepClone();
-            //     }
-            //     // 若类型不匹配（如一方不是对象），则用源覆盖目标
-            //     else
-            //     {
-            //         targetObj[propName] = sourceProp.DeepClone();
-            //     }
-            //     continue;
-            // }
-            //
-            // 处理 recognition 相关合并逻辑
-            if (propName == "recognition")
+            // 3. 判断是否为文件路径
+            var filePath = MaaInterface.ReplacePlaceholder(content, projectDir, true);
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {
-                if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
-                {
-                    JObject targetRecognition = (JObject)targetProp;
-                    JObject sourceRecognition = (JObject)sourceProp;
-
-                    // 覆盖 type 属性
-                    if (sourceRecognition.ContainsKey("type"))
-                    {
-                        targetRecognition["type"] = sourceRecognition["type"]?.DeepClone() ?? new JValue((string)null);
-                    }
-
-                    // 处理 recognition 内部的 param 属性，递归合并
-                    if (sourceRecognition.ContainsKey("param") && targetRecognition.ContainsKey("param") && targetRecognition["param"]?.Type == JTokenType.Object && sourceRecognition["param"]?.Type == JTokenType.Object)
-                    {
-                        targetRecognition["param"] = Merge(targetRecognition["param"], sourceRecognition["param"]);
-                    }
-                    else if (sourceRecognition.ContainsKey("param") && targetRecognition["param"] == null)
-                    {
-                        targetRecognition["param"] = sourceRecognition["param"]?.DeepClone();
-                    }
-
-                    targetObj[propName] = targetRecognition;
-                }
-                else if (targetProp == null)
-                {
-                    targetObj[propName] = sourceProp.DeepClone();
-                }
-                continue;
+                // 使用 ConfigureAwait(false) 避免在 UI 线程上使用 .Result 时死锁
+                return await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
             }
 
-            // 处理 action 相关合并逻辑
-            if (propName == "action")
-            {
-                if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
-                {
-                    JObject targetAction = (JObject)targetProp;
-                    JObject sourceAction = (JObject)sourceProp;
-
-                    // 覆盖 type 属性
-                    if (sourceAction.ContainsKey("type"))
-                    {
-                        targetAction["type"] = sourceAction["type"]?.DeepClone() ?? new JValue((string)null);
-                    }
-
-                    // 处理 action 内部的 param 属性，递归合并
-                    if (sourceAction.ContainsKey("param") && targetAction.ContainsKey("param") && targetAction["param"]?.Type == JTokenType.Object && sourceAction["param"]?.Type == JTokenType.Object)
-                    {
-                        targetAction["param"] = Merge(targetAction["param"], sourceAction["param"]);
-                    }
-                    else if (sourceAction.ContainsKey("param") && targetAction["param"] == null)
-                    {
-                        targetAction["param"] = sourceAction["param"]?.DeepClone();
-                    }
-
-                    targetObj[propName] = targetAction;
-                }
-                else if (targetProp == null)
-                {
-                    targetObj[propName] = sourceProp.DeepClone();
-                }
-                continue;
-            }
-
-            // 其他普通属性直接替换或添加
-            targetObj[propName] = sourceProp.DeepClone();
+            // 4. 直接返回文本（可能是 Markdown）
+            return content;
         }
-
-        return target;
+        catch (Exception ex)
+        {
+            LoggerHelper.Error($"解析 Markdown 内容失败: {input}, 错误: {ex.Message}");
+            return string.Empty;
+        }
     }
+
+
+    public static MaaToken ToMaaToken(
+        this Dictionary<string, JToken>? taskModels)
+    {
+        // 空安全处理：输入为 null 时返回空字典，避免空引用异常
+        var nonNullModels = taskModels ?? new Dictionary<string, JToken>();
+
+        // 转换逻辑：遍历集合，将每个 JToken 转为 MaaToken，构建字典
+        return MaaToken.FromDictionary(nonNullModels);
+    }
+
+
+    // public static Dictionary<TKey, JToken> MergeJTokens<TKey>(
+    //     this IEnumerable<KeyValuePair<TKey, JToken>>? taskModels,
+    //     IEnumerable<KeyValuePair<TKey, JToken>>? additionalModels) where TKey : notnull
+    // {
+    //
+    //     if (additionalModels == null)
+    //         return taskModels?.ToDictionary() ?? new Dictionary<TKey, JToken>();
+    //     return taskModels?
+    //             .Concat(additionalModels)
+    //             .GroupBy(pair => pair.Key)
+    //             .ToDictionary(
+    //                 group => group.Key,
+    //                 group =>
+    //                 {
+    //                     var mergedModel = group.First().Value;
+    //                     foreach (var taskModel in group.Skip(1))
+    //                     {
+    //                         mergedModel.Merge(taskModel.Value);
+    //                     }
+    //                     return mergedModel;
+    //                 }
+    //             )
+    //         ?? new Dictionary<TKey, JToken>();
+    // }
+
+    // public static JToken Merge(this JToken? target, JToken? source)
+    // {
+    //     if (target == null) return source;
+    //     if (source == null) return target;
+    //
+    //     // 确保目标和源都是 JObject 类型
+    //     if (target.Type != JTokenType.Object || source.Type != JTokenType.Object)
+    //         return target;
+    //
+    //     var targetObj = (JObject)target;
+    //     var sourceObj = (JObject)source;
+    //
+    //     // 遍历源对象的所有属性
+    //     foreach (var property in sourceObj.Properties())
+    //     {
+    //         string propName = property.Name;
+    //         JToken? targetProp = targetObj.Property(propName)?.Value;
+    //         JToken sourceProp = property.Value;
+    //         if (propName == "attach")
+    //         {
+    //             // 仅当双方都是对象类型时才进行第一层字段合并
+    //             if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+    //             {
+    //                 JObject targetAttach = (JObject)targetProp;
+    //                 JObject sourceAttach = (JObject)sourceProp;
+    //
+    //                 // 遍历sourceAttach的所有第一层字段，直接覆盖或添加（不递归）
+    //                 foreach (var attachProp in sourceAttach.Properties())
+    //                 {
+    //                     string attachPropName = attachProp.Name;
+    //                     JToken sourceAttachValue = attachProp.Value;
+    //
+    //                     // 目标存在该字段则直接用源覆盖（不递归），否则添加
+    //                     targetAttach[attachPropName] = sourceAttachValue.DeepClone();
+    //                 }
+    //
+    //                 targetObj[propName] = targetAttach;
+    //             }
+    //             // 目标不存在attach字段时，直接克隆源的attach
+    //             else if (targetProp == null)
+    //             {
+    //                 targetObj[propName] = sourceProp.DeepClone();
+    //             }
+    //             // 若类型不匹配（如一方不是对象），则用源覆盖目标
+    //             else
+    //             {
+    //                 targetObj[propName] = sourceProp.DeepClone();
+    //             }
+    //             continue;
+    //         }
+    //         // if (propName == "attach")
+    //         // {
+    //         //     // 仅当双方都是对象类型时才进行字段合并
+    //         //     if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+    //         //     {
+    //         //         JObject targetAttach = (JObject)targetProp;
+    //         //         JObject sourceAttach = (JObject)sourceProp;
+    //         //
+    //         //         // 遍历sourceAttach的所有字段，逐个合并到targetAttach
+    //         //         foreach (var attachProp in sourceAttach.Properties())
+    //         //         {
+    //         //             string attachPropName = attachProp.Name;
+    //         //             JToken sourceAttachValue = attachProp.Value;
+    //         //
+    //         //             // 目标存在该字段则递归合并，否则直接添加
+    //         //             if (targetAttach.ContainsKey(attachPropName))
+    //         //             {
+    //         //                 targetAttach[attachPropName] = Merge(targetAttach[attachPropName], sourceAttachValue);
+    //         //             }
+    //         //             else
+    //         //             {
+    //         //                 targetAttach[attachPropName] = sourceAttachValue.DeepClone();
+    //         //             }
+    //         //         }
+    //         //
+    //         //         targetObj[propName] = targetAttach;
+    //         //     }
+    //         //     // 目标不存在attach字段时，直接克隆源的attach
+    //         //     else if (targetProp == null)
+    //         //     {
+    //         //         targetObj[propName] = sourceProp.DeepClone();
+    //         //     }
+    //         //     // 若类型不匹配（如一方不是对象），则用源覆盖目标
+    //         //     else
+    //         //     {
+    //         //         targetObj[propName] = sourceProp.DeepClone();
+    //         //     }
+    //         //     continue;
+    //         // }
+    //         //
+    //         // 处理 recognition 相关合并逻辑
+    //         if (propName == "recognition")
+    //         {
+    //             if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+    //             {
+    //                 JObject targetRecognition = (JObject)targetProp;
+    //                 JObject sourceRecognition = (JObject)sourceProp;
+    //
+    //                 // 覆盖 type 属性
+    //                 if (sourceRecognition.ContainsKey("type"))
+    //                 {
+    //                     targetRecognition["type"] = sourceRecognition["type"]?.DeepClone() ?? new JValue((string)null);
+    //                 }
+    //
+    //                 // 处理 recognition 内部的 param 属性，递归合并
+    //                 if (sourceRecognition.ContainsKey("param") && targetRecognition.ContainsKey("param") && targetRecognition["param"]?.Type == JTokenType.Object && sourceRecognition["param"]?.Type == JTokenType.Object)
+    //                 {
+    //                     targetRecognition["param"] = Merge(targetRecognition["param"], sourceRecognition["param"]);
+    //                 }
+    //                 else if (sourceRecognition.ContainsKey("param") && targetRecognition["param"] == null)
+    //                 {
+    //                     targetRecognition["param"] = sourceRecognition["param"]?.DeepClone();
+    //                 }
+    //
+    //                 targetObj[propName] = targetRecognition;
+    //             }
+    //             else if (targetProp == null)
+    //             {
+    //                 targetObj[propName] = sourceProp.DeepClone();
+    //             }
+    //             continue;
+    //         }
+    //
+    //         // 处理 action 相关合并逻辑
+    //         if (propName == "action")
+    //         {
+    //             if (targetProp != null && targetProp.Type == JTokenType.Object && sourceProp.Type == JTokenType.Object)
+    //             {
+    //                 JObject targetAction = (JObject)targetProp;
+    //                 JObject sourceAction = (JObject)sourceProp;
+    //
+    //                 // 覆盖 type 属性
+    //                 if (sourceAction.ContainsKey("type"))
+    //                 {
+    //                     targetAction["type"] = sourceAction["type"]?.DeepClone() ?? new JValue((string)null);
+    //                 }
+    //
+    //                 // 处理 action 内部的 param 属性，递归合并
+    //                 if (sourceAction.ContainsKey("param") && targetAction.ContainsKey("param") && targetAction["param"]?.Type == JTokenType.Object && sourceAction["param"]?.Type == JTokenType.Object)
+    //                 {
+    //                     targetAction["param"] = Merge(targetAction["param"], sourceAction["param"]);
+    //                 }
+    //                 else if (sourceAction.ContainsKey("param") && targetAction["param"] == null)
+    //                 {
+    //                     targetAction["param"] = sourceAction["param"]?.DeepClone();
+    //                 }
+    //
+    //                 targetObj[propName] = targetAction;
+    //             }
+    //             else if (targetProp == null)
+    //             {
+    //                 targetObj[propName] = sourceProp.DeepClone();
+    //             }
+    //             continue;
+    //         }
+    //
+    //         // 其他普通属性直接替换或添加
+    //         targetObj[propName] = sourceProp.DeepClone();
+    //     }
+    //
+    //     return target;
+    // }
 
     public static string FormatWith(this string format, params object[] args)
     {
@@ -275,7 +316,9 @@ public static class MFAExtensions
         if (string.IsNullOrWhiteSpace(key)) return string.Empty;
 
         var localizedKey = key.ToLocalization();
-        var processedArgs = Array.ConvertAll(args, a => a.ToLocalization() as object);
+        var processedArgs = transformKey
+            ? Array.ConvertAll(args, a => a.ToLocalization() as object)
+            : Array.ConvertAll(args, a => a as object);
 
         try
         {
@@ -408,21 +451,27 @@ public static class MFAExtensions
         return VersionChecker.VersionType.Stable;
     }
 
-    public static Bitmap? ToBitmap(this MaaImageBuffer buffer)
-    {
-        if (!buffer.TryGetEncodedData(out Stream EncodedDataStream)) return null;
-
-        try
+        public static Bitmap? ToBitmap(this MaaImageBuffer buffer)
         {
-            EncodedDataStream.Seek(0, SeekOrigin.Begin);
-            return new Bitmap(EncodedDataStream);
+            if (!buffer.TryGetEncodedData(out Stream EncodedDataStream)) return null;
+    
+            try
+            {
+                // 使用 using 确保 Stream 被正确释放，避免 unmanaged memory 泄漏
+                using (EncodedDataStream)
+                {
+                    EncodedDataStream.Seek(0, SeekOrigin.Begin);
+                    return new Bitmap(EncodedDataStream);
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                LoggerHelper.Error($"解码失败: {ex.Message}");
+                // 确保异常情况下也释放 Stream
+                EncodedDataStream?.Dispose();
+                return null;
+            }
         }
-        catch (ArgumentException ex)
-        {
-            LoggerHelper.Error($"解码失败: {ex.Message}");
-            return null;
-        }
-    }
     // public static System.Drawing.Bitmap? ToDrawingBitmap(this Bitmap? bitmap)
     // {
     //     if (bitmap == null)
@@ -494,4 +543,294 @@ public static class MFAExtensions
         result = rawData;
         return true;
     }
-}
+
+    /// <summary>
+    /// 专为 SukiUI 适配：精准查找 Light/Dark.axaml 中的主题资源
+    /// </summary>
+    public static T? FindSukiUiResource<T>(object resourceKey) where T : struct
+    {
+
+        // 1. 直接通过 SukiUI 提供的 GetInstance() 获取 SukiTheme 实例（最靠谱）
+        var sukiTheme = SukiTheme.GetInstance();
+        var currentThemeVariant = sukiTheme.ActiveBaseTheme; // 当前主题（Light/Dark）
+        var sukiResources = sukiTheme.Resources; // SukiTheme 自身的资源字典（包含 ThemeDictionaries）
+
+        return sukiResources.TryGetResource(resourceKey, currentThemeVariant, out var value) && value is T t ? t : null;
+    }
+
+    extension(string url)
+    {
+        /// <summary>
+        /// 判断是否为本地绝对路径
+        /// </summary>
+        public bool IsAbsolutePath() => Path.IsPathRooted(url);
+
+        /// <summary>
+        /// 判断是否为网络URL（http/https）
+        /// </summary>
+        public bool IsUrl()
+        {
+            // 网络链接（http/https/ftp等）
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeFtp))
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 从 URL 获取文本内容
+        /// </summary>
+        public async Task<string> FetchUrlContentAsync()
+        {
+            try
+            {
+                using var httpClient = VersionChecker.CreateHttpClientWithProxy();
+                httpClient.Timeout = TimeSpan.FromSeconds(10);
+                return await httpClient.GetStringAsync(url);
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.Warning($"获取 URL 内容失败: {url}, 错误: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        public string ResolveUrl(string basePath)
+        {
+            // 1. 处理http链接
+            if (url.IsUrl())
+            {
+                return url;
+            }
+
+            // 获取基准目录（basePath 可能是文件路径或目录路径）
+            string? baseDir = null;
+            if (!string.IsNullOrWhiteSpace(basePath))
+            {
+                // 如果 basePath 是文件路径，获取其目录；如果是目录路径，直接使用
+                if (File.Exists(basePath))
+                    baseDir = Path.GetDirectoryName(basePath);
+                else if (Directory.Exists(basePath))
+                    baseDir = basePath;
+                else
+                    baseDir = Path.GetDirectoryName(basePath);
+            }
+
+            // 判断是否为 Windows 平台
+            bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+            // 2. 处理以 / 或 \ 开头的路径
+            if (url.StartsWith("/") || url.StartsWith("\\"))
+            {
+                // 在 Linux/macOS 上，/ 开头是真正的绝对路径
+                if (!isWindows && url.StartsWith("/"))
+                {
+                    // 先检查文件是否存在
+                    if (File.Exists(url))
+                        return url;
+
+                    // 如果不存在，尝试在基准目录中查找
+                    string fileName = Path.GetFileName(url);
+                    if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(baseDir) && Directory.Exists(baseDir))
+                    {
+                        string foundPath = baseDir.FindFileInDirectoryAndSubfolders(fileName);
+                        if (!string.IsNullOrEmpty(foundPath))
+                            return foundPath;
+                    }
+                    // 找不到则返回原始路径
+                    return url;
+                }
+
+                // 在 Windows 上，/ 开头不是真正的绝对路径，作为相对路径处理
+                // 去掉开头的 / 或 \，作为相对路径处理
+                string relativePath = url.TrimStart('/', '\\');
+
+                if (!string.IsNullOrEmpty(baseDir) && Directory.Exists(baseDir))
+                {
+                    // 先尝试直接组合路径
+                    string combinedPath = Path.Combine(baseDir, relativePath);
+                    if (File.Exists(combinedPath))
+                        return combinedPath;
+
+                    // 尝试在基准目录及子目录中查找文件
+                    string fileName = Path.GetFileName(relativePath);
+                    if (!string.IsNullOrEmpty(fileName))
+                    {
+                        string foundPath = baseDir.FindFileInDirectoryAndSubfolders(fileName);
+                        if (!string.IsNullOrEmpty(foundPath))
+                            return foundPath;
+                    }
+                }
+
+                // 找不到则返回组合后的路径
+                return !string.IsNullOrEmpty(baseDir)
+                    ? Path.Combine(baseDir, relativePath)
+                    : relativePath;
+            }
+
+            // 3. 检查真正的绝对路径
+            // Windows: 带盘符的路径（如 C:\xxx 或 D:\xxx）
+            // Linux/macOS: 以 / 开头的路径（已在上面处理）
+            bool isRealAbsolutePath = isWindows
+                ? (url.Length > 1 && url[1] == ':') // Windows: C:\xxx
+                : url.StartsWith("/"); // Linux/macOS: /xxx
+
+            if (isRealAbsolutePath)
+            {
+                if (File.Exists(url))
+                    return url;
+
+                // 提取文件名尝试在基准目录查找
+                string fileName = Path.GetFileName(url);
+                if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(baseDir) && Directory.Exists(baseDir))
+                {
+                    string foundPath = baseDir.FindFileInDirectoryAndSubfolders(fileName);
+                    if (!string.IsNullOrEmpty(foundPath))
+                        return foundPath;
+                }
+                // 找不到则返回原始绝对路径
+                return url;
+            }
+
+            // 4. 处理相对路径
+            // 若没有有效基准目录，直接返回
+            if (string.IsNullOrEmpty(baseDir) || !Directory.Exists(baseDir))
+                return url;
+
+            // 解析相对路径为绝对路径
+            string absolutePath = Path.Combine(baseDir, url);
+            string normalizedPath = Path.GetFullPath(absolutePath);
+
+            // 检查解析后的路径是否存在
+            if (File.Exists(normalizedPath))
+                return normalizedPath;
+
+            // 提取文件名尝试在基准目录查找
+            string targetFileName = Path.GetFileName(normalizedPath);
+            if (!string.IsNullOrEmpty(targetFileName) && Directory.Exists(baseDir))
+            {
+                string foundPath = baseDir.FindFileInDirectoryAndSubfolders(targetFileName, true);
+                if (!string.IsNullOrEmpty(foundPath))
+                    return foundPath;
+            }
+            // 所有尝试失败，返回规范化后的路径
+            return normalizedPath;
+        }
+    }
+
+    /// <summary>
+    /// 常见图片扩展名（用于智能匹配）
+    /// </summary>
+    private static readonly string[] ImageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico"];
+
+    public static string FindFileInDirectoryAndSubfolders(this string rootDir, string fileName, bool tryAlternativeExtensions = false)
+    {
+        try
+        {
+            // 检查当前目录是否包含目标文件
+            string currentDirFile = Path.Combine(rootDir, fileName);
+            if (File.Exists(currentDirFile))
+                return currentDirFile;
+
+            // 如果启用了扩展名智能匹配，尝试查找同名但不同扩展名的文件
+            if (tryAlternativeExtensions)
+            {
+                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                string currentExt = Path.GetExtension(fileName).ToLowerInvariant();
+
+                // 只对图片文件进行扩展名智能匹配
+                if (ImageExtensions.Contains(currentExt))
+                {
+                    foreach (var ext in ImageExtensions)
+                    {
+                        if (ext == currentExt) continue; // 跳过当前扩展名
+
+                        string alternativeFile = Path.Combine(rootDir, fileNameWithoutExt + ext);
+                        if (File.Exists(alternativeFile))
+                            return alternativeFile;
+                    }
+                }
+            }
+
+            // 递归查找所有子目录
+            foreach (string subDir in Directory.EnumerateDirectories(rootDir))
+            {
+                string foundFile = FindFileInDirectoryAndSubfolders(subDir, fileName, tryAlternativeExtensions);
+                if (!string.IsNullOrEmpty(foundFile))
+                    return foundFile;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // 忽略无权限目录
+            LoggerHelper.Info($"无权限访问目录：{rootDir}");
+        }
+        catch (PathTooLongException)
+        {
+            // 忽略路径过长
+            LoggerHelper.Info($"路径过长：{rootDir}");
+        }
+        catch (IOException)
+        {
+            // 忽略I/O错误
+            LoggerHelper.Info($"I/O错误：{rootDir}");
+        }
+
+        // 未找到文件
+        return string.Empty;
+    }
+
+    /// <summary>
+        /// 生成ADB设备的指纹字符串，用于设备匹配
+        /// 指纹由 Name + AdbPath + Index 组成，可以稳定识别同一个模拟器实例
+        /// </summary>
+        /// <param name="device">ADB设备信息</param>
+        /// <returns>设备指纹字符串</returns>
+        public static string GenerateDeviceFingerprint(this MaaFramework.Binding.AdbDeviceInfo device)
+        {
+            var index = DeviceDisplayConverter.GetFirstEmulatorIndex(device.Config);
+            return GenerateDeviceFingerprint(device.Name, device.AdbPath, index);
+        }
+    
+        /// <summary>
+        /// 生成ADB设备的指纹字符串
+        /// </summary>
+        /// <param name="name">设备名称</param>
+        /// <param name="adbPath">ADB路径</param>
+        /// <param name="index">模拟器索引（-1表示无索引）</param>
+        /// <returns>设备指纹字符串</returns>
+        public static string GenerateDeviceFingerprint(string name, string adbPath, int index)
+        {
+            // 规范化AdbPath：只保留文件名部分，忽略路径差异
+            var normalizedAdbPath = adbPath;
+    
+            // 指纹格式：Name|AdbPath|Index
+            return $"{name}|{normalizedAdbPath}|{index}";
+        }
+    
+        /// <summary>
+        /// 比较两个设备是否匹配（基于指纹）
+        /// 当任一方 index 为 -1 时，只比较 Name 和 AdbPath
+        /// </summary>
+        /// <param name="device">当前设备</param>
+        /// <param name="savedDevice">保存的设备</param>
+        /// <returns>是否匹配</returns>
+        public static bool MatchesFingerprint(this MaaFramework.Binding.AdbDeviceInfo device, MaaFramework.Binding.AdbDeviceInfo savedDevice)
+        {
+            var deviceIndex = DeviceDisplayConverter.GetFirstEmulatorIndex(device.Config);
+            var savedIndex = DeviceDisplayConverter.GetFirstEmulatorIndex(savedDevice.Config);
+            
+            // 比较 Name 和 AdbPath
+            bool nameMatches = device.Name == savedDevice.Name;
+            bool adbPathMatches = device.AdbPath == savedDevice.AdbPath;
+            
+            // 如果 Name 或 AdbPath 不匹配，直接返回 false
+            if (!nameMatches || !adbPathMatches)return false;
+            
+            // 如果任一方 index 为 -1，则不比较 index，只要 Name 和 AdbPath 匹配即可
+            if (deviceIndex == -1 || savedIndex == -1)
+                return true;
+            
+            // 两方 index 都有效时，需要 index 也匹配
+            return deviceIndex == savedIndex;
+        }
+    }

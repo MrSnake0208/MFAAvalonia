@@ -43,76 +43,160 @@ sealed class Program
     // yet and stuff might break.
     public static Dictionary<string, string> Args { get; private set; } = new();
     private static Mutex? _mutex;
+    private static bool _mutexReleased = false;
+    private static readonly object _mutexLock = new(); 
+    private static int _mutexOwnerThreadId = -1;
     public static bool IsNewInstance = true;
+
     public static void ReleaseMutex()
     {
-        try
+
+        if (_mutexReleased || _mutex == null)
         {
-            _mutex?.ReleaseMutex();
-            _mutex?.Close();
-            _mutex = null;
+            return;
         }
-        catch (Exception e)
+
+        // 检查当前线程是否是获取 Mutex 的线程
+        if (Environment.CurrentManagedThreadId != _mutexOwnerThreadId)
         {
-            LoggerHelper.Error(e);
+            // 如果不是，尝试通过 UI 线程（主线程）来释放
+            // 因为在 Avalonia 中，UI 线程就是主线程
+            try
+            {
+
+                // 同步调用到 UI 线程执行释放
+                _ = DispatcherHelper.RunOnMainThreadAsync(ReleaseMutexInternal);
+
+            }
+            catch (Exception)
+            {
+                // Dispatcher 可能已经关闭，直接关闭 Mutex 句柄
+                try
+                {
+                    _mutex?.Close();
+                    _mutex = null;
+                    _mutexReleased = true;
+                }
+                catch
+                {
+                    // 忽略
+                }
+            }
+            return;
+        }
+
+        ReleaseMutexInternal();
+
+    }
+
+    private static void ReleaseMutexInternal()
+    {
+        lock (_mutexLock)
+        {
+            if (_mutexReleased || _mutex == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _mutex.ReleaseMutex();
+                _mutex.Close();
+                _mutex = null;
+                _mutexReleased = true;
+            }
+            catch (ApplicationException)
+            {
+                // Mutex was not owned by the current thread, just close it
+                try
+                {
+                    _mutex?.Close();
+                    _mutex = null;
+                    _mutexReleased = true;
+                }
+                catch (Exception)
+                {
+                    // 忽略关闭时的异常
+                }
+            }
+            catch (Exception e)
+            {
+                LoggerHelper.Error(e);
+            }
         }
     }
 
     [STAThread]
     public static void Main(string[] args)
     {
+
         try
         {
             Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+
+            PrivatePathHelper.CleanupDuplicateLibraries(AppContext.BaseDirectory, AppContext.GetData("SubdirectoriesToProbe") as string);
+
+            PrivatePathHelper.SetupNativeLibraryResolver();
+
             List<string> resultDirectories = new List<string>();
 
             // 获取应用程序基目录
             string baseDirectory = AppContext.BaseDirectory;
+
             // 构建runtimes文件夹路径
             string runtimesPath = Path.Combine(baseDirectory, "runtimes");
 
             // 检查runtimes文件夹是否存在
             if (!Directory.Exists(runtimesPath))
             {
-                LoggerHelper.Warning("runtimes文件夹不存在");
+                try
+                {
+                    LoggerHelper.Warning("runtimes文件夹不存在");
+                }
+                catch
+                {
+                }
             }
             else
             {
                 // 搜索runtimes文件夹及其子目录中所有名为"MaaFramework"的文件（不限扩展名）
-                // 搜索模式说明："MaaFramework.*" 匹配所有以MaaFramework为文件名的文件
                 var maaFiles = Directory.EnumerateFiles(
                     runtimesPath,
-                    "MaaFramework.*", // 文件名固定为MaaFramework，扩展名任意
-                    SearchOption.AllDirectories // 包括所有子目录
+                    "*MaaFramework*",
+                    SearchOption.AllDirectories
                 );
 
                 foreach (var filePath in maaFiles)
                 {
-                    // 获取文件所在的目录
                     var fileDirectory = Path.GetDirectoryName(filePath);
-
-                    // 避免重复添加相同目录（可选，根据需求决定是否保留）
                     if (!resultDirectories.Contains(fileDirectory) && fileDirectory?.Contains(VersionChecker.GetNormalizedArchitecture()) == true)
                     {
                         resultDirectories.Add(fileDirectory);
                     }
                 }
-                LoggerHelper.Info("MaaFramework runtimes: " + JsonConvert.SerializeObject(resultDirectories, Formatting.Indented));
+                try
+                {
+                    LoggerHelper.Info("MaaFramework runtimes: " + JsonConvert.SerializeObject(resultDirectories, Formatting.Indented));
+                }
+                catch { }
                 NativeBindingContext.AppendNativeLibrarySearchPaths(resultDirectories);
             }
 
-
             var parsedArgs = ParseArguments(args);
-            // Fix: Replace both Windows (\) and Unix (/) path separators for cross-platform compatibility
             var mutexName = "MFA_"
-                + Directory.GetCurrentDirectory()
-                    .Replace("\\", "_")
+                + Directory.GetCurrentDirectory().Replace("\\", "_")
                     .Replace("/", "_")
                     .Replace(":", string.Empty);
             _mutex = new Mutex(true, mutexName, out IsNewInstance);
-            LoggerHelper.Info("Args: " + JsonConvert.SerializeObject(parsedArgs, Formatting.Indented));
-            LoggerHelper.Info("MFA version: " + RootViewModel.Version);
-            LoggerHelper.Info(".NET version: " + RuntimeInformation.FrameworkDescription);
+            _mutexOwnerThreadId = Environment.CurrentManagedThreadId;
+
+            try
+            {
+                LoggerHelper.Info("Args: " + JsonConvert.SerializeObject(parsedArgs, Formatting.Indented));
+                LoggerHelper.Info("MFA version: " + RootViewModel.Version);
+                LoggerHelper.Info(".NET version: " + RuntimeInformation.FrameworkDescription);
+            }
+            catch { }
             Args = parsedArgs;
 
             BuildAvaloniaApp()
@@ -120,7 +204,12 @@ sealed class Program
         }
         catch (Exception e)
         {
-            LoggerHelper.Error($"总异常捕获：{e}");
+
+            try
+            {
+                LoggerHelper.Error($"总异常捕获：{e}");
+            }
+            catch { }
         }
     }
 

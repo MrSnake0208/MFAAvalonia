@@ -2,6 +2,8 @@
     BackgroundAnimationEnabled="{Binding BackgroundAnimations, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
     BackgroundStyle="{Binding BackgroundStyle, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
     BackgroundTransitionsEnabled="{Binding BackgroundTransitions, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+    BackgroundImage="{Binding BackgroundImage, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+    BackgroundImageOpacity="{Binding BackgroundImageOpacity, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
     IsVisible="{Binding IsWindowVisible}"
     MinHeight="360"
     MinWidth="650"
@@ -9,25 +11,20 @@
     d:DesignWidth="800" ShowTitle="False"
     mc:Ignorable="d"
     x:Class="MFAAvalonia.Views.Windows.RootView"
-    x:DataType="windows:RootViewModel" WindowStartupLocation="CenterScreen"
+    x:DataType="windows:RootViewModel"
     xmlns="https://github.com/avaloniaui"
-    xmlns:avalonia="https://github.com/projektanker/icons.avalonia"
     xmlns:calcBinding="clr-namespace:CalcBinding;assembly=CalcBindingAva"
     xmlns:converters="clr-namespace:MFAAvalonia.Helper.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:extensions="clr-namespace:MFAAvalonia.Extensions"
-    xmlns:fluent="clr-namespace:FluentIcons.Avalonia.Fluent;assembly=FluentIcons.Avalonia.Fluent"
-    xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:helper="clr-namespace:MFAAvalonia.Helper"
     xmlns:markup="https://codewf.com"
-    xmlns:markupExtensions="clr-namespace:FluentIcons.Avalonia.Fluent.MarkupExtensions;assembly=FluentIcons.Avalonia.Fluent"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:pages="clr-namespace:MFAAvalonia.Views.Pages"
     xmlns:suki="https://github.com/kikipoulet/SukiUI"
-    xmlns:userControls="clr-namespace:MFAAvalonia.Views.UserControls"
-    xmlns:vm="using:MFAAvalonia.ViewModels"
     xmlns:windows="clr-namespace:MFAAvalonia.ViewModels.Windows"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:fluent="clr-namespace:FluentIcons.Avalonia.Fluent.Markup;assembly=FluentIcons.Avalonia.Fluent">
     <suki:SukiWindow.Styles>
         <Style Selector="ToggleButton.SP:checked > PathIcon">
             <Setter Property="Foreground" Value="{DynamicResource SukiPrimaryColor}" />
@@ -35,12 +32,100 @@
     </suki:SukiWindow.Styles>
     <suki:SukiWindow.NonClientAreaContent>
         <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock
+                VerticalAlignment="Center"
+                HorizontalAlignment="Left"
+                IsHitTestVisible="False"
+                Text="{Binding WindowUpdateInfo}">
+                <TextBlock.Foreground>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                        <GradientStop Color="#FF4285F4" Offset="0.0" />
+                        <GradientStop Color="#FFEA4335" Offset="1.0" />
+                    </LinearGradientBrush>
+                </TextBlock.Foreground>
+                <TextBlock.Styles>
+                    <Style Selector="TextBlock">
+                        <Style.Animations>
+                            <!-- 总时长4秒，无限循环，与WPF的4个1秒动画段对应 -->
+                            <Animation Duration="0:0:2" IterationCount="INFINITE" FillMode="Forward">
+                                <!-- 关键帧1：0%（0秒）→ 主色：蓝色(#FF4285F4)，流动渐变从蓝到红 -->
+                                <KeyFrame Cue="0%">
+                                    <KeyFrame.Setters>
+                                        <Setter Property="Foreground">
+                                            <Setter.Value>
+                                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                                    <GradientStop Color="#FF4285F4" Offset="0.0" />
+                                                    <GradientStop Color="#FFEA4335" Offset="1.0" />
+                                                </LinearGradientBrush>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </KeyFrame.Setters>
+                                </KeyFrame>
+
+                                <!-- 关键帧2：25%（1秒）→ 主色：红色(#FFEA4335)，流动渐变从红到黄 -->
+                                <KeyFrame Cue="25%">
+                                    <KeyFrame.Setters>
+                                        <Setter Property="Foreground">
+                                            <Setter.Value>
+                                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                                    <GradientStop Color="#FFEA4335" Offset="0.0" />
+                                                    <GradientStop Color="#FFFBBC05" Offset="1.0" />
+                                                </LinearGradientBrush>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </KeyFrame.Setters>
+                                </KeyFrame>
+
+                                <!-- 关键帧3：50%（2秒）→ 主色：黄色(#FFFBBC05)，流动渐变从黄到绿 -->
+                                <KeyFrame Cue="50%">
+                                    <KeyFrame.Setters>
+                                        <Setter Property="Foreground">
+                                            <Setter.Value>
+                                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                                    <GradientStop Color="#FFFBBC05" Offset="0.0" />
+                                                    <GradientStop Color="#FF34A853" Offset="1.0" />
+                                                </LinearGradientBrush>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </KeyFrame.Setters>
+                                </KeyFrame>
+
+                                <!-- 关键帧4：75%（3秒）→ 主色：绿色(#FF34A853)，流动渐变从绿到蓝 -->
+                                <KeyFrame Cue="75%">
+                                    <KeyFrame.Setters>
+                                        <Setter Property="Foreground">
+                                            <Setter.Value>
+                                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                                    <GradientStop Color="#FF34A853" Offset="0.0" />
+                                                    <GradientStop Color="#FF4285F4" Offset="1.0" />
+                                                </LinearGradientBrush>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </KeyFrame.Setters>
+                                </KeyFrame>
+                                <KeyFrame Cue="100%">
+                                    <KeyFrame.Setters>
+                                        <Setter Property="Foreground">
+                                            <Setter.Value>
+                                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                                    <GradientStop Color="#FF4285F4" Offset="0.0" />
+                                                    <GradientStop Color="#FFEA4335" Offset="1.0" />
+                                                </LinearGradientBrush>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </KeyFrame.Setters>
+                                </KeyFrame>
+                            </Animation>
+                        </Style.Animations>
+                    </Style>
+                </TextBlock.Styles>
+            </TextBlock>
             <TextBlock VerticalAlignment="Center" IsVisible="{Binding IsDebugMode}"
                        FontSize="13" Text="{markup:I18n {x:Static helper:LangKeys.DebugMode}}"
                        Foreground="{DynamicResource SukiPrimaryColor}"
                        FontWeight="Bold">
             </TextBlock>
-            <TextBlock VerticalAlignment="Center"
+            <TextBlock VerticalAlignment="Center" IsVisible="{Binding IsCustomTitleVisible}"
                        FontSize="13"
                        FontWeight="Bold">
                 <TextBlock.Text>
@@ -60,6 +145,16 @@
                     </MultiBinding>
                 </TextBlock.Text>
             </TextBlock>
+            <TextBlock VerticalAlignment="Center" IsVisible="{calcBinding:Binding '!IsCustomTitleVisible' }"
+                       FontSize="13" Text="{markup:I18n {x:Static helper:LangKeys.AppTitle}}"
+                       FontWeight="Bold" />
+
+            <TextBlock VerticalAlignment="Center" Margin="5 0 0 0" IsVisible="{Binding IsResourceNameVisible}"
+                       Foreground="{DynamicResource SukiLowText}"
+                       FontSize="13" Text="{Binding ResourceName}" />
+            <TextBlock VerticalAlignment="Center" Margin="1 0 0 0" IsVisible="{Binding IsResourceNameVisible}"
+                       Foreground="{DynamicResource SukiLowText}"
+                       FontSize="13" Text="{Binding ResourceVersion}" />
         </StackPanel>
     </suki:SukiWindow.NonClientAreaContent>
     <suki:SukiWindow.Title>
@@ -105,58 +200,60 @@
         <suki:SukiToastHost Manager="{x:Static helper:Instances.ToastManager}" />
         <suki:SukiDialogHost Manager="{x:Static helper:Instances.DialogManager}" Name="DialogHost" />
     </suki:SukiWindow.Hosts>
-    <Grid>
-        <suki:SukiSideMenu IsMenuExpanded="False" IsSearchEnabled="False" OpenPaneLength="150">
-            <!-- <suki:SukiSideMenu.Styles> -->
-            <!--     <Style Selector="Image.AppIcon"> -->
-            <!--         <Setter Property="Transitions"> -->
-            <!--             <Transitions> -->
-            <!--                 <DoubleTransition Duration="0.1" Property="Opacity" /> -->
-            <!--             </Transitions> -->
-            <!--         </Setter> -->
-            <!--         <Style Selector="^:pointerover"> -->
-            <!--             <Setter Property="Opacity" Value="0.5" /> -->
-            <!--         </Style> -->
-            <!--     </Style> -->
-            <!-- </suki:SukiSideMenu.Styles> -->
-            <suki:SukiSideMenu.Items>
-                <suki:SukiSideMenuItem IsContentMovable="False"
-                                       Header="{markup:I18n {x:Static helper:LangKeys.Home}}"
-                                       Icon="{markupExtensions:FluentIcon Icon=TasksApp,
+    <LayoutTransformControl LayoutTransform="{Binding ScaleTransform, Source={x:Static helper:FontService.Instance}}">
+        <Grid>
+            <suki:SukiSideMenu IsMenuExpanded="False" IsSearchEnabled="False" OpenPaneLength="150">
+                <!-- <suki:SukiSideMenu.Styles> -->
+                <!--     <Style Selector="Image.AppIcon"> -->
+                <!--         <Setter Property="Transitions"> -->
+                <!--             <Transitions> -->
+                <!--                 <DoubleTransition Duration="0.1" Property="Opacity" /> -->
+                <!--             </Transitions> -->
+                <!--         </Setter> -->
+                <!--         <Style Selector="^:pointerover"> -->
+                <!--             <Setter Property="Opacity" Value="0.5" /> -->
+                <!--         </Style> -->
+                <!--     </Style> -->
+                <!-- </suki:SukiSideMenu.Styles> -->
+                <suki:SukiSideMenu.Items>
+                    <suki:SukiSideMenuItem IsContentMovable="False"
+                                           Header="{markup:I18n {x:Static helper:LangKeys.Home}}"
+                                           Icon="{fluent:FluentIcon Icon=TasksApp,
                                                        IconVariant=Regular}"
                                        PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:TaskQueueView}}" />
-                <!-- Copilot Tab: 抄作业 -->
-                <suki:SukiSideMenuItem IsContentMovable="False"
-                                       Header="自动战斗"
-                                       Icon="{markupExtensions:FluentIcon Icon=Games,
+                    <!-- Copilot Tab: 抄作业 -->
+                    <suki:SukiSideMenuItem IsContentMovable="False"
+                                        Header="自动战斗"
+                                        Icon="{fluent:FluentIcon Icon=Games,
+                                                        IconVariant=Regular}"
+                                        PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:CopilotView}}" />
+                    <suki:SukiSideMenuItem IsContentMovable="False"
+                                        Header="{markup:I18n {x:Static helper:LangKeys.ScreenshotPage}}"
+                                        Icon="{fluent:FluentIcon Icon=Screenshot,
+                                                        IconVariant=Regular}"
+                                            PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:ScreenshotView}}" />
+                    <suki:SukiSideMenuItem IsContentMovable="False"
+                                           Header="{markup:I18n {x:Static helper:LangKeys.ResourceOption}}"
+                                           Icon="{fluent:FluentIcon Icon=Apps,
                                                        IconVariant=Regular}"
-                                       PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:CopilotView}}" />
-                <suki:SukiSideMenuItem IsContentMovable="False"
-                                       Header="{markup:I18n {x:Static helper:LangKeys.ScreenshotPage}}"
-                                       Icon="{markupExtensions:FluentIcon Icon=Screenshot,
-                                                       IconVariant=Regular}"
-                                       PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:ScreenshotView}}" />
-                <suki:SukiSideMenuItem IsContentMovable="False"
-                                       Header="{markup:I18n {x:Static helper:LangKeys.ResourceOption}}"
-                                       Icon="{markupExtensions:FluentIcon Icon=Apps,
-                                                       IconVariant=Regular}"
-                                       IsVisible="False"
-                                       PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:ResourcesView}}" />
-          
-            </suki:SukiSideMenu.Items>
+                                           IsVisible="False"
+                                           PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:ResourcesView}}" />
 
-            <suki:SukiSideMenu.HeaderContent>
-                <!--  Header Content  -->
-            </suki:SukiSideMenu.HeaderContent>
+                </suki:SukiSideMenu.Items>
 
-            <suki:SukiSideMenu.FooterMenuItems>
-                <suki:SukiSideMenuItem IsContentMovable="False"
-                                       Header="{markup:I18n {x:Static helper:LangKeys.Settings}}"
-                                       Icon="{markupExtensions:FluentIcon Icon=Settings,
+                <suki:SukiSideMenu.HeaderContent>
+                    <!--  Header Content  -->
+                </suki:SukiSideMenu.HeaderContent>
+
+                <suki:SukiSideMenu.FooterMenuItems>
+                    <suki:SukiSideMenuItem IsContentMovable="False"
+                                           Header="{markup:I18n {x:Static helper:LangKeys.Settings}}"
+                                           Icon="{fluent:FluentIcon Icon=Settings,
                                                            IconVariant=Regular}"
-                                       PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:SettingsView}}" />
-            </suki:SukiSideMenu.FooterMenuItems>
-        </suki:SukiSideMenu>
-    </Grid>
+                                           PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:SettingsView}}" />
+                </suki:SukiSideMenu.FooterMenuItems>
+            </suki:SukiSideMenu>
+        </Grid>
+    </LayoutTransformControl>
 
 </suki:SukiWindow>

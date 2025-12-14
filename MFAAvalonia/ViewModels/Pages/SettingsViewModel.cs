@@ -72,7 +72,7 @@ public partial class SettingsViewModel : ViewModelBase
     #endregion 配置
 
     #region HotKey
-
+    [ObservableProperty] private bool _enableHotKey = true;
     private MFAHotKey _hotKeyShowGui = MFAHotKey.NOTSET;
 
     public MFAHotKey HotKeyShowGui
@@ -106,9 +106,16 @@ public partial class SettingsViewModel : ViewModelBase
     
     #region 资源
 
-    [ObservableProperty] private bool _showResourceIssues = false;
+    [ObservableProperty] private bool _showResourceIssues;
     [ObservableProperty] private string _resourceIssues = string.Empty;
     [ObservableProperty] private string _resourceGithub = string.Empty;
+
+    [ObservableProperty] private string _resourceContact = string.Empty;
+    [ObservableProperty] private string _resourceDescription = string.Empty;
+    [ObservableProperty] private string _resourceLicense = string.Empty;
+    [ObservableProperty] private bool _hasResourceContact;
+    [ObservableProperty] private bool _hasResourceDescription;
+    [ObservableProperty] private bool _hasResourceLicense;
 
     #endregion
 }

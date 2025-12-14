@@ -7,6 +7,8 @@ using MFAAvalonia.Configuration;
 using MFAAvalonia.Extensions;
 using MFAAvalonia.Helper;
 using MFAAvalonia.ViewModels.Other;
+using SukiUI.Dialogs;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MFAAvalonia.ViewModels.UsersControls.Settings;
@@ -18,7 +20,7 @@ public partial class StartSettingsUserControlModel : ViewModelBase
     [ObservableProperty] private bool _autoHide = ConfigurationManager.Current.GetValue(ConfigurationKeys.AutoHide, false);
 
     [ObservableProperty] private string _softwarePath = ConfigurationManager.Current.GetValue(ConfigurationKeys.SoftwarePath, string.Empty);
-    
+
     [ObservableProperty] private string _emulatorConfig = ConfigurationManager.Current.GetValue(ConfigurationKeys.EmulatorConfig, string.Empty);
 
     [ObservableProperty] private double _waitSoftwareTime = ConfigurationManager.Current.GetValue(ConfigurationKeys.WaitSoftwareTime, 60.0);
@@ -48,7 +50,7 @@ public partial class StartSettingsUserControlModel : ViewModelBase
     {
         ConfigurationManager.Current.SetValue(ConfigurationKeys.WaitSoftwareTime, value);
     }
-    
+
     [RelayCommand]
     async private Task SelectSoft()
     {
@@ -66,7 +68,7 @@ public partial class StartSettingsUserControlModel : ViewModelBase
                 }
             ]
         };
-        
+
         var result = await storageProvider.OpenFilePickerAsync(options);
 
         // 处理选择结果
@@ -74,5 +76,46 @@ public partial class StartSettingsUserControlModel : ViewModelBase
         {
             SoftwarePath = path;
         }
+    }
+
+
+    public AvaloniaList<LocalizationViewModel> BeforeTaskList =>
+    [
+        new("None"),
+        new("StartupSoftware"),
+        new("StartupSoftwareAndScript"),
+    ];
+
+
+    public AvaloniaList<LocalizationViewModel> AfterTaskList =>
+    [
+        new("None"),
+        new("CloseMFA"),
+        new("CloseEmulator"),
+        new("CloseEmulatorAndMFA"),
+        new("ShutDown"),
+        new("CloseEmulatorAndRestartMFA"),
+        new("RestartPC"),
+    ];
+
+
+    [ObservableProperty] private string? _beforeTask = ConfigurationManager.Current.GetValue(ConfigurationKeys.BeforeTask, "None");
+
+    partial void OnBeforeTaskChanged(string? value)
+    {
+        ConfigurationManager.Current.SetValue(ConfigurationKeys.BeforeTask, value);
+    }
+
+    [ObservableProperty] private string? _afterTask = ConfigurationManager.Current.GetValue(ConfigurationKeys.AfterTask, "None");
+
+    partial void OnAfterTaskChanged(string? value)
+    {
+        ConfigurationManager.Current.SetValue(ConfigurationKeys.AfterTask, value);
+    }
+    
+    [RelayCommand]
+    private void QuickSettings()
+    {
+        Instances.DialogManager.CreateDialog().WithTitle("EmulatorMultiInstanceEditor").WithViewModel(dialog => new MultiInstanceEditorDialogViewModel(dialog)).Dismiss().ByClickingBackground().TryShow();
     }
 }

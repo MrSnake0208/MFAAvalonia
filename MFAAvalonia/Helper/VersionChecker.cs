@@ -12,6 +12,7 @@ using MFAAvalonia.Views.Windows;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Semver;
+using SukiUI.Controls;
 using SukiUI.Dialogs;
 using SukiUI.Enums;
 using SukiUI.Toasts;
@@ -48,9 +49,9 @@ public static class VersionChecker
 
     public enum VersionType
     {
-        Alpha,
-        Beta,
-        Stable
+        Alpha = 0,
+        Beta = 1,
+        Stable = 2
     }
 
     private static readonly ConcurrentQueue<ValueType.MFATask> Queue = new();
@@ -63,6 +64,8 @@ public static class VersionChecker
             CheckVersion = ConfigurationManager.Current.GetValue(ConfigurationKeys.EnableCheckVersion, true),
         };
 
+        AddCDKCheckTask();
+
         if (config.AutoUpdateResource && !GetResourceVersion().Contains("debug", StringComparison.OrdinalIgnoreCase))
         {
             AddResourceUpdateTask(config.AutoUpdateMFA);
@@ -72,19 +75,20 @@ public static class VersionChecker
             AddResourceCheckTask();
         }
 
-        if (config.AutoUpdateMFA)
-        {
-            AddMFAUpdateTask();
-        }
-        else if (config.CheckVersion)
-        {
-            AddMFACheckTask();
-        }
+        // if (config.AutoUpdateMFA)
+        // {
+        //     AddMFAUpdateTask();
+        // }
+        // else if (config.CheckVersion)
+        // {
+        //     AddMFACheckTask();
+        // }
 
         TaskManager.RunTaskAsync(async () => await ExecuteTasksAsync(),
             () => ToastNotification.Show("自动更新时发生错误！"), "启动检测");
     }
 
+    public static void CheckCDKAsync() => TaskManager.RunTaskAsync(() => CheckForCDK(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0), name: "查询CDK剩余时间");
     public static void CheckMFAVersionAsync() => TaskManager.RunTaskAsync(() => CheckForMFAUpdates(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0), name: "检测MFA版本");
     public static void CheckResourceVersionAsync() => TaskManager.RunTaskAsync(() => CheckForResourceUpdates(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0), name: "检测资源版本");
     public static void UpdateResourceAsync(string
@@ -110,7 +114,14 @@ public static class VersionChecker
             Name = "更新软件"
         });
     }
-
+    private static void AddCDKCheckTask()
+    {
+        Queue.Enqueue(new ValueType.MFATask
+        {
+            Action = async () => CheckForCDK(Instances.VersionUpdateSettingsUserControlModel.DownloadSourceIndex == 0),
+            Name = "查询CDK"
+        });
+    }
     private static void AddResourceUpdateTask(bool autoUpdateMFA)
     {
         Queue.Enqueue(new ValueType.MFATask
@@ -140,11 +151,22 @@ public static class VersionChecker
                 .WithActionButton(LangKeys.Ok.ToLocalization(), dialog => { }, true).TryShow();
         }
     }
+    public static void CheckForCDK(bool isGithub = true)
+    {
+        if (isGithub) return;
+        try
+        {
+            GetDownloadUrlFromMirror("v0.0.0", "MFAAvalonia", CDK(), out _, out _, out _, out _, onlyCheck: false, saveAnnouncement: false);
+        }
+        catch (Exception)
+        {
+        }
+    }
 
     public static void CheckForResourceUpdates(bool isGithub = true)
     {
         Instances.RootViewModel.SetUpdating(true);
-        var url = MaaProcessor.Interface?.Url ?? string.Empty;
+        var url = MaaProcessor.Interface?.Github ?? MaaProcessor.Interface?.Url ?? string.Empty;
 
         string[] strings = [];
         try
@@ -171,7 +193,7 @@ public static class VersionChecker
             if (isGithub)
                 GetLatestVersionAndDownloadUrlFromGithub(out var downloadUrl, out latestVersion, out sha256, strings[0], strings[1], true, currentVersion: resourceVersion);
             else
-                GetDownloadUrlFromMirror(resourceVersion, GetResourceID(), CDK(), out _, out latestVersion, out sha256, onlyCheck: true, currentVersion: resourceVersion);
+                GetDownloadUrlFromMirror(resourceVersion, GetResourceID(), CDK(), out _, out latestVersion, out sha256, out _, onlyCheck: true, currentVersion: resourceVersion);
 
             if (string.IsNullOrWhiteSpace(latestVersion))
             {
@@ -181,8 +203,10 @@ public static class VersionChecker
 
             if (IsNewVersionAvailable(latestVersion, resourceVersion))
             {
-                DispatcherHelper.RunOnMainThread(() =>
+                DispatcherHelper.PostOnMainThread(() =>
                 {
+                    Instances.RootViewModel.WindowUpdateInfo = LangKeys.MirrorChyanResourceUpdateShortTip.ToLocalizationFormatted(false, latestVersion);
+
                     Instances.ToastManager.CreateToast().WithTitle(LangKeys.UpdateResource.ToLocalization())
                         .WithContent(LangKeys.ResourceOption.ToLocalization() + LangKeys.NewVersionAvailableLatestVersion.ToLocalization() + latestVersion).Dismiss().After(TimeSpan.FromSeconds(6))
                         .WithActionButton(LangKeys.Later.ToLocalization(), _ => { }, true, SukiButtonStyles.Basic)
@@ -209,7 +233,7 @@ public static class VersionChecker
             if (ex.Message.Contains("resource not found"))
                 ToastHelper.Error(LangKeys.CurrentResourcesNotSupportMirror.ToLocalization());
             else
-                ToastHelper.Error(LangKeys.ErrorWhenCheck.ToLocalizationFormatted(true, "Resource"), ex.Message);
+                ToastHelper.Error(LangKeys.ErrorWhenCheck.ToLocalizationFormatted(true, "Resource"), ex.Message, -1);
             LoggerHelper.Error(ex);
         }
     }
@@ -225,7 +249,7 @@ public static class VersionChecker
             if (isGithub)
                 GetLatestVersionAndDownloadUrlFromGithub(out _, out latestVersion, out sha256);
             else
-                GetDownloadUrlFromMirror(localVersion, "YuanMFA", CDK(), out _, out latestVersion, out sha256, isUI: true, onlyCheck: true);
+                GetDownloadUrlFromMirror(localVersion, "YuanMFA", CDK(), out _, out latestVersion, out sha256, out _, isUI: true, onlyCheck: true);
             var mirrocS = false;
             if (IsNewVersionAvailable(latestVersion, GetMaxVersion()))
             {
@@ -238,7 +262,7 @@ public static class VersionChecker
             }
             else if (IsNewVersionAvailable(latestVersion, localVersion))
             {
-                DispatcherHelper.RunOnMainThread(() =>
+                DispatcherHelper.PostOnMainThread(() =>
                 {
                     Instances.ToastManager.CreateToast().WithTitle(LangKeys.SoftwareUpdate.ToLocalization())
                         .WithContent("MFA" + LangKeys.NewVersionAvailableLatestVersion.ToLocalization() + latestVersion).Dismiss().After(TimeSpan.FromSeconds(6))
@@ -278,7 +302,7 @@ public static class VersionChecker
         ProgressBar? progress = null;
         TextBlock? textBlock = null;
         ISukiToast? sukiToast = null;
-        DispatcherHelper.RunOnMainThread(() =>
+        StackPanel stackPanel = await DispatcherHelper.RunOnMainThreadAsync(() =>
         {
             progress = new ProgressBar
             {
@@ -292,12 +316,14 @@ public static class VersionChecker
             };
             stackPanel.Children.Add(textBlock);
             stackPanel.Children.Add(progress);
-            sukiToast = Instances.ToastManager.CreateToast()
-                .WithTitle(LangKeys.UpdateResource.ToLocalization())
-                .WithContent(stackPanel).Queue();
+            return stackPanel;
         });
 
-
+        sukiToast = await DispatcherHelper.RunOnMainThreadAsync(() =>
+            Instances.ToastManager.CreateToast()
+                .WithTitle(LangKeys.UpdateResource.ToLocalization())
+                .WithContent(stackPanel).Queue()
+        );
         var localVersion = string.IsNullOrWhiteSpace(currentVersion) ? MaaProcessor.Interface?.Version ?? string.Empty : currentVersion;
 
         if (string.IsNullOrWhiteSpace(localVersion))
@@ -307,11 +333,12 @@ public static class VersionChecker
             Instances.RootViewModel.SetUpdating(false);
             return;
         }
+
         SetProgress(progress, 10);
         string[] strings = [];
         if (isGithub)
         {
-            var url = MaaProcessor.Interface?.Url ?? string.Empty;
+            var url = MaaProcessor.Interface?.Github ?? MaaProcessor.Interface?.Url ?? string.Empty;
             if (string.IsNullOrWhiteSpace(url))
             {
                 Dismiss(sukiToast);
@@ -324,17 +351,19 @@ public static class VersionChecker
         string latestVersion = string.Empty;
         string downloadUrl = string.Empty;
         string sha256 = string.Empty;
+        var isFull = true;
         try
         {
             if (isGithub)
                 GetLatestVersionAndDownloadUrlFromGithub(out downloadUrl, out latestVersion, out sha256, strings[0], strings[1], currentVersion: localVersion);
             else
-                GetDownloadUrlFromMirror(localVersion, GetResourceID(), CDK(), out downloadUrl, out latestVersion, out sha256, currentVersion: localVersion);
+                GetDownloadUrlFromMirror(localVersion, GetResourceID(), CDK(), out downloadUrl, out latestVersion, out sha256, out isFull, currentVersion: localVersion);
         }
         catch (Exception ex)
         {
+            Console.WriteLine(sukiToast == null);
             Dismiss(sukiToast);
-            ToastHelper.Warn($"{LangKeys.FailToGetLatestVersionInfo.ToLocalization()}", ex.Message);
+            ToastHelper.Warn($"{LangKeys.FailToGetLatestVersionInfo.ToLocalization()}", ex.Message, -1);
             Instances.RootViewModel.SetUpdating(false);
             LoggerHelper.Error(ex);
             return;
@@ -348,7 +377,6 @@ public static class VersionChecker
             ToastHelper.Warn(LangKeys.FailToGetLatestVersionInfo.ToLocalization());
             Instances.RootViewModel.SetUpdating(false);
             Instances.TaskQueueViewModel.ClearDownloadProgress();
-
             return;
         }
 
@@ -372,7 +400,8 @@ public static class VersionChecker
             Instances.TaskQueueViewModel.ClearDownloadProgress();
             return;
         }
-
+        MaaProcessor.Instance.SetTasker();
+        DispatcherHelper.PostOnMainThread(() => Instances.RootView.BeforeClosed(true, true));
         var tempPath = Path.Combine(AppContext.BaseDirectory, "temp_res");
         Directory.CreateDirectory(tempPath);
         string fileExtension = GetFileExtensionFromUrl(downloadUrl);
@@ -433,14 +462,32 @@ public static class VersionChecker
 
         var wpfDir = AppContext.BaseDirectory;
         var resourcePath = Path.Combine(wpfDir, "resource");
-
+        var agentPath = Path.Combine(wpfDir, "agent");
         if (!File.Exists(interfacePath))
         {
             originPath = Path.Combine(tempExtractDir, "assets");
             interfacePath = Path.Combine(tempExtractDir, "assets", "interface.json");
             resourceDirPath = Path.Combine(tempExtractDir, "assets", "resource");
         }
+        // 获取当前运行的可执行文件路径（最可靠的方式，即使用户重命名了文件也能正确获取）
+        var exeName = Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
+        LoggerHelper.Info($"Current process executable: {exeName}");
+        // 如果路径为空或文件不存在，尝试其他方式
+        if (string.IsNullOrEmpty(exeName) || !File.Exists(exeName))
+        {
+            // 尝试使用 Environment.ProcessPath (.NET 6+)
+            exeName = Environment.ProcessPath ?? string.Empty;
+            LoggerHelper.Info($"Environment.ProcessPath: {exeName}");
+        }
 
+        // 如果仍然为空或不存在，使用 AppContext.BaseDirectory + 当前进程名
+        if (string.IsNullOrEmpty(exeName) || !File.Exists(exeName))
+        {
+            var processName = Process.GetCurrentProcess().ProcessName;
+            var extension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
+            exeName = Path.Combine(AppContext.BaseDirectory, processName + extension);
+            LoggerHelper.Info($"Fallback to process name: {exeName}");
+        }
         var file = new FileInfo(interfacePath);
 
 
@@ -462,7 +509,10 @@ public static class VersionChecker
             file.CopyTo(targetPath, true);
         }
 
-        if (isGithub || currentVersion.Equals("v0.0.0", StringComparison.OrdinalIgnoreCase))
+        var changesPath = Path.Combine(tempExtractDir, "changes.json");
+        if (File.Exists(changesPath))
+            isFull = false;
+        if (isGithub || isFull || currentVersion.Equals("v0.0.0", StringComparison.OrdinalIgnoreCase))
         {
             if (Directory.Exists(resourcePath))
             {
@@ -474,16 +524,29 @@ public static class VersionChecker
 
                     try
                     {
-                        if (!Path.GetFileName(rfile).Contains("MFAUpdater")
-                            && !Path.GetFileName(rfile).Contains("MFAAvalonia")
-                            && !Path.GetFileName(rfile).Contains("MaaYuan")
-                            && !Path.GetFileName(rfile).Contains("interface.json", StringComparison.OrdinalIgnoreCase)
-                            && !Path.GetFileName(rfile).Contains(Process.GetCurrentProcess().MainModule?.ModuleName ?? string.Empty))
-                        {
-                            File.SetAttributes(rfile, FileAttributes.Normal);
-                            LoggerHelper.Info("Deleting file: " + rfile);
-                            File.Delete(rfile);
-                        }
+                        File.SetAttributes(rfile, FileAttributes.Normal);
+                        LoggerHelper.Info("Deleting file: " + rfile);
+                        DeleteFileWithBackup(rfile);
+                    }
+                    catch (Exception ex)
+                    {
+                        LoggerHelper.Error($"文件删除失败: {rfile}", ex);
+                    }
+                }
+            }
+            if (Directory.Exists(agentPath))
+            {
+                foreach (var rfile in Directory.EnumerateFiles(agentPath, "*", SearchOption.AllDirectories))
+                {
+                    var fileName = Path.GetFileName(rfile);
+                    if (fileName.Equals(ChangelogViewModel.ChangelogFileName, StringComparison.OrdinalIgnoreCase) || fileName.Contains("interface.json", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    try
+                    {
+                        File.SetAttributes(rfile, FileAttributes.Normal);
+                        LoggerHelper.Info("Deleting file: " + rfile);
+                        DeleteFileWithBackup(rfile);
                     }
                     catch (Exception ex)
                     {
@@ -494,8 +557,6 @@ public static class VersionChecker
         }
         else
         {
-            var changesPath = Path.Combine(tempExtractDir, "changes.json");
-
             if (File.Exists(changesPath))
             {
                 var changes = await File.ReadAllTextAsync(changesPath);
@@ -522,25 +583,10 @@ public static class VersionChecker
                         {
                             try
                             {
-                                if (!Path.GetFileName(delPath).Contains("MFAUpdater")
-                                    && !Path.GetFileName(delPath).Contains("MFAAvalonia")
-                                    && !Path.GetFileName(delPath).Contains("interface.json", StringComparison.OrdinalIgnoreCase)
-                                    && !Path.GetFileName(delPath).Contains(Process.GetCurrentProcess().MainModule?.ModuleName ?? string.Empty))
-                                {
-                                    if (Path.GetExtension(delPath).Equals(".md", StringComparison.OrdinalIgnoreCase) && delPath.Contains(AnnouncementViewModel.AnnouncementFolder))
-                                    {
-                                        GlobalConfiguration.SetValue(ConfigurationKeys.DoNotShowAnnouncementAgain, bool.FalseString);
-                                    }
-                                    if (Path.GetExtension(delPath).Equals(".dll", StringComparison.OrdinalIgnoreCase) && OperatingSystem.IsWindows()
-                                        || !Path.GetFileName(tempPath).Contains("minicap.so", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(delPath).Equals(".so", StringComparison.OrdinalIgnoreCase) && OperatingSystem.IsLinux()
-                                        || Path.GetExtension(delPath).Equals(".dylib", StringComparison.OrdinalIgnoreCase) && (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS()))
-                                    {
-                                        LoggerHelper.Info("Skip file: " + delPath);
-                                        continue;
-                                    }
-                                    LoggerHelper.Info("Deleting Deleted file: " + delPath);
-                                    File.Delete(delPath);
-                                }
+
+                                LoggerHelper.Info("Deleting Deleted file: " + delPath);
+                                DeleteFileWithBackup(delPath);
+
                             }
                             catch (Exception e)
                             {
@@ -558,21 +604,8 @@ public static class VersionChecker
                         {
                             try
                             {
-                                if (!Path.GetFileName(delPath).Contains("MFAUpdater")
-                                    && !Path.GetFileName(delPath).Contains("MFAAvalonia")
-                                    && !Path.GetFileName(delPath).Contains("interface.json", StringComparison.OrdinalIgnoreCase)
-                                    && !Path.GetFileName(delPath).Contains(Process.GetCurrentProcess().MainModule?.ModuleName ?? string.Empty))
-                                {
-                                    if (Path.GetExtension(delPath).Equals(".dll", StringComparison.OrdinalIgnoreCase) && OperatingSystem.IsWindows()
-                                        || !Path.GetFileName(tempPath).Contains("minicap.so", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(delPath).Equals(".so", StringComparison.OrdinalIgnoreCase) && OperatingSystem.IsLinux()
-                                        || Path.GetExtension(delPath).Equals(".dylib", StringComparison.OrdinalIgnoreCase) && (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS()))
-                                    {
-                                        LoggerHelper.Info("Skip file: " + delPath);
-                                        continue;
-                                    }
-                                    LoggerHelper.Info("Deleting Modified file: " + delPath);
-                                    File.Delete(delPath);
-                                }
+                                LoggerHelper.Info("Deleting Modified file: " + delPath);
+                                DeleteFileWithBackup(delPath);
                             }
                             catch (Exception e)
                             {
@@ -599,9 +632,8 @@ public static class VersionChecker
         var di = new DirectoryInfo(originPath);
         if (di.Exists)
         {
-            await DirectoryMerger.DirectoryMergeAsync(originPath, wpfDir, progress, false, true);
+            await CopyAndDelete(originPath, wpfDir, progress, true);
         }
-
 
         // 检查是否存在config文件夹，如果存在，安排程序关闭后更新
         var sourceConfigDir = Path.Combine(tempExtractDir, "config");
@@ -722,7 +754,7 @@ rm $0
             var @interface = JObject.Parse(jsonContent);
             if (@interface != null)
             {
-                @interface["url"] = MaaProcessor.Interface?.Url;
+                @interface["github"] = MaaProcessor.Interface?.Github ?? MaaProcessor.Interface?.Url;
                 @interface["version"] = latestVersion;
             }
 
@@ -736,28 +768,352 @@ rm $0
 
         Instances.RootViewModel.SetUpdating(false);
 
-        DispatcherHelper.RunOnMainThread(() =>
-        {
-            if (!noDialog)
-            {
-                Instances.DialogManager.CreateDialog().WithContent(LangKeys.GameResourceUpdated.ToLocalization()).WithActionButton(LangKeys.Yes.ToLocalization(), _ =>
-                    {
-                        Process.Start(Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty);
-                        Instances.ShutdownApplication();
-                    }, dismissOnClick: true, "Flat", "Accent")
-                    .WithActionButton(LangKeys.No.ToLocalization(), _ =>
-                    {
-                        Dismiss(sukiToast);
-                    }, dismissOnClick: true).TryShow();
-                shouldShowToast = false;
-            }
-        });
-        var tasks = Instances.TaskQueueViewModel.TaskItemViewModels;
-        Instances.RootView.ClearTasks(() => MaaProcessor.Instance.InitializeData(dragItem: tasks));
+        // DispatcherHelper.PostOnMainThread(() =>
+        // {
+        //     if (!noDialog)
+        //     {
+        //         Instances.DialogManager.CreateDialog().WithContent(LangKeys.GameResourceUpdated.ToLocalization()).WithActionButton(LangKeys.Yes.ToLocalization(), _ =>
+        //             {
+        //                 Process.Start(exeName);
+        //                 Instances.ShutdownApplication();
+        //             }, dismissOnClick: true, "Flat", "Accent")
+        //             .WithActionButton(LangKeys.No.ToLocalization(), _ =>
+        //             {
+        //                 Dismiss(sukiToast);
+        //             }, dismissOnClick: true).TryShow();
+        //         shouldShowToast = false;
+        //     }
+        // });
+        // var tasks = Instances.TaskQueueViewModel.TaskItemViewModels;
+        // Instances.RootView.ClearTasks(() => MaaProcessor.Instance.InitializeData(dragItem: tasks));
+
         if (closeDialog)
             Dismiss(sukiToast);
         shouldShowToast = true;
         action?.Invoke();
+        // 如果当前进程的可执行文件不存在（可能被更新覆盖），则在目标目录中查找
+        if (string.IsNullOrEmpty(exeName) || !File.Exists(exeName))
+        {
+            var foundExe = FindMFAExecutableInDirectory(wpfDir);
+            if (!string.IsNullOrEmpty(foundExe))
+            {
+                exeName = foundExe;
+                LoggerHelper.Info($"Using found executable from target directory: {exeName}");
+            }
+        }
+
+        await RestartApplicationAsync(exeName);
+    }
+
+    /// <summary>
+    /// 跨平台重启应用（仅 macOS 处理权限和启动逻辑，Windows/Linux 保留原有逻辑）
+    /// </summary>
+    /// <param name="exeName">应用可执行文件路径</param>
+    public async static Task RestartApplicationAsync(string exeName)
+    {
+        LoggerHelper.Info("Starting application: " + exeName);
+        LoggerHelper.Info("MFA Closed!");
+        LoggerHelper.DisposeLogger();
+        if (OperatingSystem.IsMacOS())
+        {
+            // ==== 仅 macOS 执行专属逻辑 ====
+            try
+            {
+                // 1. 自动赋予执行权限（解决 Permission denied）
+                await GrantMacOSExecutePermissionAsync(exeName);
+
+                // 2. macOS 专属启动方式
+                StartMacOSApplication(exeName);
+                // 3. 短暂延迟确保新进程启动，再关闭当前应用
+                await Task.Delay(1000);
+                Instances.ShutdownApplication();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"macOS 启动应用失败：{ex.Message}");
+                throw;
+            }
+        }
+        else
+        {
+            // ==== Windows/Linux 完全保留原有逻辑 ====
+            Process.Start(exeName);
+            Instances.ShutdownApplication();
+        }
+    }
+
+    /// <summary>
+    /// macOS 专属：给文件赋予执行权限（chmod +x）
+    /// </summary>
+    async private static Task GrantMacOSExecutePermissionAsync(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            // 处理 .app 应用包（macOS 标准格式，无需赋予权限，直接用 open 启动）
+            if (Directory.Exists(filePath) && Path.GetExtension(filePath).Equals(".app", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+            throw new FileNotFoundException("macOS 目标可执行文件不存在", filePath);
+        }
+
+        // 执行 chmod +x 命令（转义路径中的单引号，避免空格/特殊字符报错）
+        string escapedPath = filePath.Replace("'", "\\'");
+        ProcessStartInfo chmodInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/bash",
+            Arguments = $"-c \"chmod +x '{escapedPath}'\"",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        };
+
+        using Process chmodProcess = Process.Start(chmodInfo)!;
+        string error = await chmodProcess.StandardError.ReadToEndAsync();
+        await chmodProcess.WaitForExitAsync();
+
+        if (chmodProcess.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"赋予 macOS 执行权限失败：{error}");
+        }
+    }
+
+    /// <summary>
+    /// macOS 专属：启动应用（兼容二进制文件和 .app 包）
+    /// </summary>
+    private static void StartMacOSApplication(string exePath)
+    {
+        ProcessStartInfo startInfo = new ProcessStartInfo();
+
+        if (Directory.Exists(exePath) && Path.GetExtension(exePath).Equals(".app", StringComparison.OrdinalIgnoreCase))
+        {
+            // 启动 .app 应用包（使用系统 open 命令）
+            startInfo.FileName = "/usr/bin/open";
+            startInfo.Arguments = $"\"{exePath}\"";
+        }
+        else
+        {
+            // 启动普通二进制文件（已赋予执行权限，可直接启动）
+            startInfo.FileName = exePath;
+            startInfo.WorkingDirectory = Path.GetDirectoryName(exePath) ?? Environment.CurrentDirectory;
+        }
+
+        startInfo.UseShellExecute = false;
+        startInfo.CreateNoWindow = true;
+        Process.Start(startInfo);
+    }
+
+    /// <summary>
+    /// 将源目录（newPath）的所有内容复制到目标目录（oldPath）
+    /// 1. 缺失的目标目录自动创建
+    /// 2. 目标文件已存在时，先调用 DeleteFileWithBackup 备份删除
+    /// 3. 复制后设置目标文件为普通属性（Normal）
+    /// 4. 支持进度显示、公告文件特殊处理、取消操作
+    /// </summary>
+    /// <param name="newPath">源目录路径（要复制的目录）</param>
+    /// <param name="oldPath">目标目录路径（复制到的目录）</param>
+    /// <param name="progressBar">进度条控件（用于显示复制进度）</param>
+    /// <param name="saveAnnouncement">是否启用公告文件特殊处理</param>
+    /// <param name="cancellationToken">取消令牌（用于中断复制操作）</param>
+    public async static Task CopyAndDelete(
+        string newPath,
+        string oldPath,
+        ProgressBar? progressBar = null,
+        bool saveAnnouncement = false,
+        CancellationToken cancellationToken = default)
+    {
+        // 1. 参数合法性验证（保持原有逻辑，空路径/源目录不存在直接返回）
+        if (string.IsNullOrWhiteSpace(newPath) || string.IsNullOrWhiteSpace(oldPath) || !Directory.Exists(newPath))
+            return;
+
+        // 2. 统计源目录总文件数（用于进度条初始化）
+        int totalFileCount = Directory.EnumerateFiles(newPath, "*", SearchOption.AllDirectories).Count();
+
+        // 3. 初始化进度条（UI操作需通过 Invoke 确保线程安全）
+        DispatcherHelper.PostOnMainThread(() =>
+        {
+            progressBar?.Maximum = 100;
+            progressBar?.Value = 0;
+            progressBar?.IsVisible = true;
+        });
+
+        // 4. 进度计数器（递归中共享进度状态，避免线程安全问题）
+        var progressCounter = new ProgressCounter()
+        {
+            Total = totalFileCount
+        };
+
+        try
+        {
+            // 5. 递归复制目录（核心逻辑，异步支持）
+            await CopyDirectoryRecursively(
+                newPath, oldPath, progressBar, saveAnnouncement, cancellationToken, progressCounter);
+        }
+        catch (OperationCanceledException)
+        {
+            // 取消操作时可添加日志或后续处理
+            DispatcherHelper.PostOnMainThread(() => progressBar?.IsVisible = false);
+            throw; // 如需上层处理取消异常，可抛出；否则直接捕获忽略
+        }
+
+        // 6. 复制完成隐藏进度条
+        DispatcherHelper.PostOnMainThread(() => progressBar?.IsVisible = false);
+    }
+
+    /// <summary>
+    /// 递归复制目录内容（核心异步逻辑）
+    /// </summary>
+    async private static Task CopyDirectoryRecursively(
+        string sourceDir,
+        string targetDir,
+        ProgressBar? progressBar,
+        bool saveAnnouncement,
+        CancellationToken cancellationToken,
+        ProgressCounter progressCounter)
+    {
+        // 响应取消请求
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // 7. 自动创建目标目录（含所有父目录）
+        if (!Directory.Exists(targetDir))
+        {
+            Directory.CreateDirectory(targetDir);
+        }
+
+        // 8. 遍历并复制当前目录下的所有文件
+        foreach (string sourceFile in Directory.GetFiles(sourceDir))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string fileName = Path.GetFileName(sourceFile);
+            string targetFile = Path.Combine(targetDir, fileName);
+
+            // 9. 公告文件特殊处理（仅当 saveAnnouncement 为 true 时执行）
+            if (saveAnnouncement
+                && targetFile.Contains(AnnouncementViewModel.AnnouncementFolder, StringComparison.OrdinalIgnoreCase)
+                && Path.GetExtension(fileName).Equals(".md", StringComparison.OrdinalIgnoreCase))
+            {
+                await HandleAnnouncementFile(sourceFile, targetFile, cancellationToken);
+            }
+
+            // 10. 目标文件已存在：先备份删除
+            if (File.Exists(targetFile))
+            {
+                DeleteFileWithBackup(targetFile);
+            }
+
+            // 11. 异步复制文件（包装同步方法为异步，避免阻塞调用线程）
+            try
+            {
+                await Task.Run(() =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    File.Copy(sourceFile, targetFile, overwrite: true);
+                }, cancellationToken);
+
+                // 12. 设置目标文件为普通属性（清除只读/隐藏等限制）
+                File.SetAttributes(targetFile, FileAttributes.Normal);
+            }
+            catch (IOException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                // 文件被锁定时，记录警告但继续处理其他文件
+                LoggerHelper.Warning($"Failed to copy file (may be locked): {sourceFile} -> {targetFile}, error: {ex.Message}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                // 权限不足时，记录警告但继续处理其他文件
+                LoggerHelper.Warning($"Access denied when copying file: {sourceFile} -> {targetFile}, error: {ex.Message}");
+            }
+
+            // 13. 更新进度条（线程安全）
+            progressCounter.Current++;
+            DispatcherHelper.PostOnMainThread(() =>
+            {
+                double percentage = Math.Round((progressCounter.Current * 100.0) / progressCounter.Total, 1);
+                // 确保百分比不超过100（防止极端情况下的计算误差）
+                progressBar.Value = Math.Min(percentage, 100);
+            });
+        }
+
+        // 14. 递归处理所有子目录
+        foreach (string sourceSubDir in Directory.GetDirectories(sourceDir))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string subDirName = Path.GetFileName(sourceSubDir);
+            string targetSubDir = Path.Combine(targetDir, subDirName);
+
+            await CopyDirectoryRecursively(
+                sourceSubDir, targetSubDir, progressBar, saveAnnouncement, cancellationToken, progressCounter);
+        }
+    }
+
+    /// <summary>
+    /// 公告文件特殊处理（内容对比 + 配置更新）
+    /// </summary>
+    async private static Task HandleAnnouncementFile(
+        string sourceFile,
+        string targetFile,
+        CancellationToken cancellationToken)
+    {
+        if (File.Exists(targetFile))
+        {
+            // 异步读取文件内容（避免IO阻塞）
+            string sourceContent = await File.ReadAllTextAsync(sourceFile, cancellationToken);
+            string destContent = await File.ReadAllTextAsync(targetFile, cancellationToken);
+
+            // 内容不一致时，重置公告不显示配置
+            if (!string.Equals(sourceContent, destContent, StringComparison.Ordinal))
+            {
+                GlobalConfiguration.SetValue(ConfigurationKeys.DoNotShowAnnouncementAgain, bool.FalseString);
+            }
+        }
+        else
+        {
+            // 目标文件不存在，直接重置配置
+            GlobalConfiguration.SetValue(ConfigurationKeys.DoNotShowAnnouncementAgain, bool.FalseString);
+        }
+    }
+
+    /// <summary>
+    /// 进度计数器（用于递归中共享进度状态）
+    /// </summary>
+    private class ProgressCounter
+    {
+        public int Current { get; set; } = 0;
+        public int Total { get; set; } = 0;
+    }
+
+    static void DeleteFileWithBackup(string filePath)
+    {
+        try
+        {
+            File.Delete(filePath);
+        }
+        catch (Exception e)
+        {
+            LoggerHelper.Error($"delete file error, filePath: {filePath}, error: {e.Message}, try to backup.");
+            int index = 0;
+            string currentDate = DateTime.Now.ToString("yyyyMMddHHmm");
+            string backupFilePath = $"{filePath}.{currentDate}.{index}.backupMFA";
+
+            while (File.Exists(backupFilePath))
+            {
+                index++;
+                backupFilePath = $"{filePath}.{currentDate}.{index}.backupMFA";
+            }
+
+            try
+            {
+                File.Move(filePath, backupFilePath);
+                LoggerHelper.Info($"File backed up successfully: {filePath} -> {backupFilePath}");
+            }
+            catch (Exception e1)
+            {
+                // 文件被锁定时，记录错误但不抛出异常，让更新流程继续
+                LoggerHelper.Warning($"move file error, path: {filePath}, moveTo: {backupFilePath}, error: {e1.Message}. File will be skipped.");
+            }
+        }
     }
 
     public async static Task UpdateMFA(bool isGithub, bool noDialog = false)
@@ -768,7 +1124,7 @@ rm $0
         ISukiToast? sukiToast = null;
 
         // 初始化进度UI
-        DispatcherHelper.RunOnMainThread(() =>
+        DispatcherHelper.PostOnMainThread(() =>
         {
             progress = new ProgressBar
             {
@@ -802,7 +1158,7 @@ rm $0
                 if (isGithub)
                     GetLatestVersionAndDownloadUrlFromGithub(out downloadUrl, out latestVersion, out sha256);
                 else
-                    GetDownloadUrlFromMirror(GetLocalVersion(), "YuanMFA", CDK(), out downloadUrl, out latestVersion, out sha256, isUI: true);
+                    GetDownloadUrlFromMirror(GetLocalVersion(), "YuanMFA", CDK(), out downloadUrl, out latestVersion, out sha256, out _, isUI: true);
             }
             catch (Exception ex)
             {
@@ -1086,7 +1442,7 @@ rm $0
         return string.Join(" ", args);
     }
 
-// 处理含空格的参数
+    // 处理含空格的参数
     private static string EscapeArgument(string arg) => $"\"{arg.Replace("\"", "\\\"")}\"";
 
     async private static Task ApplySecureUpdate(string source, string target, string oldName = "", string newName = "")
@@ -1243,7 +1599,7 @@ rm $0
         ISukiToast? sukiToast = null;
 
         // UI初始化（与原有逻辑保持一致）
-        DispatcherHelper.RunOnMainThread(() =>
+        DispatcherHelper.PostOnMainThread(() =>
         {
             progress = new ProgressBar
             {
@@ -1271,12 +1627,12 @@ rm $0
             string downloadUrl = string.Empty, latestVersion = string.Empty, sha256 = string.Empty;
             try
             {
-                GetDownloadUrlFromMirror(currentVersion, resId, CDK(), out downloadUrl, out latestVersion, out sha256, "MFA", true);
+                GetDownloadUrlFromMirror(currentVersion, resId, CDK(), out downloadUrl, out latestVersion, out sha256, out _, "MFA", true);
             }
             catch (Exception ex)
             {
                 Dismiss(sukiToast);
-                ToastHelper.Warn($"{LangKeys.FailToGetLatestVersionInfo.ToLocalization()}", ex.Message);
+                ToastHelper.Warn($"{LangKeys.FailToGetLatestVersionInfo.ToLocalization()}", ex.Message, -1);
                 LoggerHelper.Error(ex);
                 Instances.RootViewModel.SetUpdating(false);
                 return;
@@ -1370,7 +1726,7 @@ rm $0
 
         var releaseUrl = $"https://api.github.com/repos/{owner}/{repo}/releases";
         int page = 1;
-        const int perPage = 5;
+        const int perPage = 30;
         using var httpClient = CreateHttpClientWithProxy();
 
         if (!string.IsNullOrWhiteSpace(Instances.VersionUpdateSettingsUserControlModel.GitHubToken))
@@ -1382,6 +1738,10 @@ rm $0
 
         httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd("request");
         httpClient.DefaultRequestHeaders.Accept.TryParseAdd("application/json");
+
+        // 用于存储找到的最佳版本
+        JToken? bestRelease = null;
+        string bestVersion = string.Empty;
 
         while (page < 101)
         {
@@ -1401,20 +1761,34 @@ rm $0
                     }
                     foreach (var tag in tags)
                     {
+                        // 检查是否为预发布版本
                         if ((bool)tag["prerelease"] && versionType == VersionType.Stable)
                         {
                             continue;
                         }
-                        var isAlpha = latestVersion.Contains("alpha", StringComparison.OrdinalIgnoreCase);
-                        var isBeta = latestVersion.Contains("beta", StringComparison.OrdinalIgnoreCase);
 
-                        if (isAlpha && versionType != VersionType.Alpha || isBeta && versionType != VersionType.Beta && versionType != VersionType.Alpha)
+                        var tagVersion = tag["tag_name"]?.ToString() ?? string.Empty;
+                        if (string.IsNullOrEmpty(tagVersion)) continue;
+                        // 检查版本类型是否符合更新渠道
+                        var isAlpha = tagVersion.Contains("alpha", StringComparison.OrdinalIgnoreCase);
+                        var isBeta = tagVersion.Contains("beta", StringComparison.OrdinalIgnoreCase);
+
+                        // Alpha渠道：接受所有版本（alpha、beta、stable）
+                        // Beta渠道：接受beta和stable版本，不接受alpha
+                        // Stable渠道：只接受stable版本，不接受alpha和beta
+                        if (isAlpha && versionType != VersionType.Alpha)
                         {
                             continue;
                         }
-                        latestVersion = tag["tag_name"]?.ToString() ?? string.Empty;
-                        if (!string.IsNullOrEmpty(targetVersion) && latestVersion.Trim().Equals(targetVersion.Trim(), StringComparison.OrdinalIgnoreCase))
+                        if (isBeta && versionType == VersionType.Stable)
                         {
+                            continue;
+                        }
+
+                        // 如果指定了目标版本，直接查找该版本
+                        if (!string.IsNullOrEmpty(targetVersion) && tagVersion.Trim().Equals(targetVersion.Trim(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            latestVersion = tagVersion;
                             if (IsNewVersionAvailable(latestVersion, currentVersion))
                             {
                                 if (onlyCheck && repo != "MFAAvalonia")
@@ -1425,17 +1799,15 @@ rm $0
                             GetDownloadUrlFromGitHubRelease(latestVersion, owner, repo, out url, out sha256);
                             return;
                         }
-                        if (string.IsNullOrEmpty(targetVersion) && !string.IsNullOrEmpty(latestVersion))
+
+                        // 比较版本，找到符合条件的最新版本
+                        if (string.IsNullOrEmpty(targetVersion))
                         {
-                            if (IsNewVersionAvailable(latestVersion, currentVersion))
+                            if (string.IsNullOrEmpty(bestVersion) || IsNewVersionAvailable(tagVersion, bestVersion))
                             {
-                                if (onlyCheck && repo != "MFAAvalonia")
-                                    SaveRelease(tag, "body");
-                                if (!onlyCheck && repo != "MFAAvalonia")
-                                    SaveChangelog(tag, "body");
+                                bestVersion = tagVersion;
+                                bestRelease = tag;
                             }
-                            GetDownloadUrlFromGitHubRelease(latestVersion, owner, repo, out url, out sha256);
-                            return;
                         }
                     }
                 }
@@ -1457,7 +1829,22 @@ rm $0
             }
             page++;
         }
+
+        // 如果找到了最佳版本，返回它
+        if (!string.IsNullOrEmpty(bestVersion) && bestRelease != null)
+        {
+            latestVersion = bestVersion;
+            if (IsNewVersionAvailable(latestVersion, currentVersion))
+            {
+                if (onlyCheck && repo != "MFAAvalonia")
+                    SaveRelease(bestRelease, "body");
+                if (!onlyCheck && repo != "MFAAvalonia")
+                    SaveChangelog(bestRelease, "body");
+            }
+            GetDownloadUrlFromGitHubRelease(latestVersion, owner, repo, out url, out sha256);
+        }
     }
+
     private static string ExtractSha256FromDigest(string? digest)
     {
         if (string.IsNullOrEmpty(digest))
@@ -1517,7 +1904,7 @@ rm $0
             _ => "unknown"
         };
     }
-    
+
     private static readonly Dictionary<string, List<string>> ArchitectureAliases = new()
     {
         {
@@ -1711,10 +2098,13 @@ rm $0
         out string url,
         out string latestVersion,
         out string sha256,
-        string userAgent = "YuanMFA",
+        out bool isFull,
+        string userAgent = "MFA",
         bool isUI = false,
         bool onlyCheck = false,
-        string currentVersion = "v0.0.0"
+        string currentVersion = "v0.0.0",
+        bool showResponse = false,
+        bool saveAnnouncement = true
     )
     {
         var versionType = isUI ? Instances.VersionUpdateSettingsUserControlModel.UIUpdateChannelIndex.ToVersionType() : Instances.VersionUpdateSettingsUserControlModel.ResourceUpdateChannelIndex.ToVersionType();
@@ -1775,7 +2165,24 @@ rm $0
             url = data["url"]?.ToString() ?? string.Empty;
             latestVersion = data["version_name"]?.ToString() ?? string.Empty;
             sha256 = data["sha256"]?.ToString() ?? string.Empty;
-            if (IsNewVersionAvailable(latestVersion, currentVersion))
+            var updateType = data["update_type"]?.ToString() ?? string.Empty;
+            isFull = updateType.Equals("full", StringComparison.OrdinalIgnoreCase);
+
+            // 解析并存储 CDK 过期时间戳
+            if (data["cdk_expired_time"] != null && long.TryParse(data["cdk_expired_time"]?.ToString(), out var cdkExpiredTime))
+            {
+                Instances.VersionUpdateSettingsUserControlModel.CdkExpiredTime = cdkExpiredTime;
+                LoggerHelper.Info($"CDK 过期时间戳: {cdkExpiredTime}");
+            }
+
+            if (showResponse)
+            {
+                // 记录从 mirror 返回的关键信息
+                LoggerHelper.Info($"Mirror返回信息: {jsonResponse}");
+                LoggerHelper.Info($"更新类型: {updateType}, 是否全量更新: {isFull}");
+            }
+
+            if (IsNewVersionAvailable(latestVersion, currentVersion) && saveAnnouncement)
             {
                 if (onlyCheck && !isUI && data != null)
                 {
@@ -2006,7 +2413,7 @@ rm $0
                 SetProgress(progressBar, progressPercentage);
                 if (stopwatch.ElapsedMilliseconds >= 100)
                 {
-                    // DispatcherHelper.RunOnMainThread(() =>
+                    // DispatcherHelper.PostOnMainThread(() =>
                     //     Instances.TaskQueueViewModel.OutputDownloadProgress(
                     //         totalBytesRead,
                     //         totalBytes ?? 0,
@@ -2017,7 +2424,7 @@ rm $0
             }
 
             SetProgress(progressBar, 100);
-            DispatcherHelper.RunOnMainThread(() =>
+            DispatcherHelper.PostOnMainThread(() =>
                 Instances.TaskQueueViewModel.OutputDownloadProgress(
                     totalBytesRead,
                     totalBytes ?? totalBytesRead,
@@ -2105,21 +2512,26 @@ rm $0
     {
         if (block == null)
             return;
-        DispatcherHelper.RunOnMainThread(() => block.Text = text);
+        DispatcherHelper.PostOnMainThread(() => block.Text = text);
     }
     private static void SetProgress(ProgressBar? bar, double percentage)
     {
         if (bar == null)
             return;
-        DispatcherHelper.RunOnMainThread(() => bar.Value = percentage);
+        DispatcherHelper.PostOnMainThread(() => bar.Value = percentage);
     }
+
     private static void Dismiss(ISukiToast? toast)
     {
         if (toast == null)
             return;
+
         try
         {
-            DispatcherHelper.RunOnMainThread(() => Instances.ToastManager.Dismiss(toast));
+            if (toast is SukiToast sukiToast)
+                DispatcherHelper.PostOnMainThread(() => sukiToast.Dismiss());
+            else
+                DispatcherHelper.PostOnMainThread(() => Instances.ToastManager.Dismiss(toast));
         }
         catch (Exception e)
         {
@@ -2260,7 +2672,7 @@ rm $0
                     return errors == SslPolicyErrors.None;
                 },
                 UseCookies = false,
-// 临时增加对低版本协议的支持（仅用于测试）
+                // 临时增加对低版本协议的支持（仅用于测试）
                 SslProtocols = SslProtocols.None
             };
 
@@ -2310,7 +2722,6 @@ rm $0
             return string.Empty;
         }
     }
-
     /// <summary>
     /// 从Content-Disposition头解析文件名（可选增强）
     /// </summary>
@@ -2330,5 +2741,172 @@ rm $0
             return filename;
         }
         return null;
+    }
+
+    /// <summary>
+    /// 从目录中查找 MFAAvalonia 的可执行文件
+    ///通过查找 MFAAvalonia.dll 或 MFAAvalonia.deps.json 来定位，因为这些文件名是固定的
+    /// </summary>
+    /// <param name="directory">要搜索的目录</param>
+    /// <returns>找到的可执行文件路径，如果未找到则返回空字符串</returns>
+    private static string FindMFAExecutableInDirectory(string directory)
+    {
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            return string.Empty;
+
+        try
+        {
+            // 方法1: 查找 MFAAvalonia.dll 所在目录，然后找同目录下的可执行文件
+            var dllFiles = Directory.GetFiles(directory, "MFAAvalonia.dll", SearchOption.AllDirectories);
+            if (dllFiles.Length > 0)
+            {
+                var dllDir = Path.GetDirectoryName(dllFiles[0]);
+                if (!string.IsNullOrEmpty(dllDir))
+                {
+                    var exeFile = FindExecutableInSameDirectory(dllDir);
+                    if (!string.IsNullOrEmpty(exeFile))
+                    {
+                        LoggerHelper.Info($"Found MFA executable via DLL: {exeFile}");
+                        return exeFile;
+                    }
+                }
+            }
+
+            // 方法2: 查找 MFAAvalonia.deps.json 所在目录
+            var depsFiles = Directory.GetFiles(directory, "MFAAvalonia.deps.json", SearchOption.AllDirectories);
+            if (depsFiles.Length > 0)
+            {
+                var depsDir = Path.GetDirectoryName(depsFiles[0]);
+                if (!string.IsNullOrEmpty(depsDir))
+                {
+                    var exeFile = FindExecutableInSameDirectory(depsDir);
+                    if (!string.IsNullOrEmpty(exeFile))
+                    {
+                        LoggerHelper.Info($"Found MFA executable via deps.json: {exeFile}");
+                        return exeFile;
+                    }
+                }
+            }
+
+            // 方法3: 查找 MFAAvalonia.runtimeconfig.json 所在目录
+            var runtimeConfigFiles = Directory.GetFiles(directory, "MFAAvalonia.runtimeconfig.json", SearchOption.AllDirectories);
+            if (runtimeConfigFiles.Length > 0)
+            {
+                var configDir = Path.GetDirectoryName(runtimeConfigFiles[0]);
+                if (!string.IsNullOrEmpty(configDir))
+                {
+                    var exeFile = FindExecutableInSameDirectory(configDir);
+                    if (!string.IsNullOrEmpty(exeFile))
+                    {
+                        LoggerHelper.Info($"Found MFA executable via runtimeconfig.json: {exeFile}");
+                        return exeFile;
+                    }
+                }
+            }
+
+            LoggerHelper.Warning($"Could not find MFAAvalonia executable in directory: {directory}");
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error($"Error finding MFA executable: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// 在指定目录中查找可执行文件（排除 MFAUpdater）
+    /// </summary>
+    private static string FindExecutableInSameDirectory(string directory)
+    {
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            return string.Empty;
+
+        // 获取目录中的所有可执行文件
+        IEnumerable<string> exeFiles;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            exeFiles = Directory.GetFiles(directory, "*.exe", SearchOption.TopDirectoryOnly);
+        }
+        else
+        {
+            exeFiles = Directory.GetFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                .Where(f => !Path.HasExtension(f) && IsExecutable(f));
+        }
+
+        // 排除 MFAUpdater 和其他已知的非主程序可执行文件
+        var excludeNames = new[]
+        {
+            "MFAUpdater",
+            "createdump"
+        };
+
+        foreach (var exeFile in exeFiles)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(exeFile);
+            if (excludeNames.Any(e => fileName.Equals(e, StringComparison.OrdinalIgnoreCase))) continue;
+
+            // 检查是否有对应的 .dll 文件（.NET 应用的特征）
+            var correspondingDll = Path.Combine(directory, fileName + ".dll");
+            if (File.Exists(correspondingDll))
+            {
+                return exeFile;
+            }
+        }
+
+        // 如果没有找到有对应 DLL 的可执行文件，返回第一个非排除的可执行文件
+        foreach (var exeFile in exeFiles)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(exeFile);
+            if (!excludeNames.Any(e => fileName.Equals(e, StringComparison.OrdinalIgnoreCase)))
+            {
+                return exeFile;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// 检查文件是否为可执行文件（用于非 Windows 系统）
+    /// </summary>
+    private static bool IsExecutable(string filePath)
+    {
+        try
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return filePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+
+            // 在 Unix 系统上，检查文件是否有执行权限或是 ELF/Mach-O 格式
+            var fileInfo = new FileInfo(filePath);
+            if (!fileInfo.Exists || fileInfo.Length < 4)
+                return false;
+
+            // 读取文件头来判断是否为可执行文件
+            using var stream = File.OpenRead(filePath);
+            var header = new byte[4];
+            if (stream.Read(header, 0, 4) < 4)
+                return false;
+
+            // ELF 格式 (Linux)
+            if (header[0] == 0x7F && header[1] == 'E' && header[2] == 'L' && header[3] == 'F')
+                return true;
+
+            // Mach-O 格式 (macOS)
+            if ((header[0] == 0xCF && header[1] == 0xFA && header[2] == 0xED && header[3] == 0xFE)
+                || // 64-bit
+                (header[0] == 0xCE && header[1] == 0xFA && header[2] == 0xED && header[3] == 0xFE)
+                || // 32-bit
+                (header[0] == 0xFE && header[1] == 0xED && header[2] == 0xFA && header[3] == 0xCF)
+                || // 64-bit reverse
+                (header[0] == 0xFE && header[1] == 0xED && header[2] == 0xFA && header[3] == 0xCE)) // 32-bit reverse
+                return true;
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

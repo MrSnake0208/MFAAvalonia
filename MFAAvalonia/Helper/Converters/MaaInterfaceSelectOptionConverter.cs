@@ -25,7 +25,13 @@ public class MaaInterfaceSelectOptionConverter(bool serializeAsStringArray) : Js
             case JTokenType.Array:
                 var firstElement = token.First;
 
-                if (firstElement?.Type == JTokenType.String)
+                // 处理空数组的情况
+                if (firstElement == null)
+                {
+                    return new List<MaaInterface.MaaInterfaceSelectOption>();
+                }
+
+                if (firstElement.Type == JTokenType.String)
                 {
                     var list = new List<MaaInterface.MaaInterfaceSelectOption>();
                     foreach (var item in token)
@@ -40,12 +46,14 @@ public class MaaInterfaceSelectOptionConverter(bool serializeAsStringArray) : Js
                     return list;
                 }
 
-                if (firstElement?.Type == JTokenType.Object)
+                if (firstElement.Type == JTokenType.Object)
                 {
                     return token.ToObject<List<MaaInterface.MaaInterfaceSelectOption>>(serializer);
                 }
 
-                break;
+                // 处理其他数组元素类型（如 null 元素）
+                LoggerHelper.Warning($"MaaInterfaceSelectOptionConverter: Unexpected array element type {firstElement.Type}, returning empty list.");
+                return new List<MaaInterface.MaaInterfaceSelectOption>();
             case JTokenType.String:
                 var oName = token.ToObject<string>(serializer);
                 return new List<MaaInterface.MaaInterfaceSelectOption>
@@ -57,11 +65,12 @@ public class MaaInterfaceSelectOptionConverter(bool serializeAsStringArray) : Js
                     }
                 };
             case JTokenType.None:
-                return null;
+            case JTokenType.Null:
+                return new List<MaaInterface.MaaInterfaceSelectOption>();
         }
 
-        LoggerHelper.Error($"Invalid JSON format for MaaInterfaceSelectOptionConverter. Unexpected type {objectType}.");
-        return null;
+        LoggerHelper.Warning($"MaaInterfaceSelectOptionConverter: Unexpected token type {token.Type}, returning empty list.");
+        return new List<MaaInterface.MaaInterfaceSelectOption>();
     }
 
     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
@@ -86,11 +95,75 @@ public class MaaInterfaceSelectOptionConverter(bool serializeAsStringArray) : Js
                         ["name"] = option.Name,
                         ["index"] = option.Index
                     };
+
+                    // 保存 input 类型的 Data 字典
+                    if (option.Data != null && option.Data.Count > 0)
+                    {
+                        obj["data"] = JObject.FromObject(option.Data);
+                    }
+
+                    // 递归保存子选项
+                    if (option.SubOptions != null && option.SubOptions.Count > 0)
+                    {
+                        var subArray = new JArray();
+                        foreach (var subOption in option.SubOptions)
+                        {
+                            var subObj = new JObject
+                            {
+                                ["name"] = subOption.Name,
+                                ["index"] = subOption.Index
+                            };
+
+                            if (subOption.Data != null && subOption.Data.Count > 0)
+                            {
+                                subObj["data"] = JObject.FromObject(subOption.Data);
+                            }
+
+                            // 递归处理嵌套子选项
+                            if (subOption.SubOptions != null && subOption.SubOptions.Count > 0)
+                            {
+                                subObj["sub_options"] = SerializeSubOptions(subOption.SubOptions);
+                            }
+
+                            subArray.Add(subObj);
+                        }
+                        obj["sub_options"] = subArray;
+                    }
+
                     array.Add(obj);
                 }
             }
 
             array.WriteTo(writer);
         }
+    }
+
+    /// <summary>
+    /// 递归序列化子选项列表
+    /// </summary>
+    private static JArray SerializeSubOptions(List<MaaInterface.MaaInterfaceSelectOption> subOptions)
+    {
+        var array = new JArray();
+        foreach (var option in subOptions)
+        {
+            var obj = new JObject
+            {
+                ["name"] = option.Name,
+                ["index"] = option.Index
+            };
+
+            if (option.Data != null && option.Data.Count > 0)
+            {
+                obj["data"] = JObject.FromObject(option.Data);
+            }
+
+            if (option.SubOptions != null && option.SubOptions.Count > 0)
+            {
+                obj["sub_options"] = SerializeSubOptions(option.SubOptions);
+            }
+
+            array.Add(obj);
+        }
+        return array;
     }
 }

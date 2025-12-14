@@ -193,13 +193,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.meta.outputs.tag }}
-          body: ${{ needs.changelog.outputs.release_body }}
+          body: |
+            ${{ needs.changelog.outputs.release_body }}
           files: |
             artifacts/**/*.zip
           draft: false
           prerelease: ${{ contains(needs.meta.outputs.tag, '-') }}
           generate_release_notes: true
-          replace_existing: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

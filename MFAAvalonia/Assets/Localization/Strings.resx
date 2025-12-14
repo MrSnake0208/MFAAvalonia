@@ -1,9 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 
 <root>
-    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
         <xsd:element name="root" msdata:IsDataSet="true">
-            
+
         </xsd:element>
     </xsd:schema>
     <resheader name="resmimetype">
@@ -13,10 +14,14 @@
         <value>1.3</value>
     </resheader>
     <resheader name="reader">
-        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
     </resheader>
     <resheader name="writer">
-        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
     </resheader>
     <data name="About" xml:space="preserve">
         <value>关于我们</value>
@@ -182,6 +187,9 @@
     </data>
     <data name="ConfigAddedSuccessfully" xml:space="preserve">
         <value>配置 &lt;{0}&gt; 添加成功！</value>
+    </data>
+    <data name="ContactInfo" xml:space="preserve">
+        <value>联系方式</value>
     </data>
     <data name="ConfigNameAlreadyExists" xml:space="preserve">
         <value>配置名称 &lt;{0}&gt; 已存在！</value>
@@ -364,11 +372,14 @@
         <value>已选择模拟器:{0}</value>
     </data>
     <data name="EnableRecording" xml:space="preserve">
-        <value>启用保存录像 (用于调试)</value>
-    </data>
+            <value>启用保存录像 (用于调试)</value>
+        </data>
     <data name="EnableSaveDraw" xml:space="preserve">
-        <value>启用保存截图 (用于调试)</value>
-    </data>
+            <value>启用保存截图 (用于调试)</value>
+        </data>
+    <data name="EnableSaveOnError" xml:space="preserve">
+            <value>启用错误时保存截图 (用于调试)</value>
+        </data>
     <data name="EnterTaskName" xml:space="preserve">
         <value>请输入任务名称</value>
     </data>
@@ -466,8 +477,20 @@
         <value>请注意：外部通知功能目前仅会发送“所有任务完成”的通知。</value>
     </data>
     <data name="ExternalNotificationWebhookUrl" xml:space="preserve">
-        <value>Webhook Url</value>
-    </data>
+            <value>Webhook Url</value>
+        </data>
+    <data name="CustomWebhook" xml:space="preserve">
+            <value>自定义 Webhook</value>
+        </data>
+    <data name="ExternalNotificationCustomWebhookContentType" xml:space="preserve">
+            <value>Content-Type</value>
+        </data>
+    <data name="ExternalNotificationCustomWebhookPayloadTemplate" xml:space="preserve">
+            <value>Payload 模板</value>
+        </data>
+    <data name="ExternalNotificationCustomWebhookPayloadTemplateDescription" xml:space="preserve">
+            <value>使用 {{message}} 作为消息占位符，例如: {{"message": "{{message}}"}}</value>
+        </data>
     <data name="ExternalNotificationWxPusherUID" xml:space="preserve">
         <value>用户 UID</value>
     </data>
@@ -591,6 +614,9 @@
     <data name="LDPlayer" xml:space="preserve">
         <value>雷电模拟器</value>
     </data>
+    <data name="LicenseInfo" xml:space="preserve">
+        <value>许可证</value>
+    </data>
     <data name="LightColor" xml:space="preserve">
         <value>浅色</value>
     </data>
@@ -634,8 +660,11 @@
         <value>GUI 已为最新版本！</value>
     </data>
     <data name="MinimizeToTray" xml:space="preserve">
-        <value>最小化时隐藏至托盘</value>
-    </data>
+            <value>最小化时隐藏至托盘</value>
+        </data>
+    <data name="MinimizeToTrayDescription" xml:space="preserve">
+            <value>启用后，点击最小化按钮时窗口将隐藏到系统托盘而不是任务栏。</value>
+        </data>
     <data name="MiniTouch" xml:space="preserve">
         <value>MiniTouch (旧)</value>
     </data>
@@ -664,7 +693,7 @@
         <value>否</value>
     </data>
     <data name="NoEmulatorFound" xml:space="preserve">
-        <value>未找到模拟器!</value>
+        <value>未找到模拟器！</value>
     </data>
     <data name="None" xml:space="preserve">
         <value>无</value>
@@ -707,6 +736,9 @@
     </data>
     <data name="Prescript" xml:space="preserve">
         <value>开始前脚本</value>
+    </data>
+    <data name="ProjectDescription" xml:space="preserve">
+        <value>项目介绍</value>
     </data>
     <data name="ProjectLink" xml:space="preserve">
         <value>项目链接: </value>
@@ -1063,10 +1095,16 @@
         <value>CDK 类型与资源不匹配</value>
     </data>
     <data name="StartingAgent" xml:space="preserve">
-        <value>正在启动 Agent(耗时可能较久)</value>
-    </data>
+            <value>正在启动 Agent(耗时可能较久)</value>
+        </data>
+    <data name="AgentConnectionRetry" xml:space="preserve">
+            <value>Agent 连接重试 ({0})...</value>
+        </data>
     <data name="AgentStartFailed" xml:space="preserve">
-        <value>Agent启动失败</value>
+            <value>Agent启动失败</value>
+        </data>
+    <data name="AgentExecutableNotFound" xml:space="preserve">
+        <value>Agent 可执行文件不存在: {0}</value>
     </data>
     <data name="Optional" xml:space="preserve">
         <value>可选</value>
@@ -1083,6 +1121,9 @@
     <data name="GlobalHotkeyServiceError" xml:space="preserve">
         <value>全局热键服务加载失败</value>
     </data>
+    <data name="MultiInstanceModeGlobalHotkeyDisabled" xml:space="preserve">
+        <value>检测到多开：已禁用全局热键</value>
+   </data>
     <data name="Manual" xml:space="preserve">
         <value>使用指南</value>
     </data>
@@ -1141,7 +1182,7 @@
         <value>导出日志前请停止任务</value>
     </data>
     <data name="MirrorCdkEmpty" xml:space="preserve">
-        <value>CDK为空，请到设置中的更新设置中填写CDK或切换更新源至GitHub</value>
+        <value>请前往“设置”中的“更新设置”，将“更新源”切换至“GitHub”，或填写Mirror酱CDK</value>
     </data>
     <data name="ContinueRunningWhenError" xml:space="preserve">
         <value>任务运行失败后是否继续运行其它任务</value>
@@ -1195,6 +1236,9 @@
     <data name="FileLoadFailed" xml:space="preserve">
         <value>文件 {0} 加载失败！</value>
     </data>
+    <data name="FileLoadFailedDetail" xml:space="preserve">
+        <value>请检查 {0} 文件格式是否正确，可能存在 JSON 语法错误</value>
+    </data>
     <data name="CopyToClipboard" xml:space="preserve">
         <value>复制到剪切板</value>
     </data>
@@ -1228,4 +1272,149 @@
     <data name="Notification" xml:space="preserve">
         <value>通知</value>
     </data>
+    <data name="NotificationDescription" xml:space="preserve">
+        <value>启用后，任务完成或发生重要事件时将显示系统通知提醒。</value>
+    </data>
+    <data name="EmulatorMultiInstanceQuickSettings" xml:space="preserve">
+        <value>多开快捷设置</value>
+    </data>
+    <data name="EmulatorMultiInstanceEditor" xml:space="preserve">
+        <value>多开编辑器</value>
+    </data>
+    <data name="MuMuEmulator" xml:space="preserve">
+        <value>MuMu模拟器</value>
+    </data>
+    <data name="XYAZ" xml:space="preserve">
+        <value>逍遥模拟器</value>
+    </data>
+    <data name="EmulatorMultiInstanceNumber" xml:space="preserve">
+        <value>多开号</value>
+    </data>
+    <data name="RunCheckedFromCurrent" xml:space="preserve">
+        <value>运行当前及后续勾选</value>
+    </data>
+    <data name="RunSingle" xml:space="preserve">
+        <value>单独运行</value>
+    </data>
+    <data name="MirrorChyanResourceUpdateShortTip" xml:space="preserve">
+        <value>检测到资源更新: {0}</value>
+    </data>
+    <data name="ExternalNotificationLarkWebhookUrl" xml:space="preserve">
+        <value>飞书 webhook</value>
+    </data>
+    <data name="ExternalNotificationLarkWebhookDescription" xml:space="preserve">
+        <value>填写 Webhook 地址后，无需再填写飞书 ID 和 机器人令牌</value>
+    </data>
+    <data name="Unnamed" xml:space="preserve">
+        <value>未命名</value>
+    </data>
+    <data name="CdkExpireInDays" xml:space="preserve">
+        <value>CDK 还有 {0} 天过期</value>
+    </data>
+    <data name="CdkExpireInHours" xml:space="preserve">
+        <value>CDK 还有 {0} 小时过期</value>
+    </data>
+    <data name="CdkExpireInMinutes" xml:space="preserve">
+        <value>CDK 还有 {0} 分钟过期</value>
+    </data>
+    <data name="CdkExpireInSeconds" xml:space="preserve">
+        <value>CDK 还有 {0} 秒过期</value> 
+    </data>
+    <data name="QueryCdkRemainingTime" xml:space="preserve">
+        <value>查询CDK剩余时长</value>
+    </data>
+    <data name="LoadResourcesFailedDetail" xml:space="preserve">
+        <value>请删除整个文件夹重新下载，或联系项目维护者。</value>
+    </data>
+    <data name="NoEmulatorFoundDetail" xml:space="preserve">
+        <value>请确保模拟器的ADB功能打开状态，桥接模式为关闭状态，重启MFA和模拟器后重新尝试连接。</value>
+    </data>
+    <data name="Reset" xml:space="preserve">
+        <value>重置</value>
+    </data>
+    <data name="BackgroundImageTitle" xml:space="preserve">
+            <value>背景图片</value>
+    </data>
+    <data name="BackgroundImageDescription" xml:space="preserve">
+            <value>选择一张图片作为窗口背景，将覆盖在默认背景效果之上。</value>
+    </data>
+    <data name="SelectBackgroundImage" xml:space="preserve">
+            <value>选择背景图片</value>
+    </data>
+    <data name="BackgroundImageOpacityTitle" xml:space="preserve">
+            <value>背景图片不透明度</value>
+    </data>
+    <data name="BackgroundImageOpacityDescription" xml:space="preserve">
+            <value>调整背景图片的不透明度，值越小图片越透明。</value>    
+    </data>
+    <data name="TriggerDate" xml:space="preserve">
+        <value>触发日期</value>
+    </data>
+    <data name="SchedulePickerTip" xml:space="preserve">
+        <value>点击选择触发日期</value>
+    </data>
+    <data name="ScheduleMode" xml:space="preserve">
+        <value>触发模式</value>
+    </data>
+    <data name="ScheduleDaily" xml:space="preserve">
+        <value>每天</value>
+    </data>
+    <data name="ScheduleWeekly" xml:space="preserve">
+        <value>按周</value>
+    </data>
+    <data name="ScheduleMonthly" xml:space="preserve">
+        <value>按月</value>
+    </data>
+    <data name="ScheduleWorkdays" xml:space="preserve">
+        <value>工作日</value>
+    </data>
+    <data name="ScheduleWeekends" xml:space="preserve">
+        <value>周末</value>
+    </data>
+    <data name="SelectDaysOfWeek" xml:space="preserve">
+        <value>选择星期</value>
+    </data>
+    <data name="SelectDaysOfMonth" xml:space="preserve">
+        <value>选择日期</value>
+    </data>
+    <data name="WeekdayMon" xml:space="preserve">
+        <value>周一</value>
+    </data>
+    <data name="WeekdayTue" xml:space="preserve">
+        <value>周二</value>
+    </data>
+    <data name="WeekdayWed" xml:space="preserve">
+        <value>周三</value>
+    </data>
+    <data name="WeekdayThu" xml:space="preserve">
+        <value>周四</value>
+    </data>
+    <data name="WeekdayFri" xml:space="preserve">
+        <value>周五</value>
+    </data>
+    <data name="WeekdaySat" xml:space="preserve">
+        <value>周六</value>
+    </data>
+    <data name="WeekdaySun" xml:space="preserve">
+        <value>周日</value>
+    </data>
+    <data name="ScheduleMonthlyDay" xml:space="preserve">
+        <value>每月{0}号</value>
+    </data>
+    <data name="ScheduleMonthlyDays" xml:space="preserve">
+        <value>每月{0}天</value>
+    </data>
+    <data name="ScheduleMonthlyDaySuffix" xml:space="preserve">
+        <value>号</value>  
+    </data>
+    <data name="FontScaleTitle" xml:space="preserve">
+        <value>字体大小缩放</value>
+    </data>
+    <data name="FontScaleDescription" xml:space="preserve">
+        <value>调整界面字体的整体缩放比例，所有字体将按比例放大或缩小。</value>
+    </data>
+    <data name="FontScaleValue" xml:space="preserve">
+        <value>{0}%</value>
+    </data>
+
 </root>

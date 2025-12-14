@@ -1,4 +1,8 @@
-﻿using MaaFramework.Binding;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Media;
+using MaaFramework.Binding;
 using MaaFramework.Binding.Buffers;
 using MFAAvalonia.Extensions.MaaFW.Custom;
 using MFAAvalonia.Helper;
@@ -212,14 +216,18 @@ public static class MaaExtensions
         return maaContext.Tasker.GetCachedImage(imageBuffer);
     }
 
-    public static IMaaImageBuffer GetImage(this IMaaContext maaContext)
-    {
-        maaContext.Screencap();
-        IMaaImageBuffer imageBuffer = new MaaImageBuffer();
-        if (!maaContext.GetCachedImage(imageBuffer))
-            return null;
-        return imageBuffer;
-    }
+        public static IMaaImageBuffer? GetImage(this IMaaContext maaContext)
+        {
+            maaContext.Screencap();
+            var imageBuffer = new MaaImageBuffer();
+            if (!maaContext.GetCachedImage(imageBuffer))
+            {
+                // 如果获取图像失败，释放 buffer避免内存泄漏
+                imageBuffer.Dispose();
+                return null;
+            }
+            return imageBuffer;
+        }
 
     public static IMaaImageBuffer GetImage(this IMaaContext maaContext, ref IMaaImageBuffer buffer)
     {

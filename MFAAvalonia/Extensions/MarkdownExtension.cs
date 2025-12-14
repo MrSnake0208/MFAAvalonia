@@ -10,19 +10,26 @@ namespace MFAAvalonia.Extensions;
 public class MarkdownExtension : MarkupExtension
 {
     public string? Directory { get; set; }
-    
+
     public override object ProvideValue(IServiceProvider serviceProvider)
     {
         var resourcePath = Path.Combine(AppContext.BaseDirectory, "resource");
 
         var targetDir = string.IsNullOrEmpty(Directory)
-            ? Path.Combine(resourcePath, AnnouncementViewModel.AnnouncementFolder) 
-            : Path.Combine(resourcePath, Directory);
-        
+            ? resourcePath
+            : Path.GetFullPath(Directory, AppContext.BaseDirectory);
+
+        // 创建 MFALinkCommand 并同步设置 CurrentDocumentPath
+        var linkCommand = new MFALinkCommand
+        {
+            CurrentDocumentPath = targetDir
+        };
+
         return new Markdown.Avalonia.Markdown
         {
-            HyperlinkCommand = new MFALinkCommand(), 
-            AssetPathRoot = targetDir 
+            HyperlinkCommand = linkCommand,
+            AssetPathRoot = targetDir,
+            StrictBoldItalic = false,
         };
     }
 }
