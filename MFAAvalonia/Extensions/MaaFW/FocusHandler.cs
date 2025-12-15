@@ -19,12 +19,12 @@ namespace MFAAvalonia.Extensions.MaaFW;
 public class FocusHandler
 {
     private AutoInitDictionary autoInitDictionary;
-    
+
     public FocusHandler(AutoInitDictionary autoInitDictionary)
     {
         this.autoInitDictionary = autoInitDictionary;
     }
-    
+
     public void UpdateDictionary(AutoInitDictionary dictionary)
     {
         autoInitDictionary = dictionary;
