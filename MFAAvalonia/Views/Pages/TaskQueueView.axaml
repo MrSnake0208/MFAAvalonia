@@ -594,7 +594,7 @@
                         <!-- 设备选择器 -->
                         <Grid x:Name="DeviceSelectorPanel"
                               HorizontalAlignment="Stretch"
-                              MinWidth="300">
+                              MinWidth="200">
                             <TextBlock x:Name="DeviceSelectorLabel"
                                        FontSize="12"
                                        Foreground="{DynamicResource SukiLowText}"
