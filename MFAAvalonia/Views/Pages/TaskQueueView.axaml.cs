@@ -1530,7 +1530,7 @@ public partial class TaskQueueView : UserControl
 
         var combo = new ComboBox
         {
-            MinWidth = 170,
+            MinWidth = 130,
             Classes =
             {
                 "LimitWidth"
