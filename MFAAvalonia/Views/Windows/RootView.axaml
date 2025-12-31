@@ -229,7 +229,7 @@
 	                                        PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:CopilotView}}" />
 	                    <suki:SukiSideMenuItem IsContentMovable="False"
 	                                           Header="录制作业"
-	                                           Icon="{fluent:FluentIcon Icon=Clipboard,
+	                                           Icon="{fluent:FluentIcon Icon=Record,
 	                                                       IconVariant=Regular}"
 	                                           PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:RecordTaskView}}" />
 	                    <suki:SukiSideMenuItem IsContentMovable="False"
