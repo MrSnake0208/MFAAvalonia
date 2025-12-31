@@ -907,7 +907,7 @@ public class MaaProcessor
                         {
                             //使用 using 确保资源正确释放
                             using var rect = new MaaRectBuffer();
-                            using var imageBuffer = new MaaImageBuffer();
+                            var imageBuffer = new MaaImageBuffer();
                             using var imageListBuffer = new MaaImageListBuffer();
                             tasker.GetRecognitionDetail(recoId, out string node,
                                 out var algorithm,
@@ -989,8 +989,8 @@ public class MaaProcessor
                             bitmapToSet?.Dispose();
                             bitmapToSet = null;
                         }
-
-
+                
+                
                         if (bitmapToSet != null)
                         {
                             var finalBitmap = bitmapToSet;
@@ -1005,7 +1005,6 @@ public class MaaProcessor
                         }
                     }
                 }
-
             }
         }
         if (jObject.ContainsKey("focus"))
