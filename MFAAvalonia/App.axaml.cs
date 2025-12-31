@@ -153,7 +153,9 @@ public partial class App : Application
             .AddView<RootView, RootViewModel>(services)
 
             // Add pages
+            .AddView<Views.Pages.CopilotView, ViewModels.Pages.CopilotViewModel>(services)
             .AddView<TaskQueueView, TaskQueueViewModel>(services)
+            .AddView<RecordTaskView, RecordTaskViewModel>(services)
             .AddView<ResourcesView, ResourcesViewModel>(services)
             .AddView<SettingsView, SettingsViewModel>(services)
             .AddView<ScreenshotView, ScreenshotViewModel>(services)

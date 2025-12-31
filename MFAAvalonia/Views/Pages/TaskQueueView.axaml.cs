@@ -332,6 +332,11 @@ public partial class TaskQueueView : UserControl
 
     private void SetMarkDown(string markDown)
     {
+        // 使用TaskQueueViewModel的增强方法
+        if (DataContext is TaskQueueViewModel viewModel)
+        {
+            viewModel.SetMarkdownIntroduction(markDown);
+        }
         Introduction.Markdown = markDown;
     }
     /// <summary>
@@ -1882,7 +1887,7 @@ public partial class TaskQueueView : UserControl
         var textBlock = new TextBlock
         {
             FontSize = 14,
-            HorizontalAlignment = HorizontalAlignment.Left,
+            MinWidth = 150,
             VerticalAlignment = VerticalAlignment.Center,
         };
         textBlock.Bind(TextBlock.TextProperty, new ResourceBindingWithFallback(option.DisplayName, option.Name));

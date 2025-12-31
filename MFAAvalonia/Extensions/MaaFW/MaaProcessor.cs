@@ -292,6 +292,36 @@ public class MaaProcessor
     }
 
     /// <summary>
+    /// 重新读取 interface 与 pipeline，刷新任务源（无需重启应用）。
+    /// </summary>
+    public static bool ReloadResources()
+    {
+        try
+        {
+            // 避免在运行中热重载引发状态错乱
+            if (Instances.RootViewModel.IsRunning)
+            {
+                ToastHelper.Warn("任务运行中，无法重载资源");
+                return false;
+            }
+
+            // 在重载前重置 Tasker，确保使用最新资源与 pipeline
+            Instance.SetTasker();
+            var ok = Instance.InitializeData();
+            if (!ok)
+            {
+                LoggerHelper.Warning("ReloadResources: InitializeData 返回 false");
+            }
+            return ok;
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error(ex);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 获取截图的MaaImageBuffer。调用者必须负责释放返回的 buffer。
     /// </summary>
     /// <param name="maaController">控制器实例</param>
@@ -2039,7 +2069,6 @@ public class MaaProcessor
         //
         // var tasks = JsonConvert.DeserializeObject<Dictionary<string, MaaNode>>(json, settings);
         // tasks = tasks.MergeMaaNodes(taskModels);
-
         return new NodeAndParam
         {
             Name = task.InterfaceItem?.DisplayName,
