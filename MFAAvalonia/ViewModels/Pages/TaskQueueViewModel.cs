@@ -250,7 +250,7 @@ public partial class TaskQueueViewModel : ViewModelBase
     /// <summary>
     /// 日志最大数量限制，超出后自动清理旧日志
     /// </summary>
-    private const int MaxLogCount = 50;
+    private const int MaxLogCount = 150;
 
     /// <summary>
     /// 每次清理时移除的日志数量
@@ -687,10 +687,23 @@ public partial class TaskQueueViewModel : ViewModelBase
         // 更新资源列表
         CurrentResources = new ObservableCollection<MaaInterface.MaaInterfaceResource>(filteredResources);
 
-        // 如果当前选中的资源不在过滤后的列表中，则选择第一个
+        // 如果当前选中的资源不在过滤后的列表中，则选择第一个并提示用户
         if (CurrentResources.Count > 0 && CurrentResources.All(r => r.Name != CurrentResource))
         {
-            CurrentResource = CurrentResources[0].Name ?? "Default";
+            var oldResource = CurrentResource;
+            var newResource = CurrentResources[0].Name ?? "Default";
+            CurrentResource = newResource;
+
+            // 仅当旧资源非空时才提示（避免首次加载时提示）
+            if (!string.IsNullOrEmpty(oldResource))
+            {
+                var controllerDisplayName = currentControllerName ?? CurrentController.ToResourceKey().ToLocalization();
+                ToastHelper.Warn(
+                    LangKeys.ResourceAutoSwitched.ToLocalization(),
+                    LangKeys.ResourceNotSupportController.ToLocalizationFormatted(
+                        false, oldResource, controllerDisplayName, newResource),
+                    6);
+            }
         }
     }
 
@@ -1077,56 +1090,70 @@ public partial class TaskQueueViewModel : ViewModelBase
                 AutoDetectDevice(_refreshCancellationTokenSource.Token);
             return;
         }
-        // 使用指纹匹配设备，而不是直接使用保存的设备信息
-        // 因为雷电模拟器等的AdbSerial每次启动都会变化
-        LoggerHelper.Info("Reading saved ADB device from configuration, using fingerprint matching.");
-        LoggerHelper.Info($"Saved device fingerprint: {savedDevice.GenerateDeviceFingerprint()}");
+        // 检查是否启用指纹匹配功能
+        var useFingerprintMatching = ConfigurationManager.Current.GetValue(ConfigurationKeys.UseFingerprintMatching, true);
 
-        // 搜索当前可用的设备
-        var currentDevices = MaaProcessor.Toolkit.AdbDevice.Find();
-
-        // 尝试通过指纹匹配找到对应的设备（当任一方index为-1时不比较index）
-        AdbDeviceInfo? matchedDevice = null;
-        foreach (var device in currentDevices)
+        if (useFingerprintMatching)
         {
-            if (device.MatchesFingerprint(savedDevice))
+            // 使用指纹匹配设备，而不是直接使用保存的设备信息
+            // 因为雷电模拟器等的AdbSerial每次启动都会变化
+            LoggerHelper.Info("Reading saved ADB device from configuration, using fingerprint matching.");
+            LoggerHelper.Info($"Saved device fingerprint: {savedDevice.GenerateDeviceFingerprint()}");
+
+            // 搜索当前可用的设备
+            var currentDevices = MaaProcessor.Toolkit.AdbDevice.Find();
+
+            // 尝试通过指纹匹配找到对应的设备（当任一方index为-1时不比较index）
+            AdbDeviceInfo? matchedDevice = null;
+            foreach (var device in currentDevices)
             {
-                matchedDevice = device;
-                LoggerHelper.Info($"Found matching device by fingerprint: {device.Name} ({device.AdbSerial})");
-                break;
+                if (device.MatchesFingerprint(savedDevice))
+                {
+                    matchedDevice = device;
+                    LoggerHelper.Info($"Found matching device by fingerprint: {device.Name} ({device.AdbSerial})");
+                    break;
+                }
             }
-        }
 
-
-        if (matchedDevice != null)
-        {
-            // 使用新搜索到的设备信息（AdbSerial等可能已更新）
-            DispatcherHelper.PostOnMainThread(() =>
+            if (matchedDevice != null)
             {
-                Devices = new ObservableCollection<object>(currentDevices);
-                CurrentDevice = matchedDevice;
-            });
-            ChangedDevice(matchedDevice);
+                // 使用新搜索到的设备信息（AdbSerial等可能已更新）
+                DispatcherHelper.PostOnMainThread(() =>
+                {
+                    Devices = new ObservableCollection<object>(currentDevices);
+                    CurrentDevice = matchedDevice;
+                });
+                ChangedDevice(matchedDevice);
+            }
+            else
+            {
+                // 没有找到匹配的设备，执行自动检测
+                LoggerHelper.Info("No matching device found by fingerprint, performing auto detection.");
+                _refreshCancellationTokenSource?.Cancel();
+                _refreshCancellationTokenSource = new CancellationTokenSource();
+                if (InTask)
+                    TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token), name: "刷新设备");
+                else
+                    AutoDetectDevice(_refreshCancellationTokenSource.Token);
+            }
         }
         else
         {
-            // 没有找到匹配的设备，执行自动检测
-            LoggerHelper.Info("No matching device found by fingerprint, performing auto detection.");
-            _refreshCancellationTokenSource?.Cancel();
-            _refreshCancellationTokenSource = new CancellationTokenSource();
-            if (InTask)
-                TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token), name: "刷新设备");
-            else
-                AutoDetectDevice(_refreshCancellationTokenSource.Token);
+            // 不使用指纹匹配，直接使用保存的设备信息
+            LoggerHelper.Info("Reading saved ADB device from configuration, fingerprint matching disabled.");
+            DispatcherHelper.PostOnMainThread(() =>
+            {
+                Devices = [savedDevice];
+                CurrentDevice = savedDevice;
+            });
+            ChangedDevice(savedDevice);
         }
     }
 
     #endregion
-
     #region 资源
 
     [ObservableProperty] private ObservableCollection<MaaInterface.MaaInterfaceResource> _currentResources = [];
-
 
     public string CurrentResource
     {
@@ -1144,33 +1171,201 @@ public partial class TaskQueueViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 根据当前资源更新任务列表的可见性
+    /// 根据当前资源更新任务列表的可见性和资源选项项
     /// </summary>
     /// <param name="resourceName">资源包名称</param>
     public void UpdateTasksForResource(string? resourceName)
     {
+        // 查找当前资源
+        var currentResource = CurrentResources.FirstOrDefault(r => r.Name == resourceName);
+        var hasResourceOption = currentResource?.Option != null && currentResource.Option.Count > 0;
+
+        // 查找当前的资源选项项
+        var existingResourceOptionItem = TaskItemViewModels.FirstOrDefault(t => t.IsResourceOptionItem);
+
+        if (hasResourceOption)
+        {
+            // 初始化资源的 SelectOptions
+            InitializeResourceSelectOptions(currentResource!);
+
+            if (existingResourceOptionItem == null)
+            {
+                // 需要添加资源选项项
+                var resourceOptionItem = new DragItemViewModel(currentResource!);
+                resourceOptionItem.IsVisible = true;
+
+                // 从配置中恢复已保存的选项值
+                RestoreResourceOptionValues(currentResource!);
+
+                TaskItemViewModels.Insert(0, resourceOptionItem);
+            }
+            else if (existingResourceOptionItem.ResourceItem?.Name != currentResource!.Name)
+            {
+                // 资源选项项属于不同的资源，需要替换
+                var index = TaskItemViewModels.IndexOf(existingResourceOptionItem);
+                TaskItemViewModels.Remove(existingResourceOptionItem);
+
+                var resourceOptionItem = new DragItemViewModel(currentResource);
+                resourceOptionItem.IsVisible = true;
+
+                // 从配置中恢复已保存的选项值
+                RestoreResourceOptionValues(currentResource);
+
+                TaskItemViewModels.Insert(index >= 0 ? index : 0, resourceOptionItem);
+            }
+            else
+            {
+                // 同一资源，更新 SelectOptions
+                existingResourceOptionItem.ResourceItem = currentResource;
+            }
+        }
+        else
+        {
+            // 当前资源没有 option，移除资源选项项
+            if (existingResourceOptionItem != null)
+            {
+                if (existingResourceOptionItem.EnableSetting)
+                {
+                    existingResourceOptionItem.EnableSetting = false;
+                }
+                TaskItemViewModels.Remove(existingResourceOptionItem);
+            }
+        }
+
+        // 更新每个任务的资源支持状态
         foreach (var task in TaskItemViewModels)
         {
-            // 更新每个任务的资源支持状态
-            task.UpdateResourceSupport(resourceName);
+            if (!task.IsResourceOptionItem)
+            {
+                task.UpdateResourceSupport(resourceName);
+            }
         }
     }
 
-    #endregion
+    /// <summary>
+    /// 初始化资源的 SelectOptions
+    /// 只初始化顶级选项，子选项会在运行时由 UpdateSubOptions 动态创建
+    /// 会保留已有的值并从配置中恢复保存的值
+    /// </summary>
+    private void InitializeResourceSelectOptions(MaaInterface.MaaInterfaceResource resource)
+    {
+        if (resource.Option == null || resource.Option.Count == 0)
+        {
+            resource.SelectOptions = null;
+            return;
+        }
 
+        // 收集所有子选项名称（这些选项不应该在顶级初始化）
+        var subOptionNames = new HashSet<string>();
+        foreach (var optionName in resource.Option)
+        {
+            if (MaaProcessor.Interface?.Option?.TryGetValue(optionName, out var interfaceOption) == true)
+            {
+                if (interfaceOption.Cases != null)
+                {
+                    foreach (var caseOption in interfaceOption.Cases)
+                    {
+                        if (caseOption.Option != null)
+                        {
+                            foreach (var subOptionName in caseOption.Option)
+                            {
+                                subOptionNames.Add(subOptionName);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 获取已保存的配置
+        var savedResourceOptions = ConfigurationManager.Current.GetValue(
+            ConfigurationKeys.ResourceOptionItems,
+            new Dictionary<string, List<MaaInterface.MaaInterfaceSelectOption>>());
+
+        Dictionary<string, MaaInterface.MaaInterfaceSelectOption>? savedDict = null;
+        if (savedResourceOptions.TryGetValue(resource.Name ?? string.Empty, out var savedOptions) && savedOptions != null)
+        {
+            savedDict = savedOptions.ToDictionary(o => o.Name ?? string.Empty);
+        }
+
+        // 保留已有的 SelectOptions 值
+        var existingDict = resource.SelectOptions?.ToDictionary(o => o.Name ?? string.Empty)
+            ?? new Dictionary<string, MaaInterface.MaaInterfaceSelectOption>();
+
+        // 只初始化顶级选项（不是子选项的选项）
+        resource.SelectOptions = resource.Option
+            .Where(optionName => !subOptionNames.Contains(optionName))
+            .Select(optionName =>
+            {
+                // 优先使用已有的值（保留运行时的修改）
+                if (existingDict.TryGetValue(optionName, out var existingOpt))
+                {
+                    return existingOpt;
+                }
+
+                // 其次使用配置中保存的值
+                if (savedDict?.TryGetValue(optionName, out var savedOpt) == true)
+                {
+                    // 克隆保存的选项，避免引用问题
+                    var clonedOpt = new MaaInterface.MaaInterfaceSelectOption
+                    {
+                        Name = savedOpt.Name,
+                        Index = savedOpt.Index,
+                        Data = savedOpt.Data != null ? new Dictionary<string, string?>(savedOpt.Data) : null,
+                        SubOptions = savedOpt.SubOptions != null ? CloneSubOptions(savedOpt.SubOptions) : null
+                    };
+                    return clonedOpt;
+                }
+
+                // 最后创建新的并设置默认值
+                var selectOption = new MaaInterface.MaaInterfaceSelectOption
+                {
+                    Name = optionName
+                };
+                TaskLoader.SetDefaultOptionValue(MaaProcessor.Interface, selectOption);
+                return selectOption;
+            }).ToList();
+    }
+
+    /// <summary>
+    /// 克隆子选项列表
+    /// </summary>
+    private List<MaaInterface.MaaInterfaceSelectOption> CloneSubOptions(List<MaaInterface.MaaInterfaceSelectOption> subOptions)
+    {
+        return subOptions.Select(opt => new MaaInterface.MaaInterfaceSelectOption
+        {
+            Name = opt.Name,
+            Index = opt.Index,
+            Data = opt.Data != null ? new Dictionary<string, string?>(opt.Data) : null,
+            SubOptions = opt.SubOptions != null ? CloneSubOptions(opt.SubOptions) : null
+        }).ToList();
+    }
+
+    /// <summary>
+    /// 从配置中恢复资源选项的已保存值（已整合到 InitializeResourceSelectOptions 中，保留此方法以兼容）
+    /// </summary>
+    private void RestoreResourceOptionValues(MaaInterface.MaaInterfaceResource resource)
+    {
+        // 配置恢复逻辑已整合到 InitializeResourceSelectOptions 中
+        // 此方法保留以兼容现有调用，但不再需要执行任何操作
+    }
+
+    #endregion
     #region 缩放
 
-    // 三列宽度配置
-    private const string DefaultColumn1Width = "300";
+// 三列宽度配置
+    private const string DefaultColumn1Width = "350";
     private const string DefaultColumn2Width = "1*";
     private const string DefaultColumn3Width = "1*";
 
-    // 使用属性，标记为可通知属性，确保UI能正确绑定和监听变化
+// 使用属性，标记为可通知属性，确保UI能正确绑定和监听变化
     [ObservableProperty] private GridLength _column1Width;
+
     [ObservableProperty] private GridLength _column2Width;
+
     [ObservableProperty] private GridLength _column3Width;
 
-    // 添加记录拖拽开始的状态
+// 添加记录拖拽开始的状态
     private GridLength _dragStartCol1Width;
     private GridLength _dragStartCol2Width;
     private GridLength _dragStartCol3Width;
@@ -1231,7 +1426,7 @@ public partial class TaskQueueViewModel : ViewModelBase
         }
     }
 
-    // 添加辅助方法用于精确比较两个GridLength
+// 添加辅助方法用于精确比较两个GridLength
     private bool AreGridLengthsEqual(GridLength a, GridLength b)
     {
         if (a.GridUnitType != b.GridUnitType)
@@ -1250,7 +1445,6 @@ public partial class TaskQueueViewModel : ViewModelBase
 
         return a.Value == b.Value;
     }
-
     partial void OnColumn1WidthChanged(GridLength value)
     {
         if (SuppressPropertyChangedCallbacks) return;
@@ -1272,7 +1466,6 @@ public partial class TaskQueueViewModel : ViewModelBase
             LoggerHelper.Error($"保存列宽1失败: {ex.Message}");
         }
     }
-
     partial void OnColumn2WidthChanged(GridLength value)
     {
         if (SuppressPropertyChangedCallbacks) return;
@@ -1294,7 +1487,6 @@ public partial class TaskQueueViewModel : ViewModelBase
             LoggerHelper.Error($"保存列宽2失败: {ex.Message}");
         }
     }
-
     partial void OnColumn3WidthChanged(GridLength value)
     {
         if (SuppressPropertyChangedCallbacks) return;
@@ -1316,10 +1508,13 @@ public partial class TaskQueueViewModel : ViewModelBase
             LoggerHelper.Error($"保存列宽3失败: {ex.Message}");
         }
     }
+    public bool SuppressPropertyChangedCallbacks
+    {
+        get;
+        set;
+    }
 
-    public bool SuppressPropertyChangedCallbacks { get; set; }
-
-    // 保存列宽配置到磁盘
+// 保存列宽配置到磁盘
     public void SaveColumnWidths()
     {
         if (SuppressPropertyChangedCallbacks) return;
@@ -1364,7 +1559,7 @@ public partial class TaskQueueViewModel : ViewModelBase
         }
     }
 
-    // 添加辅助方法用于比较GridLength
+// 添加辅助方法用于比较GridLength
     private bool CompareGridLength(string storedValue, GridLength newValue)
     {
         // 先检查字符串是否完全相同

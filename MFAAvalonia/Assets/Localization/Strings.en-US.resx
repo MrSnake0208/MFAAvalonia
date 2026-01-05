@@ -658,8 +658,8 @@
             <value>When enabled, clicking the minimize button will hide the window to the system tray instead of the taskbar.</value>
         </data>
     <data name="MiniTouch" xml:space="preserve">
-        <value>MiniTouch (Old)</value>
-    </data>
+            <value>MiniTouch (Old)</value>
+        </data>
     <data name="MirrorAutoUpdatePrompt" xml:space="preserve">
         <value>Please purchase the Mirror Chyan service to enable automatic updates, or switch the download source to GitHub</value>
     </data>
@@ -798,6 +798,9 @@
     <data name="RetryOnDisconnected" xml:space="preserve">
         <value>Retry launching the emulator when ADB connection fails</value>
     </data>
+    <data name="AutoDetectOnConnectionFailed" xml:space="preserve">
+        <value>Auto detect available devices on connection failed</value>
+    </data>
     <data name="RunningSettings" xml:space="preserve">
         <value>Running</value>
     </data>
@@ -884,6 +887,9 @@
     </data>
     <data name="Stopping" xml:space="preserve">
         <value>Stopping......</value>
+    </data>
+    <data name="StartupScriptOnly" xml:space="preserve">
+        <value>Startup tasks only</value>
     </data>
     <data name="StoppingFailed" xml:space="preserve">
         <value>Failed to stop the task</value>
@@ -1106,6 +1112,9 @@
     </data>
     <data name="GlobalHotkeyServiceError" xml:space="preserve">
         <value>Global Hotkey Service Failed to Load</value>
+        <data name="MultiInstanceModeGlobalHotkeyDisabled" xml:space="preserve">
+        <value>Multi-instance Mode: Global Hotkeys Disabled</value>
+    </data>
     </data>
     <data name="Manual" xml:space="preserve">
         <value>Manual</value>
@@ -1406,6 +1415,17 @@
     <data name="FontScaleValue" xml:space="preserve">
         <value>{0}%</value>
     </data>
-
-
+    <data name="ResourceAutoSwitched" xml:space="preserve">
+        <value>Resource Auto-Switched</value>
+    </data>
+    <data name="ResourceNotSupportController" xml:space="preserve">
+        <value>Current controller {1} does not support resource {0}, auto-switched to {2}. Please check resource settings.</value>
+    </data>
+    <data name="ResourcePresetConfig" xml:space="preserve">
+        <value>Resource Preset Config</value>
+    </data>
+    <data name="UseFingerprintMatching" xml:space="preserve">
+        <value>Use Fingerprint Matching</value>
+    </data>
 </root>
+

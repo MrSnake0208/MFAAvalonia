@@ -27,7 +27,6 @@ using VerticalAlignment = Avalonia.Layout.VerticalAlignment;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Lang.Avalonia.MarkupExtensions;
-using MFAAvalonia.ViewModels.Other;
 using Newtonsoft.Json.Linq;
 
 namespace MFAAvalonia.Views.Pages;
@@ -271,8 +270,12 @@ public partial class TaskQueueView : UserControl
     private void Delete(object? sender, RoutedEventArgs e)
     {
         var menuItem = sender as MenuItem;
-        if (menuItem.DataContext is DragItemViewModel taskItemViewModel && DataContext is TaskQueueViewModel vm)
+        if (menuItem?.DataContext is DragItemViewModel taskItemViewModel && DataContext is TaskQueueViewModel vm)
         {
+            // 资源设置项不能被删除
+            if (taskItemViewModel.IsResourceOptionItem)
+                return;
+
             int index = vm.TaskItemViewModels.IndexOf(taskItemViewModel);
             vm.TaskItemViewModels.RemoveAt(index);
             Instances.TaskQueueView.SetOption(taskItemViewModel, false);
@@ -336,7 +339,6 @@ public partial class TaskQueueView : UserControl
         }
         Introduction.Markdown = markDown;
     }
-
     /// <summary>
     /// 设置仅显示 IntroductionCard 的模式（隐藏 SettingCard，IntroductionCard 占满）
     /// </summary>
@@ -350,7 +352,7 @@ public partial class TaskQueueView : UserControl
         IntroductionCard.ClearValue(MaxHeightProperty);
         IntroductionCard.MaxHeight = double.PositiveInfinity;
     }
-    
+
     /// <summary>
     /// 设置仅显示 SettingCard 的模式（隐藏 IntroductionCard，SettingCard 占满）
     /// </summary>
@@ -362,7 +364,7 @@ public partial class TaskQueueView : UserControl
         IntroductionCard.Margin = new Thickness(0, -7, 0, 25);
         Grid.SetRow(IntroductionCard, 1);
     }
-    
+
     private bool _maxHeightBindingActive = false;
 
     /// <summary>
@@ -417,7 +419,11 @@ public partial class TaskQueueView : UserControl
     {
         if (!init)
             Instances.TaskQueueViewModel.IsCommon = true;
-        var cacheKey = $"{dragItem.Name}_{dragItem.InterfaceItem?.Entry}_{dragItem.InterfaceItem?.GetHashCode()}";
+
+        // 资源设置项使用特殊的缓存键
+        var cacheKey = dragItem.IsResourceOptionItem
+            ? $"ResourceOption_{dragItem.ResourceItem?.Name}_{dragItem.ResourceItem?.GetHashCode()}"
+            : $"{dragItem.Name}_{dragItem.InterfaceItem?.Entry}_{dragItem.InterfaceItem?.GetHashCode()}";
 
         if (!value)
         {
@@ -426,49 +432,76 @@ public partial class TaskQueueView : UserControl
         }
 
         HideAllPanels();
-        var juggle = (dragItem.InterfaceItem?.Advanced == null || dragItem.InterfaceItem.Advanced.Count == 0) || (dragItem.InterfaceItem?.Option == null || dragItem.InterfaceItem.Option.Count == 0);
-        Instances.TaskQueueViewModel.ShowSettings = ShowCache.GetOrAdd(cacheKey,
-            !juggle);
-        if (juggle)
+
+        // 处理资源设置项的选项
+        if (dragItem.IsResourceOptionItem)
         {
-            var newPanel = CommonPanelCache.GetOrAdd(cacheKey, key =>
+            var hasOptions = dragItem.ResourceItem?.SelectOptions != null && dragItem.ResourceItem.SelectOptions.Count > 0;
+            Instances.TaskQueueViewModel.ShowSettings = ShowCache.GetOrAdd(cacheKey, false);
+
+            if (hasOptions)
             {
-                var p = new StackPanel();
-                GeneratePanelContent(p, dragItem);
-                CommonOptionSettings.Children.Add(p);
-                return p;
-            });
-            newPanel.IsVisible = true;
-        }
-        else
-        {
-            if (!init)
-            {
-                var commonPanel = CommonPanelCache.GetOrAdd(cacheKey, key =>
+                var newPanel = CommonPanelCache.GetOrAdd(cacheKey, key =>
                 {
                     var p = new StackPanel();
-                    GenerateCommonPanelContent(p, dragItem);
+                    GenerateResourceOptionPanelContent(p, dragItem);
                     CommonOptionSettings.Children.Add(p);
                     return p;
                 });
-                commonPanel.IsVisible = true;
+                newPanel.IsVisible = true;
             }
-            var advancedPanel = AdvancedPanelCache.GetOrAdd(cacheKey, key =>
+        }
+        else
+        {
+            var juggle = (dragItem.InterfaceItem?.Advanced == null || dragItem.InterfaceItem.Advanced.Count == 0) || (dragItem.InterfaceItem?.Option == null || dragItem.InterfaceItem.Option.Count == 0);
+            Instances.TaskQueueViewModel.ShowSettings = ShowCache.GetOrAdd(cacheKey,
+                !juggle);
+            if (juggle)
             {
-                var p = new StackPanel();
-                GenerateAdvancedPanelContent(p, dragItem);
-                AdvancedOptionSettings.Children.Add(p);
-                return p;
-            });
-            if (!init)
+                var newPanel = CommonPanelCache.GetOrAdd(cacheKey, key =>
+                {
+                    var p = new StackPanel();
+                    GeneratePanelContent(p, dragItem);
+                    CommonOptionSettings.Children.Add(p);
+                    return p;
+                });
+                newPanel.IsVisible = true;
+            }
+            else
             {
-                advancedPanel.IsVisible = true;
+                if (!init)
+                {
+                    var commonPanel = CommonPanelCache.GetOrAdd(cacheKey, key =>
+                    {
+                        var p = new StackPanel();
+                        GenerateCommonPanelContent(p, dragItem);
+                        CommonOptionSettings.Children.Add(p);
+                        return p;
+                    });
+                    commonPanel.IsVisible = true;
+                }
+                var advancedPanel = AdvancedPanelCache.GetOrAdd(cacheKey, key =>
+                {
+                    var p = new StackPanel();
+                    GenerateAdvancedPanelContent(p, dragItem);
+                    AdvancedOptionSettings.Children.Add(p);
+                    return p;
+                });
+                if (!init)
+                {
+                    advancedPanel.IsVisible = true;
+                }
             }
         }
         if (!init)
         {
             var newIntroduction = IntroductionsCache.GetOrAdd(cacheKey, key =>
             {
+                // 资源设置项的描述
+                if (dragItem.IsResourceOptionItem)
+                {
+                    return ConvertCustomMarkup(dragItem.ResourceItem?.Description ?? string.Empty);
+                }
                 // 优先使用 Description，没有则使用 Document
                 var input = GetTooltipText(dragItem.InterfaceItem?.Description, dragItem.InterfaceItem?.Document);
                 return ConvertCustomMarkup(input ?? string.Empty);
@@ -554,6 +587,49 @@ public partial class TaskQueueView : UserControl
         }
     }
 
+    /// <summary>
+    /// 为资源设置项生成选项面板内容
+    /// </summary>
+    private void GenerateResourceOptionPanelContent(StackPanel panel, DragItemViewModel dragItem)
+    {
+        if (dragItem.ResourceItem?.SelectOptions == null)
+            return;
+
+        // 收集所有子选项名称（这些选项不应该在顶级显示）
+        var subOptionNames = new HashSet<string>();
+        foreach (var selectOption in dragItem.ResourceItem.SelectOptions)
+        {
+            if (MaaProcessor.Interface?.Option?.TryGetValue(selectOption.Name ?? string.Empty, out var interfaceOption) == true)
+            {
+                // 收集所有 case 中定义的子选项
+                if (interfaceOption.Cases != null)
+                {
+                    foreach (var caseOption in interfaceOption.Cases)
+                    {
+                        if (caseOption.Option != null)
+                        {
+                            foreach (var subOptionName in caseOption.Option)
+                            {
+                                subOptionNames.Add(subOptionName);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 只显示顶级选项（不是子选项的选项）
+        foreach (var selectOption in dragItem.ResourceItem.SelectOptions)
+        {
+            //跳过子选项，它们会在父选项的 UpdateSubOptions 中动态添加
+            if (subOptionNames.Contains(selectOption.Name ?? string.Empty))
+                continue;
+
+            // 复用 AddOption 方法，它会根据 option 类型创建相应的控件
+            AddOption(panel, selectOption, dragItem);
+        }
+    }
+    
     private void HideCurrentPanel(string key)
     {
         if (CommonPanelCache.TryGetValue(key, out var oldPanel))
@@ -1633,7 +1709,7 @@ public partial class TaskQueueView : UserControl
 
         var combo = new ComboBox
         {
-            MinWidth = 130,
+            MinWidth = 120,
             Classes =
             {
                 "LimitWidth"
@@ -1656,7 +1732,7 @@ public partial class TaskQueueView : UserControl
                         },
                         new ColumnDefinition
                         {
-                            Width = new GridLength(40)
+                            Width = GridLength.Auto
                         }
                     }
                 };
@@ -1672,17 +1748,15 @@ public partial class TaskQueueView : UserControl
                 iconDisplay.Bind(IsVisibleProperty, new Binding(nameof(MaaInterface.MaaInterfaceOptionCase.HasIcon)));
                 Grid.SetColumn(iconDisplay, 0);
 
-                var textBlock = new TextBlock
+                var marqueeText = new MarqueeTextBlock
                 {
-                    TextTrimming = TextTrimming.WordEllipsis,
-                    TextWrapping = TextWrapping.NoWrap,
-                    VerticalAlignment = VerticalAlignment.Center
+                    VerticalContentAlignment = VerticalAlignment.Center
                 };
-                textBlock.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("SukiText"));
-                textBlock.Bind(TextBlock.TextProperty, new Binding(nameof(MaaInterface.MaaInterfaceOptionCase.DisplayName)));
-                textBlock.Bind(ToolTip.TipProperty, new Binding(nameof(MaaInterface.MaaInterfaceOptionCase.DisplayName)));
-                ToolTip.SetShowDelay(textBlock, 100);
-                Grid.SetColumn(textBlock, 1);
+                marqueeText.Bind(MarqueeTextBlock.ForegroundProperty, new DynamicResourceExtension("SukiText"));
+                marqueeText.Bind(MarqueeTextBlock.TextProperty, new Binding(nameof(MaaInterface.MaaInterfaceOptionCase.DisplayName)));
+                marqueeText.Bind(ToolTip.TipProperty, new Binding(nameof(MaaInterface.MaaInterfaceOptionCase.DisplayName)));
+                ToolTip.SetShowDelay(marqueeText, 100);
+                Grid.SetColumn(marqueeText, 1);
 
                 var tooltipBlock = new TooltipBlock();
                 tooltipBlock.Bind(TooltipBlock.TooltipTextProperty, new Binding(nameof(MaaInterface.MaaInterfaceOptionCase.DisplayDescription)));
@@ -1690,7 +1764,7 @@ public partial class TaskQueueView : UserControl
                 Grid.SetColumn(tooltipBlock, 2);
 
                 itemGrid.Children.Add(iconDisplay);
-                itemGrid.Children.Add(textBlock);
+                itemGrid.Children.Add(marqueeText);
                 itemGrid.Children.Add(tooltipBlock);
                 return itemGrid;
             }),
@@ -1710,7 +1784,7 @@ public partial class TaskQueueView : UserControl
                         },
                         new ColumnDefinition
                         {
-                            Width = new GridLength(40)
+                            Width = GridLength.Auto
                         }
                     }
                 };
@@ -2012,11 +2086,28 @@ public partial class TaskQueueView : UserControl
         panel.Children.Add(control);
     }
 
-
     private void SaveConfiguration()
     {
+        // 保存普通任务项配置
         ConfigurationManager.Current.SetValue(ConfigurationKeys.TaskItems,
-            Instances.TaskQueueViewModel.TaskItemViewModels.Select(m => m.InterfaceItem));
+            Instances.TaskQueueViewModel.TaskItemViewModels.Where(m => !m.IsResourceOptionItem).Select(m => m.InterfaceItem));
+
+        // 保存资源选项配置
+        SaveResourceOptionConfiguration();
+    }
+
+    /// <summary>
+    /// 保存资源选项配置到配置文件
+    /// </summary>
+    private void SaveResourceOptionConfiguration()
+    {
+        var resourceOptionItems = Instances.TaskQueueViewModel.TaskItemViewModels
+            .Where(m => m.IsResourceOptionItem && m.ResourceItem?.SelectOptions != null)
+            .ToDictionary(
+                m => m.ResourceItem!.Name ?? string.Empty,
+                m => m.ResourceItem!.SelectOptions!);
+
+        ConfigurationManager.Current.SetValue(ConfigurationKeys.ResourceOptionItems, resourceOptionItems);
     }
 
     public static string ConvertCustomMarkup(string input, string outputFormat = "html")

@@ -952,8 +952,8 @@ public class MaaProcessor
                             });
                         }
                     }
-
                 }
+
                 if (jObject["action_id"] != null)
                 {
                     var actionId = Convert.ToInt64(jObject["action_id"]?.ToString() ?? string.Empty);
@@ -989,8 +989,8 @@ public class MaaProcessor
                             bitmapToSet?.Dispose();
                             bitmapToSet = null;
                         }
-                
-                
+
+
                         if (bitmapToSet != null)
                         {
                             var finalBitmap = bitmapToSet;
@@ -1806,18 +1806,25 @@ public class MaaProcessor
 
     public void Start(bool onlyStart = false, bool checkUpdate = false)
     {
-        if (InitializeData())
+        // 保存当前的任务列表，以便在重新加载时保留用户调整的顺序和 check 状态
+        var currentTasks = new Collection<DragItemViewModel>(Instances.TaskQueueViewModel.TaskItemViewModels.ToList());
+
+        if (InitializeData(currentTasks))
         {
             // 排除不支持当前资源包的任务（IsResourceSupported 为 false 的任务）
+            // 排除 resource option 项（它们不参与任务执行，只提供参数）
             var tasks = Instances.TaskQueueViewModel.TaskItemViewModels.ToList()
-                .FindAll(task => (task.IsChecked || task.IsCheckedWithNull == null) && task.IsResourceSupported);
+                .FindAll(task => (task.IsChecked || task.IsCheckedWithNull == null) && task.IsResourceSupported && !task.IsResourceOptionItem);
             StartTask(tasks, onlyStart, checkUpdate);
         }
     }
 
     public void Start(List<DragItemViewModel> dragItemViewModels, bool onlyStart = false, bool checkUpdate = false)
     {
-        if (InitializeData())
+        // 保存当前的任务列表，以便在重新加载时保留用户调整的顺序和 check 状态
+        var currentTasks = new Collection<DragItemViewModel>(Instances.TaskQueueViewModel.TaskItemViewModels.ToList());
+
+        if (InitializeData(currentTasks))
         {
             var tasks = dragItemViewModels;
             StartTask(tasks, onlyStart, checkUpdate);
@@ -2046,6 +2053,9 @@ public class MaaProcessor
             DefaultValueHandling = DefaultValueHandling.Ignore
         })).ToMaaToken();
 
+        // 首先合并当前资源的全局选项参数
+        MergeResourceOptionParams(ref taskModels);
+
         UpdateTaskDictionary(ref taskModels, task.InterfaceItem?.Option, task.InterfaceItem?.Advanced);
 
         var taskParams = SerializeTaskParams(taskModels);
@@ -2067,6 +2077,29 @@ public class MaaProcessor
             // Tasks = tasks,
             Param = taskParams
         };
+    }
+
+    /// <summary>
+    /// 合并当前资源的全局选项参数到任务参数中
+    /// </summary>
+    private void MergeResourceOptionParams(ref MaaToken taskModels)
+    {
+        // 获取当前资源
+        var currentResourceName = Instances.TaskQueueViewModel.CurrentResource;
+        var currentResource = Instances.TaskQueueViewModel.CurrentResources
+            .FirstOrDefault(r => r.Name == currentResourceName);
+
+        if (currentResource?.SelectOptions == null || currentResource.SelectOptions.Count == 0)
+            return;
+
+        // 查找任务列表中的资源设置项，获取用户选择的值
+        var resourceOptionItem = Instances.TaskQueueViewModel.TaskItemViewModels
+            .FirstOrDefault(t => t.IsResourceOptionItem && t.ResourceItem?.Name == currentResourceName);
+
+        var selectOptions = resourceOptionItem?.ResourceItem?.SelectOptions ?? currentResource.SelectOptions;
+
+        // 处理资源的全局选项
+        ProcessOptions(ref taskModels, selectOptions);
     }
 
     private void InitializeConnectionTasksAsync(CancellationToken token)
@@ -2101,7 +2134,7 @@ public class MaaProcessor
             RootView.AddLogByKeys(LangKeys.ConnectingTo, null, true, isAdb ? LangKeys.Emulator : LangKeys.Window);
         else
             ToastHelper.Info(LangKeys.Tip.ToLocalization(), LangKeys.ConnectingTo.ToLocalizationFormatted(true, isAdb ? LangKeys.Emulator : LangKeys.Window));
-        if (Instances.TaskQueueViewModel.CurrentDevice == null)
+        if (Instances.TaskQueueViewModel.CurrentDevice == null && Instances.ConnectSettingsUserControlModel.AutoDetectOnConnectionFailed)
             Instances.TaskQueueViewModel.TryReadAdbDeviceFromConfig(false, true);
         var tuple = await TryConnectAsync(token);
         var connected = tuple.Item1;
@@ -2129,7 +2162,10 @@ public class MaaProcessor
         var retrySteps = new List<Func<CancellationToken, Task<bool>>>
         {
             async t => await RetryConnectionAsync(t, showMessage, StartSoftware, LangKeys.TryToStartEmulator, Instances.ConnectSettingsUserControlModel.RetryOnDisconnected,
-                () => Instances.TaskQueueViewModel.TryReadAdbDeviceFromConfig(false, true)),
+                () =>
+                {
+                    if (Instances.ConnectSettingsUserControlModel.AutoDetectOnConnectionFailed) Instances.TaskQueueViewModel.TryReadAdbDeviceFromConfig(false, true);
+                }),
             async t => await RetryConnectionAsync(t, showMessage, ReconnectByAdb, LangKeys.TryToReconnectByAdb),
             async t => await RetryConnectionAsync(t, showMessage, RestartAdb, LangKeys.RestartAdb, Instances.ConnectSettingsUserControlModel.AllowAdbRestart),
             async t => await RetryConnectionAsync(t, showMessage, HardRestartAdb, LangKeys.HardRestartAdb, Instances.ConnectSettingsUserControlModel.AllowAdbHardRestart)

@@ -107,7 +107,6 @@ public partial class App : Application
             Dispatcher.UIThread.UnhandledException -= OnDispatcherUnhandledException;
         }
 
-
         /// <summary>
         /// 手动清理内存缓存（用于降低内存占用）
         /// 此方法会清除字体缓存等非必要的内存占用

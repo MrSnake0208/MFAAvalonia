@@ -226,16 +226,24 @@ public partial class RootView : SukiWindow
                         await Task.Delay(300);
                         if ((MaaProcessor.Interface?.Controller?.Count ?? 0) == 1 || !ConfigurationManager.Current.ContainsKey(ConfigurationKeys.CurrentController))
                             Instances.TaskQueueViewModel.CurrentController = (MaaProcessor.Interface?.Controller?.FirstOrDefault()?.Type).ToMaaControllerTypes(Instances.TaskQueueViewModel.CurrentController);
+                        var beforeTask = ConfigurationManager.Current.GetValue(ConfigurationKeys.BeforeTask, "None");
                         if (!Convert.ToBoolean(GlobalConfiguration.GetValue(ConfigurationKeys.NoAutoStart, bool.FalseString))
-                            && ConfigurationManager.Current.GetValue(ConfigurationKeys.BeforeTask, "None").Contains("Startup", StringComparison.OrdinalIgnoreCase))
+                            && (beforeTask.Contains("Startup", StringComparison.OrdinalIgnoreCase) || beforeTask.Equals("StartupScriptOnly", StringComparison.OrdinalIgnoreCase)))
                         {
-                            MaaProcessor.Instance.TaskQueue.Enqueue(new MFATask
+                            // 只有当不是 StartupScriptOnly 时才启动游戏
+                            if (!beforeTask.Equals("StartupScriptOnly", StringComparison.OrdinalIgnoreCase))
                             {
-                                Name = "启动前",
-                                Type = MFATask.MFATaskType.MFA,
-                                Action = async () => await MaaProcessor.Instance.WaitSoftware(),
-                            });
-                            MaaProcessor.Instance.Start(!ConfigurationManager.Current.GetValue(ConfigurationKeys.BeforeTask, "None").Contains("And", StringComparison.OrdinalIgnoreCase), checkUpdate: true);
+                                MaaProcessor.Instance.TaskQueue.Enqueue(new MFATask
+                                {
+                                    Name = "启动前",
+                                    Type = MFATask.MFATaskType.MFA,
+                                    Action = async () => await MaaProcessor.Instance.WaitSoftware(),
+                                });
+                            }
+                            // StartupScriptOnly 或 StartupSoftwareAndScript 时启动脚本 (onlyStart = false)
+                            // StartupSoftware 时只启动游戏不启动脚本 (onlyStart = true)
+                            var onlyStart = beforeTask.Equals("StartupSoftware", StringComparison.OrdinalIgnoreCase);
+                            MaaProcessor.Instance.Start(onlyStart, checkUpdate: true);
                         }
                         else
                         {
@@ -257,21 +265,28 @@ public partial class RootView : SukiWindow
                         Instances.RootViewModel.LockController = (MaaProcessor.Interface?.Controller?.Count ?? 0) == 1;
 
                         ConfigurationManager.Current.SetValue(ConfigurationKeys.EnableEdit, ConfigurationManager.Current.GetValue(ConfigurationKeys.EnableEdit, false));
-                        DragItemViewModel tempTask = null;
+                        DragItemViewModel? tempTask = null;
                         foreach (var task in Instances.TaskQueueViewModel.TaskItemViewModels)
                         {
-                            if (task.InterfaceItem?.Advanced is { Count: > 0 }
-                                || task.InterfaceItem?.Option is { Count: > 0 }
-                                || !string.IsNullOrWhiteSpace(task.InterfaceItem?.Description)
-                                || task.InterfaceItem?.Document != null
-                                || task.InterfaceItem?.Repeatable == true)
+                            // 优先选择资源选项项
+                            if (task.IsResourceOptionItem && task.ResourceItem?.SelectOptions is { Count: > 0 })
                             {
                                 tempTask ??= task;
                             }
-                            task.EnableSetting = true;
+                            else if (task.InterfaceItem?.Advanced is { Count: > 0 }
+                                     || task.InterfaceItem?.Option is { Count: > 0 }
+                                     || !string.IsNullOrWhiteSpace(task.InterfaceItem?.Description)
+                                     || task.InterfaceItem?.Document != null
+                                     || task.InterfaceItem?.Repeatable == true)
+                            {
+                                // 如果还没有找到资源选项项，则选择第一个有配置的普通任务
+                                tempTask ??= task;
+                            }
+                            // 使用 init=true 参数只初始化面板缓存，不显示面板也不改变 EnableSetting 状态
+                            Instances.TaskQueueView.SetOption(task, true, init: true);
                         }
 
-
+                        // 只对最终选中的任务设置 EnableSetting = true，这会触发面板显示
                         if (tempTask != null)
                             tempTask.EnableSetting = true;
 

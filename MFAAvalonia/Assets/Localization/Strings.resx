@@ -666,8 +666,8 @@
             <value>启用后，点击最小化按钮时窗口将隐藏到系统托盘而不是任务栏。</value>
         </data>
     <data name="MiniTouch" xml:space="preserve">
-        <value>MiniTouch (旧)</value>
-    </data>
+            <value>MiniTouch (旧)</value>
+        </data>
     <data name="MirrorAutoUpdatePrompt" xml:space="preserve">
         <value>请购买 Mirror 酱服务以实现自动更新，或将下载源切换至 GitHub</value>
     </data>
@@ -806,6 +806,9 @@
     <data name="RetryOnDisconnected" xml:space="preserve">
         <value>ADB 连接失败时尝试启动模拟器</value>
     </data>
+    <data name="AutoDetectOnConnectionFailed" xml:space="preserve">
+        <value>连接失败时自动重新搜寻可用设备</value>
+    </data>
     <data name="RunningSettings" xml:space="preserve">
         <value>运行设置</value>
     </data>
@@ -892,6 +895,9 @@
     </data>
     <data name="Stopping" xml:space="preserve">
         <value>正在停止......</value>
+    </data>
+    <data name="StartupScriptOnly" xml:space="preserve">
+        <value>仅开始任务</value>
     </data>
     <data name="StoppingFailed" xml:space="preserve">
         <value>停止任务失败</value>
@@ -1416,5 +1422,18 @@
     <data name="FontScaleValue" xml:space="preserve">
         <value>{0}%</value>
     </data>
+    <data name="ResourceAutoSwitched" xml:space="preserve">
+        <value>资源已自动切换</value>
+    </data>
+    <data name="ResourceNotSupportController" xml:space="preserve">
+        <value>当前控制器 {1} 不支持资源 {0}，已自动切换为 {2}，请检查资源设置</value>
+    </data>
 
+    <data name="ResourcePresetConfig" xml:space="preserve">
+        <value>资源预设配置</value>
+    </data>
+    <data name="UseFingerprintMatching" xml:space="preserve">
+        <value>使用指纹匹配设备</value>
+    </data>
 </root>
+
