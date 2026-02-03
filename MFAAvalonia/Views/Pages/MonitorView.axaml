@@ -21,7 +21,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <suki:GlassCard Margin="10" Width="360" Height="240" IsInteractive="True" Command="{Binding SwitchCommand}">
+                    <suki:GlassCard Margin="10" Width="270" Height="480" IsInteractive="True" Command="{Binding SwitchCommand}">
                         <suki:GlassCard.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="{markup:I18n {x:Static helper:LangKeys.StartTask}}"

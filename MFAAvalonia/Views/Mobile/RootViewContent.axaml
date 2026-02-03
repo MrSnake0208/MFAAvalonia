@@ -38,6 +38,16 @@
                                                                 IconVariant=Regular}"
                                                PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:InstanceContainerView}}" />
                         <suki:SukiSideMenuItem IsContentMovable="False"
+                                               Header="自动战斗"
+                                               Icon="{fluent:FluentIcon Icon=Games,
+                                                               IconVariant=Regular}"
+                                               PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:CopilotView}}" />
+                        <suki:SukiSideMenuItem IsContentMovable="False"
+                                               Header="录制作业"
+                                               Icon="{fluent:FluentIcon Icon=Record,
+                                                               IconVariant=Regular}"
+                                               PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:RecordTaskView}}" />
+                        <suki:SukiSideMenuItem IsContentMovable="False"
                                                Header="{markup:I18n {x:Static helper:LangKeys.Monitor}}"
                                                PageContent="{extensions:ServiceProvider ServiceType={x:Type pages:MonitorView}}">
                             <suki:SukiSideMenuItem.Icon>

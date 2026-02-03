@@ -273,9 +273,11 @@ public partial class App : Application
         return views
 
             // Add pages
-            .AddView<InstanceContainerView, InstanceTabBarViewModel>(services)
-            .AddView<TaskQueueView, TaskQueueViewModel>(services)
-            .AddView<MonitorView, MonitorViewModel>(services)
+              .AddView<InstanceContainerView, InstanceTabBarViewModel>(services)
+              .AddView<TaskQueueView, TaskQueueViewModel>(services)
+              .AddView<CopilotView, CopilotViewModel>(services)
+              .AddView<RecordTaskView, RecordTaskViewModel>(services)
+              .AddView<MonitorView, MonitorViewModel>(services)
             .AddView<ResourcesView, ResourcesViewModel>(services)
             .AddView<SettingsView, SettingsViewModel>(services)
             .AddView<ScreenshotView, ScreenshotViewModel>(services)
