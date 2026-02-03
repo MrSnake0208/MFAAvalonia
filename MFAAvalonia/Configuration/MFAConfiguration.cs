@@ -45,14 +45,33 @@ public partial class MFAConfiguration(string name, string fileName, Dictionary<s
             AppContext.BaseDirectory, "config",
             $"{FileName}.json");
 
-        public void SetValue(string key, object? value)
+    public void SetValue(string key, object? value)
+    {
+        if (Config == null || value == null) return;
+        // 移除配置切换时阻止 TaskItems 保存的逻辑
+        // 这会导致任务配置无法正确更新到新配置中
+        Config[key] = value;
+        JsonHelper.SaveConfig(FileName, Config, new MaaInterfaceSelectAdvancedConverter(false), new MaaInterfaceSelectOptionConverter(false));
+    }
+
+    public int RemoveKeysByPrefix(string prefix, StringComparison comparison = StringComparison.Ordinal)
+    {
+        if (Config == null || string.IsNullOrEmpty(prefix)) return 0;
+
+        var keysToRemove = Config.Keys
+            .Where(k => k.StartsWith(prefix, comparison))
+            .ToList();
+
+        if (keysToRemove.Count == 0) return 0;
+
+        foreach (var key in keysToRemove)
         {
-            if (Config == null || value == null) return;
-            // 移除配置切换时阻止 TaskItems 保存的逻辑
-            // 这会导致任务配置无法正确更新到新配置中
-            Config[key] = value;
-            JsonHelper.SaveConfig(FileName, Config, new MaaInterfaceSelectAdvancedConverter(false), new MaaInterfaceSelectOptionConverter(false));
+            Config.Remove(key);
         }
+
+        JsonHelper.SaveConfig(FileName, Config, new MaaInterfaceSelectAdvancedConverter(false), new MaaInterfaceSelectOptionConverter(false));
+        return keysToRemove.Count;
+    }
 
     public bool ContainsKey(string key) => Config.ContainsKey(key);
     public T GetValue<T>(string key, T defaultValue, List<T> whitelist)

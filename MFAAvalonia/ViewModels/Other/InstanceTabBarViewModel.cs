@@ -47,6 +47,11 @@ public partial class InstanceTabBarViewModel : ViewModelBase
             {
                 Tabs.Add(new InstanceTabViewModel(processor));
             }
+            else
+            {
+                var existing = Tabs.First(t => t.Processor == processor);
+                existing.UpdateName();
+            }
         }
         
         var current = MaaProcessorManager.Instance.Current;
@@ -91,6 +96,10 @@ public partial class InstanceTabBarViewModel : ViewModelBase
         if (MaaProcessorManager.Instance.SwitchCurrent(processor.InstanceId))
         {
             Instances.ReloadConfigurationForSwitch(false);
+            DispatcherHelper.PostOnMainThread(() =>
+            {
+                processor.ViewModel?.ReloadInstanceRuntime(true);
+            });
         }
     }
 

@@ -66,6 +66,13 @@ public static class ConfigurationManager
             return;
         }
 
+        if (MaaProcessorManager.Instance.Instances.Count > 1)
+        {
+            ToastHelper.Warn("多实例模式下不允许切换配置");
+            LoggerHelper.Warning("多实例模式下不允许切换配置");
+            return;
+        }
+
         lock (_switchLock)
         {
             if (IsSwitching)

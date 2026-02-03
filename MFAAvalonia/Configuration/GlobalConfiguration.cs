@@ -86,6 +86,47 @@ public static class GlobalConfiguration
         }
     }
 
+    public static bool RemoveKey(string key)
+    {
+        lock (_fileLock)
+        {
+            try
+            {
+                if (!File.Exists(_configPath))
+                {
+                    return false;
+                }
+
+                var json = File.ReadAllText(_configPath);
+                var configDict = JsonSerializer.Deserialize<Dictionary<string, string>>(json)
+                    ?? new Dictionary<string, string>();
+
+                if (!configDict.Remove(key))
+                {
+                    return false;
+                }
+
+                File.WriteAllText(_configPath,
+                    JsonSerializer.Serialize(configDict, new JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    }));
+
+                return true;
+            }
+            catch (IOException ex)
+            {
+                ReportFileAccessError(ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                ReportFileAccessError(ex);
+            }
+        }
+
+        return false;
+    }
+
     public static string GetValue(string key, string defaultValue = "")
     {
         var config = LoadConfiguration();

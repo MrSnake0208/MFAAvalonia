@@ -218,6 +218,13 @@ public sealed class MaaProcessorManager
                 _instanceOrder.Remove(instanceId);
                 _viewModels.Remove(instanceId);
 
+                // 关闭即销毁：清理实例配置（包含旧版小写前缀）
+                var prefix = $"Instance.{instanceId}.";
+                var legacyPrefix = $"instance.{instanceId}.";
+                ConfigurationManager.Current.RemoveKeysByPrefix(prefix, StringComparison.Ordinal);
+                ConfigurationManager.Current.RemoveKeysByPrefix(legacyPrefix, StringComparison.OrdinalIgnoreCase);
+                GlobalConfiguration.RemoveKey(string.Format(ConfigurationKeys.InstanceNameTemplate, instanceId));
+
                 SaveInstanceConfig();
                 return true;
             }
@@ -266,12 +273,6 @@ public sealed class MaaProcessorManager
             foreach (var id in ids)
             {
                 loadedIds.Add(id);
-                if (!_instances.ContainsKey(id))
-                {
-                    var processor = CreateInstanceInternal(id, setCurrent: false);
-                    processor.InitializeData();
-                }
-
                 var nameKey = string.Format(ConfigurationKeys.InstanceNameTemplate, id);
                 var name = GlobalConfiguration.GetValue(nameKey, "");
                 if (!string.IsNullOrEmpty(name))
@@ -281,6 +282,12 @@ public sealed class MaaProcessorManager
                 else if (!_instanceNames.ContainsKey(id))
                 {
                     _instanceNames[id] = id;
+                }
+
+                if (!_instances.ContainsKey(id))
+                {
+                    var processor = CreateInstanceInternal(id, setCurrent: false);
+                    processor.InitializeData();
                 }
             }
 

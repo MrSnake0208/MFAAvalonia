@@ -45,6 +45,7 @@ public partial class TaskQueueViewModel : ViewModelBase
         _processorField = new MaaProcessor(instanceId);
         TimerModel = new TimerModel(this);
         _currentController = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.CurrentController, MaaControllerTypes.Adb, MaaControllerTypes.None, new UniversalEnumConverter<MaaControllerTypes>());
+        _currentResource = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.Resource, string.Empty);
         _enableLiveView = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.EnableLiveView, true);
         _liveViewRefreshRate = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.LiveViewRefreshRate, 30.0);
         
@@ -157,6 +158,10 @@ public partial class TaskQueueViewModel : ViewModelBase
             
             var resourceToSelect = targetResource ?? CurrentResource;
             CurrentResources = new ObservableCollection<MaaInterface.MaaInterfaceResource>(filteredResources);
+            if (!string.IsNullOrWhiteSpace(resourceToSelect))
+            {
+                resourceToSelect = NormalizeResourceName(resourceToSelect);
+            }
             
             if (!string.IsNullOrWhiteSpace(resourceToSelect) && CurrentResources.Any(r => r.Name == resourceToSelect))
             {
@@ -304,6 +309,11 @@ public partial class TaskQueueViewModel : ViewModelBase
             _isSyncing = true;
             InitializeControllerOptions();
             UpdateResourcesForController(CurrentResource);
+            if (CurrentController == MaaControllerTypes.PlayCover)
+            {
+                TryReadPlayCoverConfig();
+            }
+            TryReadAdbDeviceFromConfig(inTask: false, refresh: false, allowAutoDetect: false);
         }
         catch (Exception e)
         {
@@ -313,6 +323,39 @@ public partial class TaskQueueViewModel : ViewModelBase
         {
             DispatcherHelper.PostOnMainThread(() => _isSyncing = false);
         }
+    }
+
+    public void ReloadInstanceRuntime(bool allowAutoDetect = true)
+    {
+        if (_processorField == null) return;
+        try
+        {
+            _isSyncing = true;
+            CurrentController = _processorField.InstanceConfiguration.GetValue(
+                ConfigurationKeys.CurrentController,
+                MaaControllerTypes.Adb,
+                MaaControllerTypes.None,
+                new UniversalEnumConverter<MaaControllerTypes>());
+            EnableLiveView = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.EnableLiveView, true);
+            LiveViewRefreshRate = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.LiveViewRefreshRate, 30.0);
+        }
+        catch (Exception e)
+        {
+            LoggerHelper.Error(e);
+        }
+        finally
+        {
+            DispatcherHelper.PostOnMainThread(() => _isSyncing = false);
+        }
+
+        InitializeControllerOptions();
+        var targetResource = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.Resource, string.Empty);
+        UpdateResourcesForController(targetResource);
+        if (CurrentController == MaaControllerTypes.PlayCover)
+        {
+            TryReadPlayCoverConfig();
+        }
+        TryReadAdbDeviceFromConfig(inTask: false, refresh: false, allowAutoDetect: allowAutoDetect);
     }
 
 
@@ -1200,6 +1243,11 @@ public partial class TaskQueueViewModel : ViewModelBase
         get => _currentResource;
         set
         {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                value = NormalizeResourceName(value);
+            }
+
             if (string.Equals(_currentResource, value, StringComparison.Ordinal))
             {
                 return;
@@ -1222,6 +1270,41 @@ public partial class TaskQueueViewModel : ViewModelBase
                 UpdateTasksForResource(null);
             }
         }
+    }
+
+    private string NormalizeResourceName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return value;
+
+        if (CurrentResources.Count > 0)
+        {
+            var byName = CurrentResources.FirstOrDefault(r => r.Name == value);
+            if (byName?.Name != null)
+                return byName.Name;
+
+            var byDisplay = CurrentResources.FirstOrDefault(r =>
+                string.Equals(r.DisplayName, value, StringComparison.OrdinalIgnoreCase));
+            if (byDisplay?.Name != null)
+                return byDisplay.Name;
+        }
+
+        var interfaceResources = MaaProcessor.Interface?.Resources?.Values;
+        if (interfaceResources == null)
+            return value;
+
+        var byInterfaceName = interfaceResources.FirstOrDefault(r => r.Name == value);
+        if (byInterfaceName?.Name != null)
+            return byInterfaceName.Name;
+
+        foreach (var resource in interfaceResources)
+        {
+            var displayName = LanguageHelper.GetLocalizedDisplayName(resource.Label, resource.Name ?? string.Empty);
+            if (string.Equals(displayName, value, StringComparison.OrdinalIgnoreCase))
+                return resource.Name ?? value;
+        }
+
+        return value;
     }
 
     /// <summary>
