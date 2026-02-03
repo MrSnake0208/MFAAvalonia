@@ -69,7 +69,7 @@
         <value>高级</value>
     </data>
     <data name="AfterTaskOption" xml:space="preserve">
-        <value>结束后操作</value>
+        <value>结束后</value>
     </data>
     <data name="AllFilter" xml:space="preserve">
         <value>所有文件</value>
@@ -117,7 +117,7 @@
         <value>自动更新资源</value>
     </data>
     <data name="AutoStartOption" xml:space="preserve">
-        <value>启动后操作</value>
+        <value>启动时</value>
     </data>
     <data name="BackgroundStyleDescription" xml:space="preserve">
         <value>从内置背景样式中选择。</value>

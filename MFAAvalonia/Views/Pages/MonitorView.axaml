@@ -37,7 +37,12 @@
                         </suki:GlassCard.ContextMenu>
                         <Grid RowDefinitions="*,Auto">
                             <!-- Image Area -->
-                            <Image Grid.Row="0" Source="{Binding Image}" Stretch="Uniform" IsVisible="{Binding HasImage}"/>
+                            <Border Grid.Row="0"
+                                    CornerRadius="12"
+                                    ClipToBounds="True"
+                                    IsVisible="{Binding HasImage}">
+                                <Image Source="{Binding Image}" Stretch="Uniform" />
+                            </Border>
                             
                             <!-- Placeholder -->
                             <Grid Grid.Row="0" IsVisible="{Binding !HasImage}" VerticalAlignment="Center" HorizontalAlignment="Center">
