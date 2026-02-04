@@ -255,7 +255,7 @@
                                 <Button Classes="BasicTight TaskQueueBasicTight"
                                         ClipToBounds="False"
                                         Command="{Binding CustomAdbCommand}"
-                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                        IsEnabled="{Binding Idle}"
                                         IsVisible="{calcBinding:Binding 'CurrentController == maa:MaaControllerTypes.Adb'}"
                                         Padding="0" ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Custom}}">
                                     <avalonia1:FluentIcon Height="18" Icon="DesktopEdit" IconSize="Size16"
@@ -263,7 +263,7 @@
                                 </Button>
                                 <Button Classes="BasicTight TaskQueueBasicTight"
                                         Command="{Binding EditPlayCoverCommand}"
-                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                        IsEnabled="{Binding Idle}"
                                         IsVisible="{calcBinding:Binding 'CurrentController == maa:MaaControllerTypes.PlayCover'}"
                                         Padding="0"
                                         ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.EditControllerConfiguration}}">
@@ -289,7 +289,7 @@
                                 <Button Classes="BasicTight TaskQueueBasicTight SyncButton"
                                         ClipToBounds="False"
                                         Command="{Binding RefreshCommand}"
-                                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                        IsEnabled="{Binding Idle}"
                                         Padding="0"
                                         Width="24"
                                         IsVisible="{calcBinding:Binding 'CurrentController != maa:MaaControllerTypes.PlayCover'}"
@@ -520,7 +520,7 @@
                                     <Button Classes="BasicTight TaskQueueBasicTight"
                                             ClipToBounds="False"
                                             Command="{Binding CustomAdbCommand}"
-                                            IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                            IsEnabled="{Binding Idle}"
                                             IsVisible="{calcBinding:Binding 'CurrentController == maa:MaaControllerTypes.Adb'}"
                                             Padding="0" ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.Custom}}">
                                         <avalonia1:FluentIcon Height="18" Icon="DesktopEdit" IconSize="Size16"
@@ -528,7 +528,7 @@
                                     </Button>
                                     <Button Classes="BasicTight TaskQueueBasicTight"
                                             Command="{Binding EditPlayCoverCommand}"
-                                            IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                            IsEnabled="{Binding Idle}"
                                             IsVisible="{calcBinding:Binding 'CurrentController == maa:MaaControllerTypes.PlayCover'}"
                                             Padding="0"
                                             ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.EditControllerConfiguration}}">
@@ -554,7 +554,7 @@
                                     <Button Classes="BasicTight TaskQueueBasicTight SyncButton"
                                             ClipToBounds="False"
                                             Command="{Binding RefreshCommand}"
-                                            IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                            IsEnabled="{Binding Idle}"
                                             Padding="0"
                                             Width="24"
                                             IsVisible="{calcBinding:Binding 'CurrentController != maa:MaaControllerTypes.PlayCover'}"
