@@ -70,6 +70,19 @@ public static class ConfigurationManager
         {
             ToastHelper.Warn("多实例模式下不允许切换配置");
             LoggerHelper.Warning("多实例模式下不允许切换配置");
+            DispatcherHelper.PostOnMainThread(() =>
+            {
+                if (Instances.IsResolved<ViewModels.Pages.SettingsViewModel>())
+                {
+                    Instances.SettingsViewModel.RefreshCurrentConfiguration();
+                }
+
+                var taskVm = Instances.InstanceTabBarViewModel.ActiveTab?.TaskQueueViewModel;
+                if (taskVm != null)
+                {
+                    taskVm.CurrentConfiguration = GetCurrentConfiguration();
+                }
+            });
             return;
         }
 

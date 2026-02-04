@@ -98,7 +98,7 @@ public partial class InstanceTabBarViewModel : ViewModelBase
             Instances.ReloadConfigurationForSwitch(false);
             DispatcherHelper.PostOnMainThread(() =>
             {
-                processor.ViewModel?.ReloadInstanceRuntime(true);
+                processor.ViewModel?.ReloadInstanceRuntime(false);
             });
         }
     }

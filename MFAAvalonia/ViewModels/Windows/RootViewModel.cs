@@ -50,6 +50,7 @@ public partial class RootViewModel : ViewModelBase
     [ObservableProperty] private bool _isResourceNameVisible;
 
     [ObservableProperty] private string? _resourceVersion;
+    [ObservableProperty] private bool _isResourceVersionVisible;
 
     [ObservableProperty] private string? _customTitle;
 
@@ -155,6 +156,7 @@ public partial class RootViewModel : ViewModelBase
     {
         version = version.StartsWith("v") ? version : "v" + version;
         ResourceVersion = version;
+        IsResourceVersionVisible = !string.IsNullOrWhiteSpace(version);
     }
 
     public void ShowCustomTitle(string title)

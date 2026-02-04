@@ -1132,12 +1132,18 @@ public partial class TaskQueueViewModel : ViewModelBase
             return;
         }
 
+        var rememberAdb = Processor.InstanceConfiguration.GetValue(ConfigurationKeys.RememberAdb, true);
+        var hasSavedDevice = Processor.InstanceConfiguration.TryGetValue(
+            ConfigurationKeys.AdbDevice,
+            out AdbDeviceInfo savedDeviceFromConfig,
+            new UniversalEnumConverter<AdbInputMethods>(),
+            new UniversalEnumConverter<AdbScreencapMethods>());
+
         if (!allowAutoDetect)
         {
             if (CurrentController != MaaControllerTypes.Adb
-                || !Processor.InstanceConfiguration.GetValue(ConfigurationKeys.RememberAdb, true)
-                || !Processor.InstanceConfiguration.TryGetValue(ConfigurationKeys.AdbDevice, out AdbDeviceInfo savedDevice,
-                    new UniversalEnumConverter<AdbInputMethods>(), new UniversalEnumConverter<AdbScreencapMethods>()))
+                || !rememberAdb
+                || !hasSavedDevice)
             {
                 DispatcherHelper.RunOnMainThread(() =>
                 {
@@ -1149,19 +1155,16 @@ public partial class TaskQueueViewModel : ViewModelBase
 
             DispatcherHelper.RunOnMainThread(() =>
             {
-                Devices = [savedDevice];
-                CurrentDevice = savedDevice;
+                Devices = [savedDeviceFromConfig];
+                CurrentDevice = savedDeviceFromConfig;
             });
-            ChangedDevice(savedDevice);
+            ChangedDevice(savedDeviceFromConfig);
             return;
         }
 
-        if (refresh
-            || CurrentController != MaaControllerTypes.Adb
-            || !Processor.InstanceConfiguration.GetValue(ConfigurationKeys.RememberAdb, true)
-            || Processor.Config.AdbDevice.AdbPath != "adb"
-            || !Processor.InstanceConfiguration.TryGetValue(ConfigurationKeys.AdbDevice, out AdbDeviceInfo savedDevice1,
-                new UniversalEnumConverter<AdbInputMethods>(), new UniversalEnumConverter<AdbScreencapMethods>()))
+        if (CurrentController != MaaControllerTypes.Adb
+            || !rememberAdb
+            || !hasSavedDevice)
         {
             _refreshCancellationTokenSource?.Cancel();
             _refreshCancellationTokenSource = new CancellationTokenSource();
@@ -1179,7 +1182,7 @@ public partial class TaskQueueViewModel : ViewModelBase
             // 使用指纹匹配设备，而不是直接使用保存的设备信息
             // 因为雷电模拟器等的AdbSerial每次启动都会变化
             LoggerHelper.Info("Reading saved ADB device from configuration, using fingerprint matching.");
-            LoggerHelper.Info($"Saved device fingerprint: {savedDevice1.GenerateDeviceFingerprint()}");
+            LoggerHelper.Info($"Saved device fingerprint: {savedDeviceFromConfig.GenerateDeviceFingerprint()}");
 
             // 搜索当前可用的设备
             var currentDevices = MaaProcessor.Toolkit.AdbDevice.Find();
@@ -1188,7 +1191,7 @@ public partial class TaskQueueViewModel : ViewModelBase
             AdbDeviceInfo? matchedDevice = null;
             foreach (var device in currentDevices)
             {
-                if (device.MatchesFingerprint(savedDevice1))
+                if (device.MatchesFingerprint(savedDeviceFromConfig))
                 {
                     matchedDevice = device;
                     LoggerHelper.Info($"Found matching device by fingerprint: {device.Name} ({device.AdbSerial})");
@@ -1208,14 +1211,14 @@ public partial class TaskQueueViewModel : ViewModelBase
             }
             else
             {
-                // 没有找到匹配的设备，执行自动检测
-                LoggerHelper.Info("No matching device found by fingerprint, performing auto detection.");
-                _refreshCancellationTokenSource?.Cancel();
-                _refreshCancellationTokenSource = new CancellationTokenSource();
-                if (inTask)
-                    TaskManager.RunTask(() => AutoDetectDevice(_refreshCancellationTokenSource.Token), name: "刷新设备");
-                else
-                    AutoDetectDevice(_refreshCancellationTokenSource.Token);
+                // 未匹配到在线设备时，保持使用配置中的目标设备，避免误切到其他在线设备
+                LoggerHelper.Info("No matching device found by fingerprint, keep configured device selection.");
+                DispatcherHelper.RunOnMainThread(() =>
+                {
+                    Devices = [savedDeviceFromConfig];
+                    CurrentDevice = savedDeviceFromConfig;
+                });
+                ChangedDevice(savedDeviceFromConfig);
             }
         }
         else
@@ -1224,10 +1227,10 @@ public partial class TaskQueueViewModel : ViewModelBase
             LoggerHelper.Info("Reading saved ADB device from configuration, fingerprint matching disabled.");
             DispatcherHelper.RunOnMainThread(() =>
             {
-                Devices = [savedDevice1];
-                CurrentDevice = savedDevice1;
+                Devices = [savedDeviceFromConfig];
+                CurrentDevice = savedDeviceFromConfig;
             });
-            ChangedDevice(savedDevice1);
+            ChangedDevice(savedDeviceFromConfig);
         }
     }
 
