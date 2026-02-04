@@ -23,10 +23,12 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using MFAAvalonia.ViewModels.Windows;
 
 namespace MFAAvalonia.ViewModels.Pages;
 
@@ -60,6 +62,7 @@ public partial class TaskQueueViewModel : ViewModelBase
         
         // Re-initialize with the correct processor since base constructor might have used Current
         Initialize();
+        EnsureRootViewModelSubscription();
     }
 
     private void OnTaskQueueCountChanged(object? sender, ObservableQueue<MFATask>.CountChangedEventArgs e)
@@ -72,9 +75,40 @@ public partial class TaskQueueViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Idle))]
+    [NotifyPropertyChangedFor(nameof(IsResourceSelectionEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsControllerSelectionEnabled))]
     private bool _isRunning;
 
     public bool Idle => !IsRunning;
+    public bool IsResourceSelectionEnabled => Idle;
+    public bool IsControllerSelectionEnabled
+    {
+        get
+        {
+            EnsureRootViewModelSubscription();
+            var lockController = Instances.IsResolved<RootViewModel>() && Instances.RootViewModel.LockController;
+            return Idle && !lockController;
+        }
+    }
+
+    private bool _rootViewModelSubscribed;
+
+    private void EnsureRootViewModelSubscription()
+    {
+        if (_rootViewModelSubscribed || !Instances.IsResolved<RootViewModel>())
+            return;
+
+        Instances.RootViewModel.PropertyChanged += OnRootViewModelPropertyChanged;
+        _rootViewModelSubscribed = true;
+    }
+
+    private void OnRootViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RootViewModel.LockController))
+        {
+            OnPropertyChanged(nameof(IsControllerSelectionEnabled));
+        }
+    }
 
     [ObservableProperty] private bool _isCompactMode = false;
 
@@ -631,6 +665,7 @@ public partial class TaskQueueViewModel : ViewModelBase
     {
         if (_isSyncing) return;
         var igoreToast = false;
+        var suppressRuntimeRebind = IsRunning;
         if (value != null)
         {
             var now = DateTime.Now;
@@ -648,20 +683,22 @@ public partial class TaskQueueViewModel : ViewModelBase
         }
         if (value is DesktopWindowInfo window)
         {
-            if (!igoreToast) ToastHelper.Info(LangKeys.WindowSelectionMessage.ToLocalizationFormatted(false, ""), window.Name);
+            if (!igoreToast && !suppressRuntimeRebind) ToastHelper.Info(LangKeys.WindowSelectionMessage.ToLocalizationFormatted(false, ""), window.Name);
             Processor.Config.DesktopWindow.Name = window.Name;
             Processor.Config.DesktopWindow.HWnd = window.Handle;
-            Processor.SetTasker();
+            if (!suppressRuntimeRebind)
+                Processor.SetTasker();
         }
         else if (value is AdbDeviceInfo device)
         {
-            if (!igoreToast) ToastHelper.Info(LangKeys.EmulatorSelectionMessage.ToLocalizationFormatted(false, ""), device.Name);
+            if (!igoreToast && !suppressRuntimeRebind) ToastHelper.Info(LangKeys.EmulatorSelectionMessage.ToLocalizationFormatted(false, ""), device.Name);
             Processor.Config.AdbDevice.Name = device.Name;
             Processor.Config.AdbDevice.AdbPath = device.AdbPath;
             Processor.Config.AdbDevice.AdbSerial = device.AdbSerial;
             Processor.Config.AdbDevice.Config = device.Config;
             Processor.Config.AdbDevice.Info = device;
-            Processor.SetTasker();
+            if (!suppressRuntimeRebind)
+                Processor.SetTasker();
             Processor.InstanceConfiguration.SetValue(ConfigurationKeys.AdbDevice, device);
         }
     }
@@ -1256,7 +1293,7 @@ public partial class TaskQueueViewModel : ViewModelBase
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(value))
+            if (!string.IsNullOrWhiteSpace(value) && !IsRunning)
             {
                 Processor.SetTasker();
             }

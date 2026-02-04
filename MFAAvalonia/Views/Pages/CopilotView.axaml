@@ -89,7 +89,7 @@
                                            VerticalAlignment="Center" />
                                 <ComboBox Margin="8 0 0 0" Grid.Column="1"
                                           ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                          IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                          IsEnabled="{Binding IsResourceSelectionEnabled}"
                                           ItemsSource="{Binding CurrentResources}"
                                           MinWidth="150" HorizontalAlignment="Stretch"
                                           SelectedValue="{Binding CurrentResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -147,7 +147,7 @@
                                            VerticalAlignment="Center" />
                                 <ComboBox Margin="8 0 0 0" Grid.Column="1" x:Name="ControllerComboBox"
                                           ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                          IsEnabled="{calcBinding:Binding '!LockController and Idle',Source={x:Static helper:Instances.RootViewModel}}"
+                                          IsEnabled="{Binding IsControllerSelectionEnabled}"
                                           ItemsSource="{Binding ControllerOptions}"
                                           SelectedItem="{Binding SelectedController, Mode=TwoWay}"
                                           MinWidth="120" VerticalAlignment="Center">
@@ -206,7 +206,7 @@
                                 <ComboBox Grid.Column="1" x:Name="DeviceComboBox"
                                           ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
                                           Classes="LimitWidth" Height="35"
-                                          IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                          IsEnabled="{Binding Idle}"
                                           ItemsSource="{Binding Devices}"
                                           MinWidth="100"
                                           HorizontalAlignment="Stretch"
@@ -310,7 +310,7 @@
                                         x:DataType="vm:CopilotViewModel"
                                         DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         Command="{Binding ToggleCopilotTaskCommand}"
-                                        Content="{Binding IsRunning, Source={x:Static helper:Instances.RootViewModel}, Converter={StaticResource CopilotStatusConverter}}"
+                                        Content="{Binding Source={x:Static helper:Instances.InstanceTabBarViewModel}, Path=ActiveTab.TaskQueueViewModel.IsRunning, Converter={StaticResource CopilotStatusConverter}}"
                                         FontWeight="DemiBold"
                                         Height="30"
                                         Margin="6,0,0,0"
@@ -352,7 +352,7 @@
                                                VerticalAlignment="Center" />
                                     <ComboBox Margin="8 0 0 0" Grid.Column="1"
                                               ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                              IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                              IsEnabled="{Binding IsResourceSelectionEnabled}"
                                               ItemsSource="{Binding CurrentResources}"
                                               MinWidth="150" HorizontalAlignment="Stretch"
                                               SelectedValue="{Binding CurrentResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -412,7 +412,7 @@
                                                VerticalAlignment="Center" />
                                     <ComboBox Margin="8 0 0 0" Grid.Column="1"
                                               ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                              IsEnabled="{calcBinding:Binding '!LockController and Idle',Source={x:Static helper:Instances.RootViewModel}}"
+                                              IsEnabled="{Binding IsControllerSelectionEnabled}"
                                               ItemsSource="{Binding ControllerOptions}"
                                               SelectedItem="{Binding SelectedController, Mode=TwoWay}"
                                               MinWidth="120" VerticalAlignment="Center">
@@ -470,7 +470,7 @@
                                     <ComboBox Grid.Column="1"
                                               ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
                                               Classes="LimitWidth" Height="35"
-                                              IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
+                                              IsEnabled="{Binding Idle}"
                                               ItemsSource="{Binding Devices}"
                                               MinWidth="100"
                                               HorizontalAlignment="Stretch"
@@ -575,7 +575,7 @@
                                             x:DataType="vm:CopilotViewModel"
                                             DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             Command="{Binding ToggleCopilotTaskCommand}"
-                                            Content="{Binding IsRunning, Source={x:Static helper:Instances.RootViewModel}, Converter={StaticResource CopilotStatusConverterCompact}}"
+                                            Content="{Binding Source={x:Static helper:Instances.InstanceTabBarViewModel}, Path=ActiveTab.TaskQueueViewModel.IsRunning, Converter={StaticResource CopilotStatusConverterCompact}}"
                                             FontWeight="DemiBold"
                                             Height="28"
                                             Margin="6,0,0,0"

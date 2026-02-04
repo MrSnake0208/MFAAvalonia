@@ -160,16 +160,16 @@
         <value>The data currently in the clipboard cannot be converted to text.</value>
     </data>
     <data name="CloseEmulator" xml:space="preserve">
-        <value>Disable Game</value>
+        <value>Terminate Emulator</value>
     </data>
     <data name="CloseEmulatorAndMFA" xml:space="preserve">
-        <value>Disable MFA and Game</value>
+        <value>Terminate MaaYuan and Emulator</value>
     </data>
     <data name="CloseEmulatorAndRestartMFA" xml:space="preserve">
-        <value>Restart MFA and Disable Game</value>
+        <value>Terminate Emulator and Restart MaaYuan</value>
     </data>
     <data name="CloseMFA" xml:space="preserve">
-        <value>Disable MFA</value>
+        <value>Terminate MaaYuan</value>
     </data>
     <data name="ColorPickerTitle" xml:space="preserve">
         <value>Color Picker</value>
@@ -511,10 +511,10 @@
         <value>Force scheduled start</value>
     </data>
     <data name="ForceScheduledStartTip" xml:space="preserve">
-        <value>Stop current task, restart game and start new tasks</value>
+        <value>Stop current task, restart emulator and start new tasks</value>
     </data>
     <data name="GameResourceUpdated" xml:space="preserve">
-        <value>Game resources updated, please restart software.</value>
+        <value>Resources updated, please restart MaaYuan.</value>
     </data>
     <data name="General" xml:space="preserve">
         <value>General Mode</value>
@@ -877,7 +877,7 @@
         <value>Slider Control</value>
     </data>
     <data name="SoftwarePath" xml:space="preserve">
-        <value>Game Path</value>
+        <value>Emulator Path</value>
     </data>
     <data name="SoftwareUpdate" xml:space="preserve">
         <value>Update Software</value>
@@ -898,10 +898,10 @@
         <value>Startup</value>
     </data>
     <data name="StartupSoftware" xml:space="preserve">
-        <value>Startup game</value>
+        <value>Startup Emulator</value>
     </data>
     <data name="StartupSoftwareAndScript" xml:space="preserve">
-            <value>Startup game and script</value>
+            <value>Startup Emulator and tasks</value>
         </data>
     <data name="StartupScriptOnly" xml:space="preserve">
             <value>Startup script only</value>

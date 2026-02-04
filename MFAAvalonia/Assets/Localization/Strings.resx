@@ -168,16 +168,16 @@
         <value>目前剪贴板中数据不可转换为文本</value>
     </data>
     <data name="CloseEmulator" xml:space="preserve">
-        <value>关闭游戏</value>
+        <value>关闭模拟器</value>
     </data>
     <data name="CloseEmulatorAndMFA" xml:space="preserve">
-        <value>关闭MFA和游戏</value>
+        <value>关闭MaaYuan和模拟器</value>
     </data>
     <data name="CloseEmulatorAndRestartMFA" xml:space="preserve">
-        <value>重启MFA和关闭游戏</value>
+        <value>重启MaaYuan和关闭模拟器</value>
     </data>
     <data name="CloseMFA" xml:space="preserve">
-        <value>关闭MFA</value>
+        <value>关闭MaaYuan</value>
     </data>
     <data name="ColorPickerTitle" xml:space="preserve">
         <value>取色器</value>
@@ -520,10 +520,10 @@
         <value>强制定时启动</value>
     </data>
     <data name="ForceScheduledStartTip" xml:space="preserve">
-        <value>停止当前任务，重启游戏并开始新任务</value>
+        <value>停止当前任务，重启模拟器并开始新任务</value>
     </data>
     <data name="GameResourceUpdated" xml:space="preserve">
-        <value>游戏资源已更新，请重启软件。</value>
+        <value>资源已更新，请重启软件。</value>
     </data>
     <data name="General" xml:space="preserve">
         <value>通用模式</value>
@@ -886,7 +886,7 @@
         <value>滑动获取器</value>
     </data>
     <data name="SoftwarePath" xml:space="preserve">
-        <value>游戏路径</value>
+        <value>模拟器路径</value>
     </data>
     <data name="SoftwareUpdate" xml:space="preserve">
         <value>软件更新</value>
@@ -907,10 +907,10 @@
         <value>启动设置</value>
     </data>
     <data name="StartupSoftware" xml:space="preserve">
-        <value>启动游戏</value>
+        <value>启动模拟器</value>
     </data>
         <data name="StartupSoftwareAndScript" xml:space="preserve">
-            <value>启动游戏并启动脚本</value>
+            <value>启动模拟器并启动脚本</value>
         </data>
         <data name="StartupScriptOnly" xml:space="preserve">
             <value>仅启动脚本</value>
@@ -1015,7 +1015,7 @@
         <value>正在尝试启动模拟器</value>
     </data>
     <data name="TryToStartGame" xml:space="preserve">
-        <value>正在尝试启动游戏</value>
+        <value>正在尝试启动模拟器</value>
     </data>
     <data name="UiSettings" xml:space="preserve">
         <value>界面设置</value>
@@ -1042,7 +1042,7 @@
         <value>使用 GPU 加速推理</value>
     </data>
     <data name="WaitSoftware" xml:space="preserve">
-        <value>等待游戏启动时间(秒)</value>
+        <value>等待模拟器启动时间(秒)</value>
     </data>
     <data name="WaitSoftwareTime" xml:space="preserve">
         <value>等待{0}启动时间(秒): {1}(s)</value>

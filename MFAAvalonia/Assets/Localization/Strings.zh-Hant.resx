@@ -160,16 +160,16 @@
         <value>目前剪貼簿中資料不可轉換為文字</value>
     </data>
     <data name="CloseEmulator" xml:space="preserve">
-        <value>關閉遊戲</value>
+        <value>關閉模擬器</value>
     </data>
     <data name="CloseEmulatorAndMFA" xml:space="preserve">
-        <value>關閉MFA和遊戲</value>
+        <value>關閉MaaYuan和模擬器</value>
     </data>
     <data name="CloseEmulatorAndRestartMFA" xml:space="preserve">
-        <value>重啟MFA和關閉遊戲</value>
+        <value>關閉模擬器並重啟MaaYuan</value>
     </data>
     <data name="CloseMFA" xml:space="preserve">
-        <value>關閉MFA</value>
+        <value>關閉MaaYuan</value>
     </data>
     <data name="ColorPickerTitle" xml:space="preserve">
         <value>取色器</value>
@@ -514,7 +514,7 @@
         <value>停止當前任務，重新啟動遊戲並開始新任務</value>
     </data>
     <data name="GameResourceUpdated" xml:space="preserve">
-        <value>遊戲資源已更新，請重啟軟體。</value>
+        <value>資源已更新，請重啟MaaYuan。</value>
     </data>
     <data name="General" xml:space="preserve">
         <value>通用模式</value>
