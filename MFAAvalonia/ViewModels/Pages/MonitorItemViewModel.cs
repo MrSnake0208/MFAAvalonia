@@ -24,10 +24,17 @@ public partial class MonitorItemViewModel : ViewModelBase
     private bool _isConnected;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCurrentTask))]
     private bool _isRunning;
-    
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCurrentTask))]
+    private string _currentTaskName = string.Empty;
+
     [ObservableProperty]
     private bool _hasImage;
+
+    public bool HasCurrentTask => IsRunning && !string.IsNullOrWhiteSpace(CurrentTaskName);
 
     public MonitorItemViewModel(MaaProcessor processor)
     {
@@ -41,6 +48,7 @@ public partial class MonitorItemViewModel : ViewModelBase
         IsConnected = Processor.ViewModel?.IsConnected ?? false;
         // Check if actually running a task
         IsRunning = Processor.TaskQueue.Count > 0;
+        CurrentTaskName = Processor.ViewModel?.CurrentTaskName ?? string.Empty;
     }
 
     public void UpdateImage()
