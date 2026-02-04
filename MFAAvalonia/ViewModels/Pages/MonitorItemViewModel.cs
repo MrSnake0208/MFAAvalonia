@@ -5,6 +5,7 @@ using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper;
 using MFAAvalonia.Helper.ValueType;
 using Avalonia.Threading;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -25,6 +26,9 @@ public partial class MonitorItemViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCurrentTask))]
+    [NotifyPropertyChangedFor(nameof(HasTaskProgress))]
+    [NotifyPropertyChangedFor(nameof(TaskProgressPercent))]
+    [NotifyPropertyChangedFor(nameof(TaskProgressText))]
     private bool _isRunning;
 
     [ObservableProperty]
@@ -32,9 +36,26 @@ public partial class MonitorItemViewModel : ViewModelBase
     private string _currentTaskName = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTaskProgress))]
+    [NotifyPropertyChangedFor(nameof(TaskProgressPercent))]
+    [NotifyPropertyChangedFor(nameof(TaskProgressText))]
+    private int _taskQueueRemaining;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTaskProgress))]
+    [NotifyPropertyChangedFor(nameof(TaskProgressPercent))]
+    [NotifyPropertyChangedFor(nameof(TaskProgressText))]
+    private int _taskQueueTotal;
+
+    [ObservableProperty]
     private bool _hasImage;
 
     public bool HasCurrentTask => IsRunning && !string.IsNullOrWhiteSpace(CurrentTaskName);
+    public bool HasTaskProgress => IsRunning && TaskQueueTotal > 0;
+    public double TaskProgressPercent =>
+        HasTaskProgress ? Math.Clamp((TaskQueueTotal - TaskQueueRemaining) * 100.0 / TaskQueueTotal, 0, 100) : 0;
+    public string TaskProgressText =>
+        HasTaskProgress ? $"{TaskQueueTotal - TaskQueueRemaining}/{TaskQueueTotal}" : string.Empty;
 
     public MonitorItemViewModel(MaaProcessor processor)
     {
@@ -46,8 +67,9 @@ public partial class MonitorItemViewModel : ViewModelBase
     {
         Name = MaaProcessorManager.Instance.GetInstanceName(Processor.InstanceId);
         IsConnected = Processor.ViewModel?.IsConnected ?? false;
-        // Check if actually running a task
         IsRunning = Processor.TaskQueue.Count > 0;
+        TaskQueueRemaining = Processor.TaskQueue.CountWhere(task => task.Type == MFATask.MFATaskType.MAAFW);
+        TaskQueueTotal = IsRunning ? Math.Max(Processor.MainTaskTotal, TaskQueueRemaining) : 0;
         CurrentTaskName = Processor.ViewModel?.CurrentTaskName ?? string.Empty;
     }
 

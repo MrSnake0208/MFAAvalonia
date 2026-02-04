@@ -48,6 +48,9 @@ public class MaaProcessor
 
     private static readonly Random Random = new();
     private int _taskQueueTotal;
+    public int TaskQueueTotal => _taskQueueTotal;
+    private int _mainTaskTotal;
+    public int MainTaskTotal => _mainTaskTotal;
     private readonly BlockingCollection<Func<Task>> _commandQueue = new();
     private readonly object _commandThreadLock = new();
     private readonly CancellationTokenSource _commandThreadCts = new();
@@ -447,6 +450,7 @@ public class MaaProcessor
             {
                 ClearTaskbarProgress();
                 _taskQueueTotal = 0;
+                _mainTaskTotal = 0;
             }
         };
         CheckInterface(out _, out _, out _, out _, out _);
@@ -3124,6 +3128,7 @@ public class MaaProcessor
         Interlocked.Exchange(ref _stopCompletionMessageHandled, 0);
         Status = MFATask.MFATaskStatus.NOT_STARTED;
         CancellationTokenSource = new CancellationTokenSource();
+        _mainTaskTotal = 0;
 
         _startTime = DateTime.Now;
 
@@ -3134,6 +3139,7 @@ public class MaaProcessor
             tasks ??= new List<DragItemViewModel>();
             _tempTasks = tasks;
             var taskAndParams = tasks.Select(CreateNodeAndParam).ToList();
+            _mainTaskTotal = taskAndParams.Count;
             InitializeConnectionTasksAsync(token);
             AddCoreTasksAsync(taskAndParams, token);
         }
@@ -3712,6 +3718,7 @@ public class MaaProcessor
         ResetActionFailedCount();
         ClearTaskbarProgress();
         _taskQueueTotal = 0;
+        _mainTaskTotal = 0;
 
         lock (_stopLock)
         {

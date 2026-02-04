@@ -49,6 +49,11 @@ public partial class ObservableQueue<T> : ObservableObject
     {
         return _queue.Any(predicate);
     }
+
+    public int CountWhere(Func<T, bool> predicate)
+    {
+        return _queue.Count(predicate);
+    }
     
     public class CountChangedEventArgs(int oldValue, int newValue) : EventArgs
     {
