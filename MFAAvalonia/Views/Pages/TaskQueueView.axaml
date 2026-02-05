@@ -940,7 +940,15 @@
                       DataContext="{x:Static helper:Instances.StartSettingsUserControlModel}">
                     <StackPanel Spacing="8"
                                 VerticalAlignment="Center">
-                        <DockPanel>
+                        <TextBlock
+                            IsVisible="{Binding IsMultiInstance, Source={x:Static helper:Instances.InstanceTabBarViewModel}}"
+                            Text="{markup:I18n {x:Static helper:LangKeys.AutoStartUnavailableInMultiInstance}}"
+                            FontSize="12"
+                            Foreground="{DynamicResource SukiLowText}"
+                            TextWrapping="Wrap"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+                        <DockPanel IsVisible="{Binding IsSingleInstance, Source={x:Static helper:Instances.InstanceTabBarViewModel}}">
                             <ComboBox DockPanel.Dock="Right"
                                       ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
                                       DisplayMemberBinding="{Binding Name}"

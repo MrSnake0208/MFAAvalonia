@@ -11,6 +11,7 @@
     xmlns:helper="clr-namespace:MFAAvalonia.Helper"
     xmlns:markup="https://codewf.com"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:converters="clr-namespace:MFAAvalonia.Helper.Converters"
     xmlns:settings="clr-namespace:MFAAvalonia.ViewModels.UsersControls.Settings"
     xmlns:suki="https://github.com/kikipoulet/SukiUI"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -18,6 +19,12 @@
     xmlns:maa="clr-namespace:MFAAvalonia.Extensions.MaaFW">
     <StackPanel Spacing="25">
         <suki:GlassCard Padding="25">
+            <suki:GlassCard.IsEnabled>
+                <MultiBinding Converter="{x:Static converters:BooleanAndConverter.Instance}">
+                    <Binding Source="{x:Static helper:Instances.RootViewModel}" Path="Idle" />
+                    <Binding Source="{x:Static helper:Instances.InstanceTabBarViewModel}" Path="IsSingleInstance" />
+                </MultiBinding>
+            </suki:GlassCard.IsEnabled>
             <StackPanel Spacing="8">
                 <DockPanel>
                     <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"

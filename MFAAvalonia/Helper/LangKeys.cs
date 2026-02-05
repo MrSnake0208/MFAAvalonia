@@ -42,6 +42,7 @@ public static class LangKeys
 	public static readonly string AutomaticUpdateMFA = "AutomaticUpdateMFA";
 	public static readonly string AutomaticUpdateResource = "AutomaticUpdateResource";
 	public static readonly string AutoStartOption = "AutoStartOption";
+	public static readonly string AutoStartUnavailableInMultiInstance = "AutoStartUnavailableInMultiInstance";
 	public static readonly string BackgroundStyleDescription = "BackgroundStyleDescription";
 	public static readonly string BackgroundStyleTitle = "BackgroundStyleTitle";
 	public static readonly string BackgroundTransitionsDescription = "BackgroundTransitionsDescription";

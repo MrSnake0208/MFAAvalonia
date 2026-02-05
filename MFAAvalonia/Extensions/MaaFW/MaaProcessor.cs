@@ -51,6 +51,8 @@ public class MaaProcessor
     public int TaskQueueTotal => _taskQueueTotal;
     private int _mainTaskTotal;
     public int MainTaskTotal => _mainTaskTotal;
+    private static readonly object AfterTaskLock = new();
+    private static PendingAfterTask? _pendingGlobalAfterTask;
     private readonly BlockingCollection<Func<Task>> _commandQueue = new();
     private readonly object _commandThreadLock = new();
     private readonly CancellationTokenSource _commandThreadCts = new();
@@ -4100,27 +4102,161 @@ public class MaaProcessor
     public void HandleAfterTaskOperation()
     {
         var afterTask = InstanceConfiguration.GetValue(ConfigurationKeys.AfterTask, "None");
+        var hasAfterTask = !string.IsNullOrWhiteSpace(afterTask) && afterTask != "None";
+        if (!hasAfterTask)
+        {
+            TryExecutePendingGlobalAfterTask();
+            return;
+        }
+
+        var isGlobalAfterTask = IsGlobalAfterTask(afterTask);
+        var anyInstanceRunning = AnyInstanceRunning();
+
+        if (isGlobalAfterTask && MaaProcessor.Processors.Count > 1 && anyInstanceRunning)
+        {
+            SetPendingGlobalAfterTask(afterTask, this);
+            return;
+        }
+
+        if (!isGlobalAfterTask)
+        {
+            ExecuteAfterTaskAction(afterTask, this);
+        }
+
+        if (!anyInstanceRunning)
+        {
+            var pending = ConsumePendingGlobalAfterTask();
+            if (pending != null)
+            {
+                if (isGlobalAfterTask && GetGlobalAfterTaskPriority(afterTask) > GetGlobalAfterTaskPriority(pending.Action))
+                {
+                    ExecuteAfterTaskAction(afterTask, this);
+                }
+                else
+                {
+                    ExecuteAfterTaskAction(pending.Action, pending.Processor);
+                }
+            }
+            else if (isGlobalAfterTask)
+            {
+                ExecuteAfterTaskAction(afterTask, this);
+            }
+        }
+    }
+
+    private static void ExecuteAfterTaskAction(string afterTask, MaaProcessor? processor)
+    {
         switch (afterTask)
         {
             case "CloseMFA":
                 Instances.ShutdownApplication();
                 break;
             case "CloseEmulator":
-                CloseSoftware(this);
+                CloseSoftware(processor);
                 break;
             case "CloseEmulatorAndMFA":
-                CloseSoftwareAndMFA(this);
+                CloseSoftwareAndMFA(processor);
                 break;
             case "ShutDown":
                 Instances.ShutdownSystem();
                 break;
             case "CloseEmulatorAndRestartMFA":
-                CloseSoftwareAndRestartMFA(this);
+                CloseSoftwareAndRestartMFA(processor);
                 break;
             case "RestartPC":
                 Instances.RestartSystem();
                 break;
         }
+    }
+
+    private static bool AnyInstanceRunning()
+    {
+        return Processors.Any(p => p.TaskQueue.Count > 0);
+    }
+
+    private static bool IsGlobalAfterTask(string afterTask)
+    {
+        return afterTask is "CloseMFA"
+            or "CloseEmulatorAndMFA"
+            or "ShutDown"
+            or "CloseEmulatorAndRestartMFA"
+            or "RestartPC";
+    }
+
+    private static int GetGlobalAfterTaskPriority(string afterTask)
+    {
+        return afterTask switch
+        {
+            "ShutDown" => 50,
+            "RestartPC" => 40,
+            "CloseEmulatorAndRestartMFA" => 30,
+            "CloseEmulatorAndMFA" => 20,
+            "CloseMFA" => 10,
+            _ => 0
+        };
+    }
+
+    private static void SetPendingGlobalAfterTask(string afterTask, MaaProcessor processor)
+    {
+        if (!IsGlobalAfterTask(afterTask))
+        {
+            return;
+        }
+
+        lock (AfterTaskLock)
+        {
+            if (_pendingGlobalAfterTask == null)
+            {
+                _pendingGlobalAfterTask = new PendingAfterTask(afterTask, processor);
+                return;
+            }
+
+            if (GetGlobalAfterTaskPriority(afterTask) > GetGlobalAfterTaskPriority(_pendingGlobalAfterTask.Action))
+            {
+                _pendingGlobalAfterTask = new PendingAfterTask(afterTask, processor);
+            }
+        }
+    }
+
+    private static PendingAfterTask? ConsumePendingGlobalAfterTask()
+    {
+        lock (AfterTaskLock)
+        {
+            if (_pendingGlobalAfterTask == null)
+            {
+                return null;
+            }
+
+            var pending = _pendingGlobalAfterTask;
+            _pendingGlobalAfterTask = null;
+            return pending;
+        }
+    }
+
+    private static void TryExecutePendingGlobalAfterTask()
+    {
+        if (AnyInstanceRunning())
+        {
+            return;
+        }
+
+        var pending = ConsumePendingGlobalAfterTask();
+        if (pending != null)
+        {
+            ExecuteAfterTaskAction(pending.Action, pending.Processor);
+        }
+    }
+
+    private sealed class PendingAfterTask
+    {
+        public PendingAfterTask(string action, MaaProcessor processor)
+        {
+            Action = action;
+            Processor = processor;
+        }
+
+        public string Action { get; }
+        public MaaProcessor Processor { get; }
     }
 
     public static void CloseSoftwareAndRestartMFA(MaaProcessor? processor = null)

@@ -111,6 +111,9 @@
     <data name="AutoStartOption" xml:space="preserve">
         <value>啟動後操作</value>
     </data>
+    <data name="AutoStartUnavailableInMultiInstance" xml:space="preserve">
+        <value>自啟動任務在多開模式下不可用</value>
+    </data>
     <data name="BackgroundStyleDescription" xml:space="preserve">
         <value>從內建背景樣式中選擇。</value>
     </data>
@@ -163,13 +166,13 @@
         <value>關閉模擬器</value>
     </data>
     <data name="CloseEmulatorAndMFA" xml:space="preserve">
-        <value>關閉MaaYuan和模擬器</value>
+        <value>關閉MaaYuan和模擬器（多開時等待所有實例完成）</value>
     </data>
     <data name="CloseEmulatorAndRestartMFA" xml:space="preserve">
-        <value>關閉模擬器並重啟MaaYuan</value>
+        <value>關閉模擬器並重啟MaaYuan（多開時等待所有實例完成）</value>
     </data>
     <data name="CloseMFA" xml:space="preserve">
-        <value>關閉MaaYuan</value>
+        <value>關閉MaaYuan（多開時等待所有實例完成）</value>
     </data>
     <data name="ColorPickerTitle" xml:space="preserve">
         <value>取色器</value>

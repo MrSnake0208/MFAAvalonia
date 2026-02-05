@@ -111,6 +111,9 @@
     <data name="AutoStartOption" xml:space="preserve">
         <value>Post-start operation</value>
     </data>
+    <data name="AutoStartUnavailableInMultiInstance" xml:space="preserve">
+        <value>Auto-start tasks are unavailable in multi-instance mode</value>
+    </data>
     <data name="BackgroundStyleDescription" xml:space="preserve">
         <value>Select from the built-in background styles.</value>
     </data>
@@ -163,13 +166,13 @@
         <value>Terminate Emulator</value>
     </data>
     <data name="CloseEmulatorAndMFA" xml:space="preserve">
-        <value>Terminate MaaYuan and Emulator</value>
+        <value>Terminate MaaYuan and Emulator (waits for all instances in multi-instance mode)</value>
     </data>
     <data name="CloseEmulatorAndRestartMFA" xml:space="preserve">
-        <value>Terminate Emulator and Restart MaaYuan</value>
+        <value>Terminate Emulator and Restart MaaYuan (waits for all instances in multi-instance mode)</value>
     </data>
     <data name="CloseMFA" xml:space="preserve">
-        <value>Terminate MaaYuan</value>
+        <value>Terminate MaaYuan (waits for all instances in multi-instance mode)</value>
     </data>
     <data name="ColorPickerTitle" xml:space="preserve">
         <value>Color Picker</value>

@@ -21,9 +21,17 @@ public partial class InstanceTabBarViewModel : ViewModelBase
     [ObservableProperty]
     private InstanceTabViewModel? _activeTab;
 
+    public bool IsSingleInstance => Tabs.Count <= 1;
+    public bool IsMultiInstance => Tabs.Count > 1;
+
     public InstanceTabBarViewModel()
     {
         ReloadTabs();
+        Tabs.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(IsSingleInstance));
+            OnPropertyChanged(nameof(IsMultiInstance));
+        };
         MaaProcessor.Processors.CollectionChanged += (_, _) =>
         {
             DispatcherHelper.PostOnMainThread(ReloadTabs);
@@ -67,6 +75,9 @@ public partial class InstanceTabBarViewModel : ViewModelBase
         {
             ActiveTab = Tabs.First();
         }
+
+        OnPropertyChanged(nameof(IsSingleInstance));
+        OnPropertyChanged(nameof(IsMultiInstance));
     }
 
     partial void OnActiveTabChanged(InstanceTabViewModel? oldValue, InstanceTabViewModel? newValue)
