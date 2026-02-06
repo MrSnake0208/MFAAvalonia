@@ -96,7 +96,7 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
                 _theme.AddColorTheme(color);
         }
 
-        CurrentColorTheme = ConfigurationManager.Current.GetValue(ConfigurationKeys.ColorTheme, _theme.ColorThemes.First(t => t.DisplayName.Equals("blue", StringComparison.OrdinalIgnoreCase)));
+        CurrentColorTheme = ConfigurationManager.Current.GetValue(ConfigurationKeys.ColorTheme, _theme.ColorThemes.First(t => t.DisplayName.Equals("orange", StringComparison.OrdinalIgnoreCase)));
 
         BaseTheme =
             ConfigurationManager.Current.GetValue(ConfigurationKeys.BaseTheme, ThemeVariant.Light, new Dictionary<object, ThemeVariant>

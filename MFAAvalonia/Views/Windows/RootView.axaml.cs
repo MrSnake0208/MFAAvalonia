@@ -407,6 +407,7 @@ public partial class RootView : SukiWindow
             // 加载窗口大小
             var widthStr = ConfigurationManager.Current.GetValue(ConfigurationKeys.MainWindowWidth, "");
             var heightStr = ConfigurationManager.Current.GetValue(ConfigurationKeys.MainWindowHeight, "");
+            var sizeLoaded = false;
 
             if (!string.IsNullOrEmpty(widthStr) && !string.IsNullOrEmpty(heightStr))
             {
@@ -418,9 +419,21 @@ public partial class RootView : SukiWindow
                         Height = height;
                         _lastValidWidth = width;
                         _lastValidHeight = height;
+                        sizeLoaded = true;
                         LoggerHelper.Info($"窗口大小已加载: width={width}, height={height}");
                     }
                 }
+            }
+
+            if (!sizeLoaded)
+            {
+                const double defaultWidth = 1230;
+                const double defaultHeight = 900;
+                Width = defaultWidth;
+                Height = defaultHeight;
+                _lastValidWidth = defaultWidth;
+                _lastValidHeight = defaultHeight;
+                LoggerHelper.Info($"窗口大小使用默认值: width={defaultWidth}, height={defaultHeight}");
             }
 
 
