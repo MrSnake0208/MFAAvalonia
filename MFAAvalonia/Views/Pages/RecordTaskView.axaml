@@ -45,39 +45,12 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <!-- 在 TopToolbar Grid 中添加新列，放在资源选择之前 -->
-                            <Grid x:Name="ConfigSelectorPanel" Grid.Column="0" VerticalAlignment="Center"
-                                  ColumnDefinitions="Auto,*">
-                                <TextBlock FontSize="12" Grid.Column="0"
-                                           FontWeight="Bold" Foreground="{DynamicResource SukiLowText}"
-                                           Text="{markup:I18n {x:Static helper:LangKeys.CurrentConfig}}"
-                                           VerticalAlignment="Center" />
-                                <ComboBox Margin="8 0 0 0" Grid.Column="1"
-                                          ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                          IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                          ItemsSource="{Binding ConfigurationList}"
-                                          SelectedValue="{Binding CurrentConfiguration, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          SelectedValueBinding="{Binding Name}"
-                                          MinWidth="120">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-
-                            </Grid>
-                            <!-- ~1~ 添加分隔符 @1@ -->
-                            <Border x:Name="Spliter1" Grid.Column="1" Width="1" Height="30"
-                                    Background="{DynamicResource SukiControlBorderBrush}" Margin="20,0" />
 
                             <!-- 左侧：资源选择 -->
-                            <Grid x:Name="ResourceSelectorPanel" Grid.Column="2" VerticalAlignment="Center"
+                            <Grid x:Name="ResourceSelectorPanel" Grid.Column="0" VerticalAlignment="Center"
                                   ColumnDefinitions="Auto,*">
                                 <TextBlock FontSize="12" Grid.Column="0"
                                            FontWeight="Bold" Foreground="{DynamicResource SukiLowText}"
@@ -130,12 +103,12 @@
                             </Grid>
 
                             <!-- 中间：分隔符 -->
-                            <Border Grid.Column="3" Width="1" Height="30" Background="{DynamicResource SukiControlBorderBrush}"
+                            <Border Grid.Column="1" Width="1" Height="30" Background="{DynamicResource SukiControlBorderBrush}"
                                     x:Name="Spliter2"
                                     Margin="20,0" />
 
                             <!-- 控制器类型选择 -->
-                            <Grid x:Name="ControllerSelectorPanel" Grid.Column="4" VerticalAlignment="Center"
+                            <Grid x:Name="ControllerSelectorPanel" Grid.Column="2" VerticalAlignment="Center"
                                   ColumnDefinitions="Auto,*">
                                 <TextBlock Grid.Column="0" FontSize="12"
                                            FontWeight="Bold" Foreground="{DynamicResource SukiLowText}"
@@ -186,7 +159,7 @@
                                 </ComboBox>
                             </Grid>
                             <!-- 右侧：连接设置 -->
-                            <Grid x:Name="DeviceSelectorPanel" Grid.Column="5" HorizontalAlignment="Stretch"
+                            <Grid x:Name="DeviceSelectorPanel" Grid.Column="3" HorizontalAlignment="Stretch"
                                   MinWidth="200"
                                   IsVisible="{calcBinding:Binding 'CurrentController != maa:MaaControllerTypes.PlayCover'}">
                                 <Grid.ColumnDefinitions>
@@ -223,7 +196,7 @@
                                     </ComboBox.DataTemplates>
                                 </ComboBox>
                             </Grid>
-                            <StackPanel x:Name="ConnectionButtonsPanel" Grid.Column="6" Orientation="Horizontal"
+                            <StackPanel x:Name="ConnectionButtonsPanel" Grid.Column="4" Orientation="Horizontal"
                                         VerticalAlignment="Center" Spacing="4">
                                 <StackPanel.Resources>
                                     <markup:IfConditionConverter x:Key="ConnectedConditionConverter">
@@ -297,32 +270,8 @@
                             </StackPanel>
                         </Grid>
                         <Grid x:Name="TopToolbarCompact" IsVisible="False" RowDefinitions="Auto,Auto">
-                        <Grid x:Name="TopToolbarCompactRow1" Grid.Row="0" ColumnDefinitions="*,Auto,*">
-                                <Grid x:Name="ConfigSelectorPanelCompact" Grid.Column="0" VerticalAlignment="Center"
-                                      ColumnDefinitions="Auto,*">
-                                    <TextBlock FontSize="12" Grid.Column="0"
-                                               FontWeight="Bold" Foreground="{DynamicResource SukiLowText}"
-                                               Text="{markup:I18n {x:Static helper:LangKeys.CurrentConfig}}"
-                                               VerticalAlignment="Center" />
-                                    <ComboBox Margin="8 0 0 0" Grid.Column="1"
-                                              ex:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                              IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                              ItemsSource="{Binding ConfigurationList}"
-                                              SelectedValue="{Binding CurrentConfiguration, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                              SelectedValueBinding="{Binding Name}"
-                                              MinWidth="120">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </Grid>
-
-                                <Border x:Name="Spliter1Compact" Grid.Column="1" Width="1" Height="30"
-                                        Background="{DynamicResource SukiControlBorderBrush}" Margin="20,0" />
-
-                                <Grid x:Name="ResourceSelectorPanelCompact" Grid.Column="2" VerticalAlignment="Center"
+                        <Grid x:Name="TopToolbarCompactRow1" Grid.Row="0" ColumnDefinitions="*">
+                                <Grid x:Name="ResourceSelectorPanelCompact" Grid.Column="0" VerticalAlignment="Center"
                                       ColumnDefinitions="Auto,*">
                                     <TextBlock FontSize="12" Grid.Column="0"
                                                FontWeight="Bold" Foreground="{DynamicResource SukiLowText}"

@@ -405,7 +405,13 @@ public static partial class Instances
     public static async Task ReloadConfigurationForSwitchAsync(bool refreshTask = true)
     {
         static Task UpdateProgressAsync(double value) =>
-            DispatcherHelper.RunOnMainThreadAsync(() => Instances.RootViewModel.SetConfigSwitchProgress(value));
+            DispatcherHelper.RunOnMainThreadAsync(() =>
+            {
+                if (IsResolved<RootViewModel>())
+                {
+                    RootViewModel.SetConfigSwitchProgress(value);
+                }
+            });
 
         await UpdateProgressAsync(30);
         await Task.Delay(40);
@@ -602,7 +608,7 @@ public static partial class Instances
                 if (task == null) return;
 
                 task.CurrentConfiguration = ConfigurationManager.GetCurrentConfiguration();
-                task.TaskItemViewModels = new();
+                task.TaskItemViewModels.Clear();
                 task.CurrentController = ConfigurationManager.CurrentInstance.GetValue(ConfigurationKeys.CurrentController, MaaControllerTypes.Adb, MaaControllerTypes.None,
                     new Converters.UniversalEnumConverter<MaaControllerTypes>());
                 task.EnableLiveView = ConfigurationManager.CurrentInstance.GetValue(ConfigurationKeys.EnableLiveView, true);
@@ -647,9 +653,15 @@ public static partial class Instances
                 }
 
                 task.Processor.SetTasker();
+                task.RequestLayoutReload();
             });
         }
         await UpdateProgressAsync(95);
         await Task.Delay(40);
+
+        if (IsResolved<RootViewModel>())
+        {
+            RootViewModel.RefreshConfigReadOnly();
+        }
     }
 }

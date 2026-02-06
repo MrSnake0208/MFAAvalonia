@@ -19,7 +19,8 @@
     <Design.DataContext>
         <settings:VersionUpdateSettingsUserControlModel />
     </Design.DataContext>
-    <StackPanel Spacing="15">
+    <StackPanel Spacing="15"
+                IsEnabled="{calcBinding:Binding '!IsConfigReadOnly', Source={x:Static helper:Instances.RootViewModel}}">
         <suki:GlassCard Padding="25,15,25,15">
             <StackPanel Spacing="20">
                 <DockPanel>

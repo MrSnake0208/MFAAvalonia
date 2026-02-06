@@ -31,7 +31,7 @@ namespace MFAAvalonia.Views.UserControls.Dashboard;
 /// </summary>
 public sealed class DashboardCardGrid : Panel
 {
-    public bool HasSavedLayout() => ConfigurationManager.Current.ContainsKey(GetLayoutKey());
+    public bool HasSavedLayout() => HasConfigKey(GetLayoutKey());
     public static readonly StyledProperty<string> GridIdProperty =
         AvaloniaProperty.Register<DashboardCardGrid, string>(nameof(GridId), string.Empty);
 
@@ -131,6 +131,28 @@ public sealed class DashboardCardGrid : Panel
             CornerRadius = new CornerRadius(8)
         };
         _dragPreviewBorder.ZIndex = 10;
+    }
+
+    public void ReloadLayoutFromConfig()
+    {
+        _layoutLoaded = false;
+        _hiddenCards.Clear();
+        _maximizedCard = null;
+        _maximizedLayout = null;
+        EnsureLayoutsLoaded();
+        EnsureMaximizedCardState();
+        InvalidateMeasure();
+        InvalidateArrange();
+    }
+
+    private bool IsLayoutLocked()
+    {
+        if (!MaaProcessorManager.IsInstanceCreated || MaaProcessorManager.Instance.Current == null)
+        {
+            return false;
+        }
+
+        return ConfigurationManager.IsConfigLockedForInstance(MaaProcessorManager.Instance.Current.InstanceId);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -742,7 +764,7 @@ public sealed class DashboardCardGrid : Panel
         var layoutMeta = LoadLayoutMeta();
         var resourceLayout = TryLoadResourceLayout(out var resourceLayoutHash);
         var layoutHashKey = GetResourceLayoutHashKey();
-        var storedLayoutHash = ConfigurationManager.Current.GetValue(layoutHashKey, string.Empty);
+        var storedLayoutHash = GetStoredValue(layoutHashKey, string.Empty);
         var resourceLayoutChanged = !string.IsNullOrWhiteSpace(resourceLayoutHash)
             && !string.Equals(resourceLayoutHash, storedLayoutHash, StringComparison.OrdinalIgnoreCase);
 
@@ -750,7 +772,7 @@ public sealed class DashboardCardGrid : Panel
         {
             ApplyResourceLayout(resourceLayout, defaults);
             SaveLayouts();
-            ConfigurationManager.Current.SetValue(layoutHashKey, resourceLayoutHash);
+            ConfigurationManager.TrySetActiveConfigValue(layoutHashKey, resourceLayoutHash);
             ToastHelper.Info(LangKeys.ResourceLayoutUpdatedTitle.ToLocalization(),
                 LangKeys.ResourceLayoutUpdatedContent.ToLocalization());
             return;
@@ -781,7 +803,7 @@ public sealed class DashboardCardGrid : Panel
             SaveLayouts();
             if (!string.IsNullOrWhiteSpace(resourceLayoutHash))
             {
-                ConfigurationManager.Current.SetValue(layoutHashKey, resourceLayoutHash);
+                ConfigurationManager.TrySetActiveConfigValue(layoutHashKey, resourceLayoutHash);
             }
             return;
         }
@@ -796,7 +818,7 @@ public sealed class DashboardCardGrid : Panel
             SaveLayouts();
             if (!string.IsNullOrWhiteSpace(resourceLayoutHash))
             {
-                ConfigurationManager.Current.SetValue(layoutHashKey, resourceLayoutHash);
+                ConfigurationManager.TrySetActiveConfigValue(layoutHashKey, resourceLayoutHash);
             }
             return;
         }
@@ -862,7 +884,7 @@ public sealed class DashboardCardGrid : Panel
 
     private void SaveLayouts()
     {
-        if (_suppressLayoutSave)
+        if (_suppressLayoutSave || IsLayoutLocked())
         {
             return;
         }
@@ -884,7 +906,7 @@ public sealed class DashboardCardGrid : Panel
             })
             .ToList();
 
-        ConfigurationManager.Current.SetValue(GetLayoutKey(), layouts);
+        ConfigurationManager.TrySetActiveConfigValue(GetLayoutKey(), layouts);
         SaveLayoutMeta();
     }
 
@@ -902,22 +924,59 @@ public sealed class DashboardCardGrid : Panel
             : $"{ConfigurationKeys.TaskQueueDashboardLayout}.{GridId}";
     }
 
+    private static bool HasConfigKey(string key)
+    {
+        var instanceConfig = ConfigurationManager.CurrentInstance;
+        if (instanceConfig.ContainsKey(key))
+        {
+            return true;
+        }
+
+        return ConfigurationManager.Current.ContainsKey(key);
+    }
+
+    private static bool TryGetLayouts(string key, out List<DashboardCardLayout> layouts)
+    {
+        var instanceConfig = ConfigurationManager.CurrentInstance;
+        layouts = instanceConfig.GetValue(key, new List<DashboardCardLayout>());
+        if (instanceConfig.ContainsKey(key) && layouts is { Count: > 0 })
+        {
+            return true;
+        }
+
+        var globalConfig = ConfigurationManager.Current;
+        layouts = globalConfig.GetValue(key, new List<DashboardCardLayout>());
+        return globalConfig.ContainsKey(key) && layouts is { Count: > 0 };
+    }
+
+    private static string GetStoredValue(string key, string defaultValue)
+    {
+        var instanceConfig = ConfigurationManager.CurrentInstance;
+        var value = instanceConfig.GetValue(key, defaultValue);
+        if (instanceConfig.ContainsKey(key))
+        {
+            return value;
+        }
+
+        return ConfigurationManager.Current.GetValue(key, defaultValue);
+    }
+
     private List<DashboardCardLayout> LoadConfigLayouts(List<DashboardCardLayout> defaults, string key, out bool hasConfigLayouts)
     {
-        var layouts = ConfigurationManager.Current.GetValue(key, new List<DashboardCardLayout>());
-        hasConfigLayouts = ConfigurationManager.Current.ContainsKey(key) && layouts is { Count: > 0 };
-
-        if (layouts == null || layouts.Count == 0)
+        var layouts = defaults;
+        hasConfigLayouts = TryGetLayouts(key, out var configuredLayouts);
+        if (hasConfigLayouts)
         {
-            layouts = defaults;
+            layouts = configuredLayouts;
+            return layouts;
+        }
 
-            if (!string.Equals(key, ConfigurationKeys.DashboardCardGridLayout, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(key, ConfigurationKeys.DashboardCardGridLayout, StringComparison.OrdinalIgnoreCase))
+        {
+            if (TryGetLayouts(ConfigurationKeys.DashboardCardGridLayout, out var legacy) && legacy.Count > 0)
             {
-                var legacy = ConfigurationManager.Current.GetValue(ConfigurationKeys.DashboardCardGridLayout, defaults);
-                if (legacy != null && legacy.Count > 0)
-                {
-                    layouts = legacy;
-                }
+                layouts = legacy;
+                hasConfigLayouts = true;
             }
         }
 
@@ -939,22 +998,37 @@ public sealed class DashboardCardGrid : Panel
     private DashboardGridMeta? LoadLayoutMeta()
     {
         var key = GetLayoutMetaKey();
+        var instanceConfig = ConfigurationManager.CurrentInstance;
+        if (instanceConfig.ContainsKey(key))
+        {
+            var meta = instanceConfig.GetValue(key, new DashboardGridMeta());
+            if (meta.Rows > 0 && meta.Columns > 0)
+            {
+                return meta;
+            }
+        }
+
         if (!ConfigurationManager.Current.ContainsKey(key))
         {
             return null;
         }
 
-        var meta = ConfigurationManager.Current.GetValue(key, new DashboardGridMeta());
-        if (meta.Rows <= 0 || meta.Columns <= 0)
+        var fallback = ConfigurationManager.Current.GetValue(key, new DashboardGridMeta());
+        if (fallback.Rows <= 0 || fallback.Columns <= 0)
         {
             return null;
         }
 
-        return meta;
+        return fallback;
     }
 
     private void SaveLayoutMeta()
     {
+        if (IsLayoutLocked())
+        {
+            return;
+        }
+
         var key = GetLayoutMetaKey();
         var meta = new DashboardGridMeta
         {
@@ -963,7 +1037,7 @@ public sealed class DashboardCardGrid : Panel
             Spacing = CellSpacing
         };
 
-        ConfigurationManager.Current.SetValue(key, meta);
+        ConfigurationManager.TrySetActiveConfigValue(key, meta);
     }
 
     private void ApplyLayoutMeta(DashboardGridMeta? meta)

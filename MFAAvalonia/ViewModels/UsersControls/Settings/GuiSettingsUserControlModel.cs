@@ -213,13 +213,13 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
     public void AddOtherColor(SukiColorTheme color)
     {
         OtherColorThemes.Add(color);
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.OtherColorTheme, OtherColorThemes);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.OtherColorTheme, OtherColorThemes);
     }
 
     public void RemoveOtherColor(SukiColorTheme color)
     {
         OtherColorThemes.Remove(color);
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.OtherColorTheme, OtherColorThemes);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.OtherColorTheme, OtherColorThemes);
         ThemeItems = new AvaloniaList<ThemeItemViewModel>(
             _theme.ColorThemes.ToList().Select(t => new ThemeItemViewModel(t, this))
         );

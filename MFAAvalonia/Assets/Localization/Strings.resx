@@ -174,13 +174,13 @@
         <value>关闭模拟器</value>
     </data>
     <data name="CloseEmulatorAndMFA" xml:space="preserve">
-        <value>关闭MaaYuan和模拟器（多开时等待全部实例完成）</value>
+        <value>关闭MaaYuan和模拟器</value>
     </data>
     <data name="CloseEmulatorAndRestartMFA" xml:space="preserve">
-        <value>重启MaaYuan和关闭模拟器（多开时等待全部实例完成）</value>
+        <value>重启MaaYuan和关闭模拟器</value>
     </data>
     <data name="CloseMFA" xml:space="preserve">
-        <value>关闭MaaYuan（多开时等待全部实例完成）</value>
+        <value>关闭MaaYuan</value>
     </data>
     <data name="ColorPickerTitle" xml:space="preserve">
         <value>取色器</value>
@@ -1000,7 +1000,7 @@
         <value>自定义配置选择</value>
     </data>
     <data name="TimerCustomConfigTip" xml:space="preserve">
-        <value>将提前两分钟重启并切换配置</value>
+        <value>将提前两分钟停止当前实例任务并切换配置</value>
     </data>
     <data name="Tip" xml:space="preserve">
         <value>提示</value>
@@ -1208,6 +1208,30 @@
     </data>
     <data name="ExportLog" xml:space="preserve">
         <value>导出日志</value>
+    </data>
+    <data name="ExportInstanceProfile" xml:space="preserve">
+        <value>导出实例配置</value>
+    </data>
+    <data name="DuplicateInstance" xml:space="preserve">
+        <value>复制实例</value>
+    </data>
+    <data name="ImportInstanceProfile" xml:space="preserve">
+        <value>导入实例配置</value>
+    </data>
+    <data name="ImportInstanceProfileConfirm" xml:space="preserve">
+        <value>实例正在运行，是否停止后导入？</value>
+    </data>
+    <data name="InstanceActions" xml:space="preserve">
+        <value>实例操作</value>
+    </data>
+    <data name="InstanceProfileCopied" xml:space="preserve">
+        <value>实例已复制</value>
+    </data>
+    <data name="InstanceProfileExported" xml:space="preserve">
+        <value>实例配置已导出</value>
+    </data>
+    <data name="InstanceProfileImported" xml:space="preserve">
+        <value>实例配置已导入</value>
     </data>
     <data name="ClearCache" xml:space="preserve">
         <value>清理缓存</value>

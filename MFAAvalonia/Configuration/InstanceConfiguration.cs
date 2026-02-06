@@ -13,7 +13,7 @@ public sealed class InstanceConfiguration
         _instanceId = instanceId;
     }
 
-    private MFAConfiguration Config => ConfigurationManager.Current;
+    private MFAConfiguration Config => ConfigurationManager.GetConfigForInstance(_instanceId);
 
     private string ScopedKey(string key) => $"Instance.{_instanceId}.{key}";
     private string LegacyScopedKey(string key) => $"instance.{_instanceId}.{key}";

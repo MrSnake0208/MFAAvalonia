@@ -89,7 +89,7 @@ public class TrayIconManager
             {
                 LanguageHelper.ChangeLanguage(lang);
                 var index = LanguageHelper.SupportedLanguages.ToList().FindIndex(language => language.Key == lang.Key);
-                ConfigurationManager.Current.SetValue(ConfigurationKeys.CurrentLanguage, index == -1 ? 0 : index);
+                ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.CurrentLanguage, index == -1 ? 0 : index);
             };
             menuItem3.Menu.Add(langMenu);
         }

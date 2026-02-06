@@ -161,10 +161,10 @@ public partial class RecordTaskView : UserControl
     {
         var deviceVisible = DeviceSelectorPanel?.IsVisible == true || DeviceSelectorPanelCompact?.IsVisible == true;
 
-        if (TopToolbarWide?.ColumnDefinitions.Count >= 7)
+        if (TopToolbarWide?.ColumnDefinitions.Count >= 5)
         {
-            TopToolbarWide.ColumnDefinitions[5].Width = deviceVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-            TopToolbarWide.ColumnDefinitions[4].Width = deviceVisible ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+            TopToolbarWide.ColumnDefinitions[3].Width = deviceVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+            TopToolbarWide.ColumnDefinitions[2].Width = deviceVisible ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
         }
 
         if (TopToolbarCompactRow2?.ColumnDefinitions.Count >= 3)

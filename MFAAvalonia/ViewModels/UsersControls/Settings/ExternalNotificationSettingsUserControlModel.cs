@@ -59,7 +59,7 @@ public partial class ExternalNotificationSettingsUserControlModel : ViewModelBas
         try
         {
             var config = string.Join(",", EnabledExternalNotificationProviderList.Distinct());
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.ExternalNotificationEnabled, config);
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.ExternalNotificationEnabled, config);
             EnabledExternalNotificationProviderCount = EnabledExternalNotificationProviderList.Count;
         }
         catch (Exception e)
@@ -120,7 +120,7 @@ public partial class ExternalNotificationSettingsUserControlModel : ViewModelBas
         if (TryExtractDingTalkToken(value, out var token))
             DingTalkToken = token;
         else
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.ExternalNotificationDingTalkToken, SimpleEncryptionHelper.Encrypt(value));
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.ExternalNotificationDingTalkToken, SimpleEncryptionHelper.Encrypt(value));
     }
 
     [ObservableProperty] private string _dingTalkSecret = ConfigurationManager.Current.GetDecrypt(ConfigurationKeys.ExternalNotificationDingTalkSecret, string.Empty);
@@ -264,26 +264,26 @@ public partial class ExternalNotificationSettingsUserControlModel : ViewModelBas
 
     partial void OnQmsgServerChanged(string value)
         =>
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.ExternalNotificationQmsgServer, SimpleEncryptionHelper.Encrypt(value));
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.ExternalNotificationQmsgServer, SimpleEncryptionHelper.Encrypt(value));
 
 
     [ObservableProperty] private string _qmsgKey = ConfigurationManager.Current.GetDecrypt(ConfigurationKeys.ExternalNotificationQmsgKey, string.Empty);
 
     partial void OnQmsgKeyChanged(string value)
         =>
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.ExternalNotificationQmsgKey, SimpleEncryptionHelper.Encrypt(value));
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.ExternalNotificationQmsgKey, SimpleEncryptionHelper.Encrypt(value));
 
 
     [ObservableProperty] private string _qmsgUser = ConfigurationManager.Current.GetDecrypt(ConfigurationKeys.ExternalNotificationQmsgUser, string.Empty);
     partial void OnQmsgUserChanged(string value)
         =>
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.ExternalNotificationQmsgUser, SimpleEncryptionHelper.Encrypt(value));
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.ExternalNotificationQmsgUser, SimpleEncryptionHelper.Encrypt(value));
 
 
     [ObservableProperty] private string _qmsgBot = ConfigurationManager.Current.GetDecrypt(ConfigurationKeys.ExternalNotificationQmsgBot, string.Empty);
     partial void OnQmsgBotChanged(string value)
         =>
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.ExternalNotificationQmsgBot, SimpleEncryptionHelper.Encrypt(value));
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.ExternalNotificationQmsgBot, SimpleEncryptionHelper.Encrypt(value));
 
     #endregion
 

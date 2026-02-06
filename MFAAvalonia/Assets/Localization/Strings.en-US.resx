@@ -991,7 +991,7 @@
         <value>Custom config</value>
     </data>
     <data name="TimerCustomConfigTip" xml:space="preserve">
-        <value>Restart and switch configuration two minutes in advance</value>
+        <value>Stops the current instance two minutes early to switch configuration</value>
     </data>
     <data name="Tip" xml:space="preserve">
         <value>Tip</value>
@@ -1193,6 +1193,30 @@
     </data>
     <data name="ExportLog" xml:space="preserve">
         <value>Export Log</value>
+    </data>
+    <data name="ExportInstanceProfile" xml:space="preserve">
+        <value>Export Instance Profile</value>
+    </data>
+    <data name="DuplicateInstance" xml:space="preserve">
+        <value>Duplicate Instance</value>
+    </data>
+    <data name="ImportInstanceProfile" xml:space="preserve">
+        <value>Import Instance Profile</value>
+    </data>
+    <data name="ImportInstanceProfileConfirm" xml:space="preserve">
+        <value>Instance is running. Stop it before import?</value>
+    </data>
+    <data name="InstanceActions" xml:space="preserve">
+        <value>Instance Actions</value>
+    </data>
+    <data name="InstanceProfileCopied" xml:space="preserve">
+        <value>Instance duplicated</value>
+    </data>
+    <data name="InstanceProfileExported" xml:space="preserve">
+        <value>Instance profile exported</value>
+    </data>
+    <data name="InstanceProfileImported" xml:space="preserve">
+        <value>Instance profile imported</value>
     </data>
     <data name="ClearCache" xml:space="preserve">
         <value>Clear Cache</value>

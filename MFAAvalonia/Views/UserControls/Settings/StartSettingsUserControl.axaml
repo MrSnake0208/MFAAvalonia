@@ -18,7 +18,8 @@
     xmlns:calcBinding="clr-namespace:CalcBinding;assembly=CalcBindingAva"
     xmlns:maa="clr-namespace:MFAAvalonia.Extensions.MaaFW">
     <StackPanel Spacing="25">
-        <suki:GlassCard Padding="25">
+        <suki:GlassCard Padding="25"
+                        IsEnabled="{calcBinding:Binding '!IsConfigReadOnly', Source={x:Static helper:Instances.RootViewModel}}">
             <suki:GlassCard.IsEnabled>
                 <MultiBinding Converter="{x:Static converters:BooleanAndConverter.Instance}">
                     <Binding Source="{x:Static helper:Instances.RootViewModel}" Path="Idle" />

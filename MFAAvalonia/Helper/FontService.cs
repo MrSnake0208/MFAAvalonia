@@ -126,7 +126,7 @@ public partial class FontService : ObservableObject
         // 保存到配置
         if (saveToConfig)
         {
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.FontScale, scale);
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.FontScale, scale);
         }
     }
 
@@ -275,7 +275,7 @@ public partial class FontService : ObservableObject
             _currentFontFamily = fontFamily;
             
             app.Resources["DefaultFontFamily"] = fontFamily;
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.FontFamily, fontName);
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.FontFamily, fontName);
             
             LoggerHelper.Info($"[字体服务]已应用字体: {fontName}");
         }

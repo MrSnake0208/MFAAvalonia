@@ -3,6 +3,7 @@ using Avalonia.Collections;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,14 +18,19 @@ using MFAAvalonia.Helper.ValueType;
 using MFAAvalonia.ViewModels.Other;
 using MFAAvalonia.ViewModels.UsersControls;
 using MFAAvalonia.ViewModels.UsersControls.Settings;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using SukiUI.Controls;
 using SukiUI.Dialogs;
+using SukiUI.MessageBox;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,6 +51,7 @@ public partial class TaskQueueViewModel : ViewModelBase
     public TaskQueueViewModel(string instanceId)
     {
         _processorField = new MaaProcessor(instanceId);
+        _currentConfiguration = ConfigurationManager.GetConfigNameForInstance(instanceId);
         TimerModel = new TimerModel(this);
         _currentController = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.CurrentController, MaaControllerTypes.Adb, MaaControllerTypes.None, new UniversalEnumConverter<MaaControllerTypes>());
         _currentResource = _processorField.InstanceConfiguration.GetValue(ConfigurationKeys.Resource, string.Empty);
@@ -409,6 +416,11 @@ public partial class TaskQueueViewModel : ViewModelBase
 
     partial void OnTaskItemViewModelsChanged(ObservableCollection<DragItemViewModel> value)
     {
+        if (_isSyncing || ConfigurationManager.IsSwitchingForInstance(Processor.InstanceId))
+        {
+            return;
+        }
+
         Processor.InstanceConfiguration.SetValue(ConfigurationKeys.TaskItems, value.ToList().Select(model => model.InterfaceItem));
     }
 
@@ -714,7 +726,7 @@ public partial class TaskQueueViewModel : ViewModelBase
         {
             TryReadPlayCoverConfig();
         }
-        if (!ConfigurationManager.IsSwitching)
+        if (!ConfigurationManager.IsSwitchingForInstance(Processor.InstanceId))
         {
             Refresh();
         }
@@ -1912,22 +1924,354 @@ public partial class TaskQueueViewModel : ViewModelBase
     public IAvaloniaReadOnlyList<MFAConfiguration> ConfigurationList => ConfigurationManager.Configs;
 
     public event Action<DragItemViewModel, bool>? SetOptionRequested;
+    public event Action? LayoutReloadRequested;
 
     public void RequestSetOption(DragItemViewModel item, bool value)
     {
         SetOptionRequested?.Invoke(item, value);
     }
 
-    [ObservableProperty] private string? _currentConfiguration = ConfigurationManager.GetCurrentConfiguration();
+    [ObservableProperty] private string? _currentConfiguration;
 
     partial void OnCurrentConfigurationChanged(string? value)
     {
         if (!string.IsNullOrWhiteSpace(value)
-            && !value.Equals(ConfigurationManager.GetCurrentConfiguration(), StringComparison.OrdinalIgnoreCase))
+            && !value.Equals(ConfigurationManager.GetConfigNameForInstance(Processor.InstanceId), StringComparison.OrdinalIgnoreCase))
         {
-            ConfigurationManager.SwitchConfiguration(value);
+            ConfigurationManager.SwitchConfigurationForInstance(Processor.InstanceId, value);
         }
 
     }
+
+    public void RequestLayoutReload()
+    {
+        LayoutReloadRequested?.Invoke();
+    }
+
+    public void ReloadForConfigSwitch()
+    {
+        try
+        {
+            _isSyncing = true;
+            CurrentConfiguration = ConfigurationManager.GetConfigNameForInstance(Processor.InstanceId);
+            TaskItemViewModels.Clear();
+            CurrentController = Processor.InstanceConfiguration.GetValue(
+                ConfigurationKeys.CurrentController,
+                MaaControllerTypes.Adb,
+                MaaControllerTypes.None,
+                new UniversalEnumConverter<MaaControllerTypes>());
+            EnableLiveView = Processor.InstanceConfiguration.GetValue(ConfigurationKeys.EnableLiveView, true);
+            LiveViewRefreshRate = Processor.InstanceConfiguration.GetValue(ConfigurationKeys.LiveViewRefreshRate, 30.0);
+        }
+        finally
+        {
+            _isSyncing = false;
+        }
+
+        Processor.InitializeData();
+        InitializeControllerOptions();
+        var targetResource = Processor.InstanceConfiguration.GetValue(ConfigurationKeys.Resource, string.Empty);
+        UpdateResourcesForController(targetResource);
+        TryReadAdbDeviceFromConfig();
+
+        var selected = TaskItemViewModels.FirstOrDefault(i => i.IsResourceOptionItem)
+            ?? TaskItemViewModels.FirstOrDefault(i => i.InterfaceItem?.Advanced is { Count: > 0 }
+                || i.InterfaceItem?.Option is { Count: > 0 }
+                || !string.IsNullOrWhiteSpace(i.InterfaceItem?.Description)
+                || i.InterfaceItem?.Document != null
+                || i.InterfaceItem?.Repeatable == true);
+        if (selected != null)
+        {
+            selected.EnableSetting = true;
+        }
+
+        Processor.SetTasker();
+
+        var activeTaskVm = Instances.InstanceTabBarViewModel.ActiveTab?.TaskQueueViewModel;
+        if (ReferenceEquals(activeTaskVm, this))
+        {
+            RequestLayoutReload();
+        }
+    }
+    #endregion
+
+    #region 实例复用
+
+    [RelayCommand]
+    private Task DuplicateInstanceAsync()
+    {
+        try
+        {
+            var sourceId = Processor.InstanceId;
+            var sourceConfig = ConfigurationManager.GetConfigNameForInstance(sourceId);
+            var data = ConfigurationManager.GetInstanceData(sourceId);
+            var sourceTasks = TaskItemViewModels
+                .Where(m => !m.IsResourceOptionItem)
+                .Select(m => m.InterfaceItem)
+                .Where(m => m != null)
+                .Select(m => m!.Clone())
+                .ToList();
+
+            if (sourceTasks.Count == 0)
+            {
+                var savedTasks = Processor.InstanceConfiguration.GetValue(
+                    ConfigurationKeys.TaskItems,
+                    new List<MaaInterface.MaaInterfaceTask>());
+                if (savedTasks.Count > 0)
+                {
+                    sourceTasks = savedTasks.Select(t => t.Clone()).ToList();
+                }
+            }
+
+            var newProcessor = MaaProcessorManager.Instance.CreateInstance(false);
+            var newId = newProcessor.InstanceId;
+
+            ConfigurationManager.SetConfigNameForInstance(newId, sourceConfig, persist: true);
+            ConfigurationManager.ApplyInstanceData(newId, data, clearExisting: true);
+            if (sourceTasks.Count > 0)
+            {
+                newProcessor.InstanceConfiguration.SetValue(ConfigurationKeys.TaskItems, sourceTasks);
+            }
+
+            newProcessor.ViewModel?.ReloadForConfigSwitch();
+            newProcessor.ViewModel?.TimerModel.ReloadFromConfig();
+
+            DispatcherHelper.PostOnMainThread(() =>
+            {
+                if (Instances.IsResolved<InstanceTabBarViewModel>())
+                {
+                    Instances.InstanceTabBarViewModel.ReloadTabs();
+                    var tab = Instances.InstanceTabBarViewModel.Tabs
+                        .FirstOrDefault(t => t.InstanceId.Equals(newId, StringComparison.OrdinalIgnoreCase));
+                    if (tab != null)
+                    {
+                        Instances.InstanceTabBarViewModel.ActiveTab = tab;
+                    }
+                }
+            });
+
+            ToastHelper.Success(LangKeys.InstanceProfileCopied.ToLocalization());
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error(ex);
+            ToastHelper.Error(LangKeys.InitInstanceFailed.ToLocalization());
+        }
+
+        return Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private async Task ExportInstanceProfileAsync()
+    {
+        try
+        {
+            var storageProvider = Instances.StorageProvider;
+            if (storageProvider == null)
+            {
+                ToastHelper.Error(LangKeys.ExportInstanceProfile.ToLocalization());
+                return;
+            }
+
+            var instanceName = MaaProcessorManager.Instance.GetInstanceName(Processor.InstanceId);
+            var safeName = SanitizeFileName(string.IsNullOrWhiteSpace(instanceName) ? Processor.InstanceId : instanceName);
+            var suggestedName = $"{safeName}.mfa-instance.json";
+
+            var saveFile = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = LangKeys.ExportInstanceProfile.ToLocalization(),
+                SuggestedFileName = suggestedName,
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("MFA Instance") { Patterns = new[] { "*.mfa-instance.json", "*.json" } },
+                    new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } }
+                }
+            });
+
+            if (saveFile?.TryGetLocalPath() is not { } path)
+            {
+                return;
+            }
+
+            var profile = BuildInstanceProfile(Processor.InstanceId);
+            await File.WriteAllTextAsync(path, profile.ToString(Newtonsoft.Json.Formatting.Indented), Encoding.UTF8);
+            ToastHelper.Success(LangKeys.InstanceProfileExported.ToLocalization());
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error(ex);
+            ToastHelper.Error(LangKeys.ExportInstanceProfile.ToLocalization());
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportInstanceProfileAsync()
+    {
+        try
+        {
+            var storageProvider = Instances.StorageProvider;
+            if (storageProvider == null)
+            {
+                ToastHelper.Error(LangKeys.ImportInstanceProfile.ToLocalization());
+                return;
+            }
+
+            var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = LangKeys.ImportInstanceProfile.ToLocalization(),
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("MFA Instance") { Patterns = new[] { "*.mfa-instance.json", "*.json" } },
+                    new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } }
+                }
+            });
+
+            if (files.Count == 0 || files[0].TryGetLocalPath() is not { } path)
+            {
+                return;
+            }
+
+            var json = await File.ReadAllTextAsync(path, Encoding.UTF8);
+            if (!TryParseInstanceProfile(json, out var sourceConfig, out var data))
+            {
+                ToastHelper.Error(LangKeys.ImportInstanceProfile.ToLocalization());
+                return;
+            }
+
+            async Task ApplyImportAsync()
+            {
+                DispatcherHelper.PostOnMainThread(() =>
+                {
+                    var activeTab = Instances.InstanceTabBarViewModel.ActiveTab;
+                    var isActiveInstance = activeTab != null
+                                           && activeTab.InstanceId.Equals(Processor.InstanceId, StringComparison.OrdinalIgnoreCase);
+
+                    if (!string.IsNullOrWhiteSpace(sourceConfig)
+                        && ConfigurationManager.Configs.Any(c => c.Name.Equals(sourceConfig, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ConfigurationManager.SetConfigNameForInstance(Processor.InstanceId, sourceConfig, persist: true);
+                        if (isActiveInstance)
+                        {
+                            ConfigurationManager.SetCurrentForInstance(Processor.InstanceId);
+                        }
+                    }
+
+                    ConfigurationManager.ApplyInstanceData(Processor.InstanceId, data, clearExisting: true);
+
+                    ReloadForConfigSwitch();
+                    TimerModel.ReloadFromConfig();
+
+                    if (isActiveInstance && Instances.IsResolved<TimerSettingsUserControlModel>())
+                    {
+                        Instances.TimerSettingsUserControlModel.UpdateCurrentInstance(TimerModel);
+                    }
+
+                    ToastHelper.Success(LangKeys.InstanceProfileImported.ToLocalization());
+                });
+
+                await Task.CompletedTask;
+            }
+
+            if (IsRunning)
+            {
+                var result = await SukiMessageBox.ShowDialog(new SukiMessageBoxHost
+                {
+                    Content = LangKeys.ImportInstanceProfileConfirm.ToLocalization(),
+                    ActionButtonsPreset = SukiMessageBoxButtons.YesNo,
+                    IconPreset = SukiMessageBoxIcons.Warning
+                }, new SukiMessageBoxOptions
+                {
+                    Title = LangKeys.ImportInstanceProfile.ToLocalization()
+                });
+
+                if (result is not SukiMessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                StopTask(() => _ = ApplyImportAsync());
+                return;
+            }
+
+            await ApplyImportAsync();
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Error(ex);
+            ToastHelper.Error(LangKeys.ImportInstanceProfile.ToLocalization());
+        }
+    }
+
+    private static JObject BuildInstanceProfile(string instanceId)
+    {
+        var data = ConfigurationManager.GetInstanceData(instanceId);
+        return new JObject
+        {
+            ["version"] = 1,
+            ["sourceInstanceId"] = instanceId,
+            ["sourceConfig"] = ConfigurationManager.GetConfigNameForInstance(instanceId),
+            ["data"] = JObject.FromObject(data)
+        };
+    }
+
+    private static bool TryParseInstanceProfile(string json, out string? sourceConfig, out Dictionary<string, object?> data)
+    {
+        sourceConfig = null;
+        data = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        JObject root;
+        try
+        {
+            root = JObject.Parse(json);
+        }
+        catch
+        {
+            return false;
+        }
+
+        sourceConfig = root["sourceConfig"]?.ToString();
+
+        if (root["data"] is JObject dataObject)
+        {
+            data = dataObject.ToObject<Dictionary<string, object?>>() ?? new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            return data.Count > 0;
+        }
+
+        var fallback = root.ToObject<Dictionary<string, object?>>();
+        if (fallback == null)
+        {
+            return false;
+        }
+
+        fallback.Remove("version");
+        fallback.Remove("sourceConfig");
+        fallback.Remove("sourceInstanceId");
+        data = fallback;
+        return data.Count > 0;
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "instance";
+        }
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(name.Length);
+        foreach (var c in name)
+        {
+            builder.Append(invalid.Contains(c) ? '_' : c);
+        }
+
+        return builder.ToString();
+    }
+
     #endregion
 }

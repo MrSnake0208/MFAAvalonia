@@ -28,12 +28,12 @@ public partial class StartSettingsUserControlModel : ViewModelBase
 
     partial void OnAutoMinimizeChanged(bool value)
     {
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.AutoMinimize, value);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.AutoMinimize, value);
     }
 
     partial void OnAutoHideChanged(bool value)
     {
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.AutoHide, value);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.AutoHide, value);
     }
 
     partial void OnSoftwarePathChanged(string value)

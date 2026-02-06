@@ -437,6 +437,7 @@ public class MaaProcessor
             DispatcherHelper.PostOnMainThread(() =>
             {
                 Instances.RootViewModel.IsRunning = Processors.Any(p => p.TaskQueue.Count > 0);
+                Instances.RootViewModel.RefreshConfigReadOnly();
             });
 
             if (_taskQueueTotal <= 0)
@@ -2047,7 +2048,7 @@ public class MaaProcessor
             // 首次初始化时，根据资源版本自动设置更新来源
             // 优先级：内测(Alpha=0) > 公测(Beta=1) > 稳定(Stable=2)
             // 只有当资源版本的优先级高于当前设置时才修改
-            if (!ConfigurationManager.Current.GetValue(ConfigurationKeys.ResourceUpdateChannelInitialized, false))
+            if (!ConfigurationManager.GetConfigForInstance(InstanceId).GetValue(ConfigurationKeys.ResourceUpdateChannelInitialized, false))
             {
                 var resourceVersionType = version.ToVersionType();
                 var currentChannelIndex = Instances.VersionUpdateSettingsUserControlModel.ResourceUpdateChannelIndex;
@@ -2061,7 +2062,7 @@ public class MaaProcessor
                     LoggerHelper.Info($"根据资源版本 '{version}' 自动将更新来源设置为 {resourceVersionType}");
                 }
                 // 标记已初始化
-                ConfigurationManager.Current.SetValue(ConfigurationKeys.ResourceUpdateChannelInitialized, true);
+                ConfigurationManager.TrySetConfigValueForInstance(InstanceId, ConfigurationKeys.ResourceUpdateChannelInitialized, true);
             }
         }
 

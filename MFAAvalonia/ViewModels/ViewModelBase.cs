@@ -41,7 +41,7 @@ public class ViewModelBase : ObservableObject
             return;
         }
 
-        ConfigurationManager.Current.SetValue(configKey, value);
+        ConfigurationManager.TrySetActiveConfigValue(configKey, value);
     }
     
     protected bool? SetNewProperty<T>([NotNullIfNotNull(nameof(newValue))] ref T field,

@@ -1,6 +1,7 @@
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MFAAvalonia.Configuration;
 using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Extensions;
 using MFAAvalonia.Helper;
@@ -8,6 +9,7 @@ using MFAAvalonia.Helper.ValueType;
 using SukiUI.Controls;
 using SukiUI.Dialogs;
 using SukiUI.MessageBox;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -63,13 +65,26 @@ public partial class InstanceTabBarViewModel : ViewModelBase
         }
         
         var current = MaaProcessorManager.Instance.Current;
+        InstanceTabViewModel? targetTab = null;
         if (current != null)
         {
-            var tab = Tabs.FirstOrDefault(t => t.InstanceId == current.InstanceId);
-            if (tab != null && ActiveTab != tab)
+            targetTab = Tabs.FirstOrDefault(t => t.InstanceId == current.InstanceId);
+        }
+
+        var lastActive = GlobalConfiguration.GetValue(ConfigurationKeys.LastActiveInstance, "");
+        if (!string.IsNullOrWhiteSpace(lastActive)
+            && (targetTab == null || !lastActive.Equals(targetTab.InstanceId, System.StringComparison.OrdinalIgnoreCase)))
+        {
+            var lastActiveTab = Tabs.FirstOrDefault(t => t.InstanceId.Equals(lastActive, System.StringComparison.OrdinalIgnoreCase));
+            if (lastActiveTab != null)
             {
-                ActiveTab = tab;
+                targetTab = lastActiveTab;
             }
+        }
+
+        if (targetTab != null && ActiveTab != targetTab)
+        {
+            ActiveTab = targetTab;
         }
         else if (Tabs.Count > 0 && ActiveTab == null)
         {
@@ -86,31 +101,57 @@ public partial class InstanceTabBarViewModel : ViewModelBase
         if (newValue != null)
         {
             newValue.IsActive = true;
-            if (MaaProcessorManager.Instance.Current != newValue.Processor)
-            {
-                SwitchToInstance(newValue.Processor);
-            }
+            SwitchToInstance(newValue.Processor);
         }
     }
 
     private void SwitchToInstance(MaaProcessor processor)
     {
         // 切换前保存当前实例的任务状态
-        var vm = MaaProcessorManager.Instance.Current?.ViewModel;
+        var current = MaaProcessorManager.Instance.Current;
+        var vm = current?.ViewModel;
         if (vm != null)
         {
-            MFAAvalonia.Configuration.ConfigurationManager.CurrentInstance.SetValue(
-                MFAAvalonia.Configuration.ConfigurationKeys.TaskItems,
-                vm.TaskItemViewModels.ToList().Select(model => model.InterfaceItem));
+            var instanceConfig = current.InstanceConfiguration;
+            var taskItems = vm.TaskItemViewModels
+                .Where(m => !m.IsResourceOptionItem)
+                .Select(m => m.InterfaceItem)
+                .ToList();
+
+            var nonNullCount = taskItems.Count(t => t != null);
+            var shouldSave = true;
+            if (nonNullCount == 0 && instanceConfig.ContainsKey(ConfigurationKeys.TaskItems))
+            {
+                var saved = instanceConfig.GetValue(ConfigurationKeys.TaskItems, new List<MaaInterface.MaaInterfaceTask>());
+                if (saved.Count > 0)
+                {
+                    shouldSave = false;
+                }
+            }
+
+            if (shouldSave)
+            {
+                instanceConfig.SetValue(ConfigurationKeys.TaskItems, taskItems);
+            }
         }
 
-        if (MaaProcessorManager.Instance.SwitchCurrent(processor.InstanceId))
+        if (current == null || current != processor)
         {
-            Instances.ReloadConfigurationForSwitch(false);
-            DispatcherHelper.PostOnMainThread(() =>
+            if (!MaaProcessorManager.Instance.SwitchCurrent(processor.InstanceId))
             {
-                processor.ViewModel?.ReloadInstanceRuntime(false);
-            });
+                return;
+            }
+        }
+
+        ConfigurationManager.SetCurrentForInstance(processor.InstanceId);
+        Instances.ReloadConfigurationForSwitch(false);
+        DispatcherHelper.PostOnMainThread(() =>
+        {
+            processor.ViewModel?.ReloadInstanceRuntime(false);
+        });
+        if (Instances.IsResolved<ViewModels.Windows.RootViewModel>())
+        {
+            Instances.RootViewModel.RefreshConfigReadOnly();
         }
     }
 
@@ -169,5 +210,29 @@ public partial class InstanceTabBarViewModel : ViewModelBase
             .WithTitle(LangKeys.TaskRename.ToLocalization())
             .WithViewModel(dialog => new RenameInstanceDialogViewModel(dialog, tab))
             .TryShow();
+    }
+
+    [RelayCommand]
+    private void DuplicateInstance(InstanceTabViewModel? tab)
+    {
+        if (tab == null) return;
+
+        tab.TaskQueueViewModel.DuplicateInstanceCommand.Execute(null);
+    }
+
+    [RelayCommand]
+    private void ExportInstanceProfile(InstanceTabViewModel? tab)
+    {
+        if (tab == null) return;
+
+        tab.TaskQueueViewModel.ExportInstanceProfileCommand.Execute(null);
+    }
+
+    [RelayCommand]
+    private void ImportInstanceProfile(InstanceTabViewModel? tab)
+    {
+        if (tab == null) return;
+
+        tab.TaskQueueViewModel.ImportInstanceProfileCommand.Execute(null);
     }
 }

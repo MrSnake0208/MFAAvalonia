@@ -36,6 +36,12 @@ public partial class MFAConfiguration(string name, string fileName, Dictionary<s
             return;
         }
 
+        if (ConfigurationManager.IsConfigInUse(Name))
+        {
+            LoggerHelper.Error($"配置 {Name} 正被实例使用，无法删除");
+            return;
+        }
+
         ConfigurationManager.Configs.Remove(this);
         File.Delete(GetConfigFilePath());
     }

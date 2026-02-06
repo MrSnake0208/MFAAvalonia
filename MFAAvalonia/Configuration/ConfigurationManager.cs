@@ -26,20 +26,33 @@ public static class ConfigurationManager
 
     public static AvaloniaList<MFAConfiguration> Configs { get; } = LoadConfigurations();
 
-    public static event Action<string>? ConfigurationSwitched;
+    public static event Action<string, string>? ConfigurationSwitched;
 
-    public static bool IsSwitching { get; private set; }
     private static readonly object _switchLock = new();
-    private static string? _pendingSwitchName;
+    private static readonly Dictionary<string, string?> _pendingSwitchName = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> _switchingInstances = new(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly object _instanceConfigLock = new();
+    private static readonly Dictionary<string, string> _instanceConfigMap = new(StringComparer.OrdinalIgnoreCase);
 
     public static string ConfigName { get; set; }
-    public static string GetCurrentConfiguration() => ConfigName;
+
+    public static string GetCurrentConfiguration()
+    {
+        if (MaaProcessorManager.IsInstanceCreated && MaaProcessorManager.Instance.Current != null)
+        {
+            return GetConfigNameForInstance(MaaProcessorManager.Instance.Current.InstanceId);
+        }
+
+        return ConfigName;
+    }
 
     public static string GetActualConfiguration()
     {
-        if (ConfigName.Equals("Default", StringComparison.OrdinalIgnoreCase))
+        var current = GetCurrentConfiguration();
+        if (current.Equals("Default", StringComparison.OrdinalIgnoreCase))
             return "config";
-        return $"mfa_{GetCurrentConfiguration()}";
+        return $"mfa_{current}";
     }
 
     public static void Initialize()
@@ -47,17 +60,353 @@ public static class ConfigurationManager
         LoggerHelper.Info("Current Configuration: " + GetCurrentConfiguration());
     }
 
-    public static void SwitchConfiguration(string? name)
+    public static MFAConfiguration GetConfigByName(string? name)
     {
-        _ = SwitchConfigurationAsync(name);
+        var target = string.IsNullOrWhiteSpace(name) ? "Default" : name;
+        var config = Configs.FirstOrDefault(c => c.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
+        return config ?? Current;
     }
 
-    private static async Task SwitchConfigurationAsync(string? name)
+    public static MFAConfiguration GetConfigForInstance(string instanceId)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        return GetConfigByName(GetConfigNameForInstance(instanceId));
+    }
+
+    public static InstanceConfiguration GetInstanceConfiguration(string instanceId)
+    {
+        if (MaaProcessorManager.IsInstanceCreated
+            && MaaProcessorManager.Instance.TryGetInstance(instanceId, out var processor))
+        {
+            return processor.InstanceConfiguration;
+        }
+
+        return new InstanceConfiguration(instanceId);
+    }
+
+    public static string GetConfigNameForInstance(string instanceId)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId))
+        {
+            return GetDefaultConfig();
+        }
+
+        lock (_instanceConfigLock)
+        {
+            if (_instanceConfigMap.TryGetValue(instanceId, out var existing))
+            {
+                return existing;
+            }
+        }
+
+        var key = string.Format(ConfigurationKeys.InstanceConfigTemplate, instanceId);
+        var stored = GlobalConfiguration.GetValue(key, GetDefaultConfig());
+        var resolved = Configs.Any(c => c.Name.Equals(stored, StringComparison.OrdinalIgnoreCase))
+            ? stored
+            : GetDefaultConfig();
+
+        SetConfigNameForInstance(instanceId, resolved, persist: true);
+        return resolved;
+    }
+
+    public static void SetConfigNameForInstance(string instanceId, string? name, bool persist = true)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId))
             return;
 
-        if (ConfigName.Equals(name, StringComparison.OrdinalIgnoreCase))
+        var resolved = string.IsNullOrWhiteSpace(name) ? GetDefaultConfig() : name!;
+        if (!Configs.Any(c => c.Name.Equals(resolved, StringComparison.OrdinalIgnoreCase)))
+        {
+            resolved = GetDefaultConfig();
+        }
+
+        lock (_instanceConfigLock)
+        {
+            _instanceConfigMap[instanceId] = resolved;
+        }
+
+        if (persist)
+        {
+            var key = string.Format(ConfigurationKeys.InstanceConfigTemplate, instanceId);
+            GlobalConfiguration.SetValue(key, resolved);
+        }
+    }
+
+    public static void SetCurrentForInstance(string instanceId)
+    {
+        var configName = GetConfigNameForInstance(instanceId);
+        var config = GetConfigByName(configName);
+        ConfigName = config.Name;
+        Current = config;
+    }
+
+    public static bool IsSwitching
+    {
+        get
+        {
+            if (!MaaProcessorManager.IsInstanceCreated || MaaProcessorManager.Instance.Current == null)
+            {
+                return false;
+            }
+
+            return IsSwitchingForInstance(MaaProcessorManager.Instance.Current.InstanceId);
+        }
+    }
+
+    public static bool IsSwitchingForInstance(string instanceId)
+    {
+        lock (_switchLock)
+        {
+            return _switchingInstances.Contains(instanceId);
+        }
+    }
+
+    public static bool IsConfigInUse(string configName)
+    {
+        if (!MaaProcessorManager.IsInstanceCreated)
+        {
+            return false;
+        }
+
+        return MaaProcessorManager.Instance.Instances
+            .Any(p => string.Equals(GetConfigNameForInstance(p.InstanceId), configName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsConfigLockedForInstance(string instanceId)
+    {
+        var configName = GetConfigNameForInstance(instanceId);
+        return IsConfigLockedForConfigName(configName, instanceId);
+    }
+
+    public static bool IsConfigLockedForConfigName(string configName, string? excludeInstanceId = null)
+    {
+        if (!MaaProcessorManager.IsInstanceCreated)
+        {
+            return false;
+        }
+
+        return MaaProcessor.Processors.Any(p =>
+            p.TaskQueue.Count > 0
+            && !string.Equals(p.InstanceId, excludeInstanceId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(GetConfigNameForInstance(p.InstanceId), configName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool TrySetConfigValueForInstance(string instanceId, string key, object? value)
+    {
+        if (ConfigurationKeys.IsInstanceScoped(key))
+        {
+            GetInstanceConfiguration(instanceId).SetValue(key, value);
+            return true;
+        }
+
+        if (IsConfigLockedForInstance(instanceId))
+        {
+            return false;
+        }
+
+        GetConfigForInstance(instanceId).SetValue(key, value);
+        return true;
+    }
+
+    public static bool TrySetActiveConfigValue(string key, object? value)
+    {
+        if (!MaaProcessorManager.IsInstanceCreated || MaaProcessorManager.Instance.Current == null)
+        {
+            return false;
+        }
+
+        return TrySetConfigValueForInstance(MaaProcessorManager.Instance.Current.InstanceId, key, value);
+    }
+
+    public static Dictionary<string, object?> GetInstanceData(string instanceId)
+    {
+        var data = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(instanceId))
+        {
+            return data;
+        }
+
+        var config = GetConfigForInstance(instanceId);
+        var prefix = $"Instance.{instanceId}.";
+        var legacyPrefix = $"instance.{instanceId}.";
+
+        foreach (var kvp in config.Config)
+        {
+            if (kvp.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                var suffix = kvp.Key.Substring(prefix.Length);
+                if (!data.ContainsKey(suffix))
+                {
+                    data[suffix] = kvp.Value;
+                }
+                continue;
+            }
+
+            if (kvp.Key.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                var suffix = kvp.Key.Substring(legacyPrefix.Length);
+                if (!data.ContainsKey(suffix))
+                {
+                    data[suffix] = kvp.Value;
+                }
+            }
+        }
+
+        return data;
+    }
+
+    public static void ApplyInstanceData(string instanceId, IDictionary<string, object?> data, bool clearExisting = true)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId))
+        {
+            return;
+        }
+
+        var config = GetConfigForInstance(instanceId);
+        var prefix = $"Instance.{instanceId}.";
+        var legacyPrefix = $"instance.{instanceId}.";
+
+        if (clearExisting)
+        {
+            var keysToRemove = config.Config.Keys
+                .Where(key => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                              || key.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var key in keysToRemove)
+            {
+                config.Config.Remove(key);
+            }
+        }
+
+        foreach (var kvp in data)
+        {
+            if (string.IsNullOrWhiteSpace(kvp.Key))
+            {
+                continue;
+            }
+
+            if (kvp.Value == null)
+            {
+                continue;
+            }
+
+            config.Config[$"{prefix}{kvp.Key}"] = kvp.Value;
+        }
+
+        SaveConfigFile(config);
+    }
+
+    public static void RemoveInstanceKeys(string instanceId)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId))
+        {
+            return;
+        }
+
+        var prefix = $"Instance.{instanceId}.";
+        var legacyPrefix = $"instance.{instanceId}.";
+
+        foreach (var config in Configs)
+        {
+            config.RemoveKeysByPrefix(prefix, StringComparison.Ordinal);
+            config.RemoveKeysByPrefix(legacyPrefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        GlobalConfiguration.RemoveKey(string.Format(ConfigurationKeys.InstanceConfigTemplate, instanceId));
+    }
+
+    public static int CleanupInstanceKeys(IEnumerable<string> validInstanceIds)
+    {
+        var valid = new HashSet<string>(validInstanceIds, StringComparer.OrdinalIgnoreCase);
+        var totalRemoved = 0;
+
+        foreach (var config in Configs)
+        {
+            var keysToRemove = config.Config.Keys
+                .Where(key => TryGetInstanceIdFromKey(key, out var instanceId)
+                              && !valid.Contains(instanceId))
+                .ToList();
+
+            if (keysToRemove.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var key in keysToRemove)
+            {
+                config.Config.Remove(key);
+            }
+
+            SaveConfigFile(config);
+            totalRemoved += keysToRemove.Count;
+        }
+
+        return totalRemoved;
+    }
+
+    private static bool TryGetInstanceIdFromKey(string key, out string instanceId)
+    {
+        instanceId = string.Empty;
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return false;
+        }
+
+        string prefix;
+        if (key.StartsWith("Instance.", StringComparison.Ordinal))
+        {
+            prefix = "Instance.";
+        }
+        else if (key.StartsWith("instance.", StringComparison.OrdinalIgnoreCase))
+        {
+            prefix = key.StartsWith("instance.", StringComparison.Ordinal)
+                ? "instance."
+                : "Instance.";
+        }
+        else
+        {
+            return false;
+        }
+
+        var rest = key.Substring(prefix.Length);
+        var dotIndex = rest.IndexOf('.');
+        if (dotIndex <= 0)
+        {
+            return false;
+        }
+
+        instanceId = rest.Substring(0, dotIndex);
+        return !string.IsNullOrWhiteSpace(instanceId);
+    }
+
+    private static void SaveConfigFile(MFAConfiguration config)
+    {
+        JsonHelper.SaveConfig(config.FileName, config.Config,
+            new MaaInterfaceSelectAdvancedConverter(false), new MaaInterfaceSelectOptionConverter(false));
+    }
+
+    public static void SwitchConfiguration(string? name)
+    {
+        if (!MaaProcessorManager.IsInstanceCreated || MaaProcessorManager.Instance.Current == null)
+        {
+            return;
+        }
+
+        SwitchConfigurationForInstance(MaaProcessorManager.Instance.Current.InstanceId, name);
+    }
+
+    public static void SwitchConfigurationForInstance(string instanceId, string? name)
+    {
+        _ = SwitchConfigurationForInstanceAsync(instanceId, name);
+    }
+
+    private static async Task SwitchConfigurationForInstanceAsync(string instanceId, string? name)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId) || string.IsNullOrWhiteSpace(name))
+            return;
+
+        var currentName = GetConfigNameForInstance(instanceId);
+        if (currentName.Equals(name, StringComparison.OrdinalIgnoreCase))
             return;
 
         if (!Configs.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
@@ -66,98 +415,155 @@ public static class ConfigurationManager
             return;
         }
 
-        if (MaaProcessorManager.Instance.Instances.Count > 1)
+        if (!TryBeginSwitch(instanceId, name))
         {
-            ToastHelper.Warn("多实例模式下不允许切换配置");
-            LoggerHelper.Warning("多实例模式下不允许切换配置");
-            DispatcherHelper.PostOnMainThread(() =>
-            {
-                if (Instances.IsResolved<ViewModels.Pages.SettingsViewModel>())
-                {
-                    Instances.SettingsViewModel.RefreshCurrentConfiguration();
-                }
-
-                var taskVm = Instances.InstanceTabBarViewModel.ActiveTab?.TaskQueueViewModel;
-                if (taskVm != null)
-                {
-                    taskVm.CurrentConfiguration = GetCurrentConfiguration();
-                }
-            });
             return;
         }
 
-        lock (_switchLock)
+        if (!MaaProcessorManager.IsInstanceCreated
+            || !MaaProcessorManager.Instance.TryGetInstance(instanceId, out var instanceProcessor))
         {
-            if (IsSwitching)
-            {
-                _pendingSwitchName = name;
-                return;
-            }
-            IsSwitching = true;
+            EndSwitch(instanceId);
+            return;
         }
 
-        if (Instances.RootViewModel.IsRunning)
+        var isActiveInstance = MaaProcessorManager.Instance.Current != null
+            && MaaProcessorManager.Instance.Current.InstanceId.Equals(instanceId, StringComparison.OrdinalIgnoreCase);
+
+        if (IsInstanceRunning(instanceId))
         {
             ToastHelper.Warn(LangKeys.SwitchConfiguration.ToLocalization());
-            lock (_switchLock)
-            {
-                IsSwitching = false;
-            }
+            ResetConfigSwitchSelection(instanceId, currentName, isActiveInstance);
+            EndSwitch(instanceId);
             return;
         }
 
-        await DispatcherHelper.RunOnMainThreadAsync(() =>
+        if (isActiveInstance)
         {
-            Instances.RootViewModel.SetConfigSwitchingState(true);
-            Instances.RootViewModel.SetConfigSwitchProgress(5);
-        });
-        await Task.Run(() => MaaProcessorManager.Instance.Current.SetTasker());
+            await DispatcherHelper.RunOnMainThreadAsync(() =>
+            {
+                Instances.RootViewModel.SetConfigSwitchingState(true);
+                Instances.RootViewModel.SetConfigSwitchProgress(5);
+            });
+        }
+
+        await Task.Run(() => instanceProcessor.SetTasker());
+
         await Task.Delay(60);
 
         try
         {
-            DispatcherHelper.PostOnMainThread(() => Instances.RootViewModel.SetConfigSwitchProgress(25));
+            if (isActiveInstance)
+            {
+                DispatcherHelper.PostOnMainThread(() => Instances.RootViewModel.SetConfigSwitchProgress(25));
+            }
 
             var config = Configs.First(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             var configData = await Task.Run(() => JsonHelper.LoadConfig(config.FileName, new Dictionary<string, object>()));
 
             await DispatcherHelper.RunOnMainThreadAsync(() =>
             {
-                SetDefaultConfig(name);
-                ConfigName = name;
+                if (isActiveInstance)
+                {
+                    SetDefaultConfig(name);
+                }
+
                 config.SetConfig(configData);
-                Current = config;
-                Instances.RootViewModel.SetConfigSwitchProgress(55);
+                SetConfigNameForInstance(instanceId, name, persist: true);
+
+                if (isActiveInstance)
+                {
+                    SetCurrentForInstance(instanceId);
+                    Instances.RootViewModel.SetConfigSwitchProgress(55);
+                }
             });
 
-            await DispatcherHelper.RunOnMainThreadAsync(() => ConfigurationSwitched?.Invoke(name));
-            await Instances.ReloadConfigurationForSwitchAsync();
+            await DispatcherHelper.RunOnMainThreadAsync(() => ConfigurationSwitched?.Invoke(instanceId, name));
 
-            DispatcherHelper.PostOnMainThread(() => Instances.RootViewModel.SetConfigSwitchProgress(98));
+            if (isActiveInstance)
+            {
+                await Instances.ReloadConfigurationForSwitchAsync();
+                DispatcherHelper.PostOnMainThread(() => Instances.RootViewModel.SetConfigSwitchProgress(98));
+            }
+            else
+            {
+                var taskVm = instanceProcessor.ViewModel ?? MaaProcessorManager.Instance.GetViewModel(instanceId);
+                taskVm.CurrentConfiguration = name;
+                taskVm.ReloadForConfigSwitch();
+            }
         }
         finally
         {
-            await DispatcherHelper.RunOnMainThreadAsync(() => Instances.RootViewModel.SetConfigSwitchProgress(100));
-            await Task.Delay(120);
-            DispatcherHelper.PostOnMainThread(() => Instances.RootViewModel.SetConfigSwitchingState(false));
-
-            lock (_switchLock)
+            if (isActiveInstance)
             {
-                IsSwitching = false;
+                await DispatcherHelper.RunOnMainThreadAsync(() => Instances.RootViewModel.SetConfigSwitchProgress(100));
+                await Task.Delay(120);
+                DispatcherHelper.PostOnMainThread(() => Instances.RootViewModel.SetConfigSwitchingState(false));
             }
+
+            EndSwitch(instanceId);
         }
 
         string? pending;
         lock (_switchLock)
         {
-            pending = _pendingSwitchName;
-            _pendingSwitchName = null;
+            _pendingSwitchName.TryGetValue(instanceId, out pending);
+            _pendingSwitchName.Remove(instanceId);
         }
 
-        if (!string.IsNullOrWhiteSpace(pending) && !pending.Equals(ConfigName, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(pending)
+            && !pending.Equals(GetConfigNameForInstance(instanceId), StringComparison.OrdinalIgnoreCase))
         {
-            await SwitchConfigurationAsync(pending);
+            await SwitchConfigurationForInstanceAsync(instanceId, pending);
         }
+    }
+
+    private static bool TryBeginSwitch(string instanceId, string? pendingName)
+    {
+        lock (_switchLock)
+        {
+            if (_switchingInstances.Contains(instanceId))
+            {
+                _pendingSwitchName[instanceId] = pendingName;
+                return false;
+            }
+
+            _switchingInstances.Add(instanceId);
+            return true;
+        }
+    }
+
+    private static void EndSwitch(string instanceId)
+    {
+        lock (_switchLock)
+        {
+            _switchingInstances.Remove(instanceId);
+        }
+    }
+
+    private static bool IsInstanceRunning(string instanceId)
+    {
+        if (!MaaProcessorManager.IsInstanceCreated)
+        {
+            return false;
+        }
+
+        return MaaProcessorManager.Instance.TryGetInstance(instanceId, out var processor)
+               && processor.TaskQueue.Count > 0;
+    }
+
+    private static void ResetConfigSwitchSelection(string instanceId, string currentName, bool isActiveInstance)
+    {
+        DispatcherHelper.PostOnMainThread(() =>
+        {
+            if (isActiveInstance && Instances.IsResolved<ViewModels.Pages.SettingsViewModel>())
+            {
+                Instances.SettingsViewModel.RefreshCurrentConfiguration();
+            }
+
+            var taskVm = MaaProcessorManager.Instance.GetViewModel(instanceId);
+            taskVm.CurrentConfiguration = currentName;
+        });
     }
 
     public static void SetDefaultConfig(string? name)

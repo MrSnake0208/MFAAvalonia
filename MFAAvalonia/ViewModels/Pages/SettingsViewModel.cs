@@ -53,7 +53,10 @@ public partial class SettingsViewModel : ViewModelBase
 
     partial void OnCurrentConfigurationChanged(string value)
     {
-        ConfigurationManager.SwitchConfiguration(value);
+        if (MaaProcessorManager.IsInstanceCreated && MaaProcessorManager.Instance.Current != null)
+        {
+            ConfigurationManager.SwitchConfigurationForInstance(MaaProcessorManager.Instance.Current.InstanceId, value);
+        }
     }
 
     public void RefreshCurrentConfiguration()

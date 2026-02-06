@@ -991,7 +991,7 @@
         <value>自定義配置選擇</value>
     </data>
     <data name="TimerCustomConfigTip" xml:space="preserve">
-        <value>將提前兩分鐘重開並切換配置</value>
+        <value>將提前兩分鐘停止當前實例任務並切換配置</value>
     </data>
     <data name="Tip" xml:space="preserve">
         <value>提示</value>
@@ -1196,6 +1196,30 @@
     </data>
     <data name="ExportLog" xml:space="preserve">
         <value>導出日誌</value>
+    </data>
+    <data name="ExportInstanceProfile" xml:space="preserve">
+        <value>匯出實例設定</value>
+    </data>
+    <data name="DuplicateInstance" xml:space="preserve">
+        <value>複製實例</value>
+    </data>
+    <data name="ImportInstanceProfile" xml:space="preserve">
+        <value>匯入實例設定</value>
+    </data>
+    <data name="ImportInstanceProfileConfirm" xml:space="preserve">
+        <value>實例正在執行，是否停止後匯入？</value>
+    </data>
+    <data name="InstanceActions" xml:space="preserve">
+        <value>實例操作</value>
+    </data>
+    <data name="InstanceProfileCopied" xml:space="preserve">
+        <value>實例已複製</value>
+    </data>
+    <data name="InstanceProfileExported" xml:space="preserve">
+        <value>實例設定已匯出</value>
+    </data>
+    <data name="InstanceProfileImported" xml:space="preserve">
+        <value>實例設定已匯入</value>
     </data>
     <data name="ClearCache" xml:space="preserve">
         <value>清理快取</value>

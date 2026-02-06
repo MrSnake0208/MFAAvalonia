@@ -306,7 +306,7 @@ public partial class RootView : SukiWindow
                         // Instances.RootViewModel.LockController = (MaaProcessor.Interface?.Controller?.Count ?? 0) == 1
                         //     && Instances.TaskQueueViewModel.SelectedController != null;
 
-                        ConfigurationManager.Current.SetValue(ConfigurationKeys.EnableEdit, ConfigurationManager.Current.GetValue(ConfigurationKeys.EnableEdit, false));
+                        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.EnableEdit, ConfigurationManager.Current.GetValue(ConfigurationKeys.EnableEdit, false));
                         DragItemViewModel? tempTask = null;
                         foreach (var task in vm.TaskItemViewModels)
                         {
@@ -624,20 +624,20 @@ public partial class RootView : SukiWindow
         {
             // 保存最大化状态
             bool isMaximized = WindowState == WindowState.Maximized;
-            ConfigurationManager.Current.SetValue(ConfigurationKeys.MainWindowMaximized, isMaximized.ToString().ToLower());
+            ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.MainWindowMaximized, isMaximized.ToString().ToLower());
 
             // 保存缓存的窗口大小
             if (_lastValidWidth > 100 && _lastValidHeight > 100)
             {
-                ConfigurationManager.Current.SetValue(ConfigurationKeys.MainWindowWidth, _lastValidWidth.ToString());
-                ConfigurationManager.Current.SetValue(ConfigurationKeys.MainWindowHeight, _lastValidHeight.ToString());
+                ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.MainWindowWidth, _lastValidWidth.ToString());
+                ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.MainWindowHeight, _lastValidHeight.ToString());
             }
 
             // 保存缓存的窗口位置
             if (_hasValidPosition)
             {
-                ConfigurationManager.Current.SetValue(ConfigurationKeys.MainWindowPositionX, _lastValidPosition.X.ToString());
-                ConfigurationManager.Current.SetValue(ConfigurationKeys.MainWindowPositionY, _lastValidPosition.Y.ToString());
+                ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.MainWindowPositionX, _lastValidPosition.X.ToString());
+                ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.MainWindowPositionY, _lastValidPosition.Y.ToString());
             }
         }
         catch (Exception ex)

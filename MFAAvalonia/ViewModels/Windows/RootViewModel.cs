@@ -16,16 +16,29 @@ public partial class RootViewModel : ViewModelBase
     protected override void Initialize()
     {
         CheckDebug();
+        RefreshConfigReadOnly();
     }
 
     [ObservableProperty] private bool _idle = true;
     [ObservableProperty] private bool _isWindowVisible = true;
 
     [ObservableProperty] private bool _isRunning;
+    [ObservableProperty] private bool _isConfigReadOnly;
 
     partial void OnIsRunningChanged(bool value)
     {
         Idle = !value;
+    }
+
+    public void RefreshConfigReadOnly()
+    {
+        if (!MaaProcessorManager.IsInstanceCreated || MaaProcessorManager.Instance.Current == null)
+        {
+            IsConfigReadOnly = false;
+            return;
+        }
+
+        IsConfigReadOnly = ConfigurationManager.IsConfigLockedForInstance(MaaProcessorManager.Instance.Current.InstanceId);
     }
 
     public static string Version

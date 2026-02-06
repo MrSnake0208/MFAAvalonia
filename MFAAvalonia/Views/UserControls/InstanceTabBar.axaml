@@ -5,6 +5,8 @@
              xmlns:other="clr-namespace:MFAAvalonia.ViewModels.Other"
              xmlns:suki="https://github.com/kikipoulet/SukiUI"
              xmlns:avalonia1="clr-namespace:FluentIcons.Avalonia;assembly=FluentIcons.Avalonia"
+             xmlns:helper="clr-namespace:MFAAvalonia.Helper"
+             xmlns:markup="https://codewf.com"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="50"
              x:Class="MFAAvalonia.Views.UserControls.InstanceTabBar"
              x:DataType="other:InstanceTabBarViewModel">
@@ -68,10 +70,20 @@
                                 PointerPressed="OnTabPointerPressed">
                             <Border.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="重命名" 
+                                    <MenuItem Header="{markup:I18n {x:Static helper:LangKeys.DuplicateInstance}}"
+                                              Command="{Binding $parent[UserControl].((other:InstanceTabBarViewModel)DataContext).DuplicateInstanceCommand}"
+                                              CommandParameter="{Binding .}"/>
+                                    <MenuItem Header="{markup:I18n {x:Static helper:LangKeys.ExportInstanceProfile}}"
+                                              Command="{Binding $parent[UserControl].((other:InstanceTabBarViewModel)DataContext).ExportInstanceProfileCommand}"
+                                              CommandParameter="{Binding .}"/>
+                                    <MenuItem Header="{markup:I18n {x:Static helper:LangKeys.ImportInstanceProfile}}"
+                                              Command="{Binding $parent[UserControl].((other:InstanceTabBarViewModel)DataContext).ImportInstanceProfileCommand}"
+                                              CommandParameter="{Binding .}"/>
+                                    <Separator/>
+                                    <MenuItem Header="{markup:I18n {x:Static helper:LangKeys.TaskRename}}" 
                                               Command="{Binding $parent[UserControl].((other:InstanceTabBarViewModel)DataContext).RenameInstanceCommand}"
                                               CommandParameter="{Binding .}"/>
-                                    <MenuItem Header="关闭" 
+                                    <MenuItem Header="{markup:I18n {x:Static helper:LangKeys.Close}}" 
                                               Command="{Binding $parent[UserControl].((other:InstanceTabBarViewModel)DataContext).CloseInstanceCommand}"
                                               CommandParameter="{Binding .}"/>
                                 </ContextMenu>

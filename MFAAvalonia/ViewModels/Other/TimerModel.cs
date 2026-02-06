@@ -15,6 +15,8 @@ public partial class TimerModel : ViewModelBase
     private readonly TaskQueueViewModel _vm;
     private readonly InstanceConfiguration _config;
     private readonly DispatcherTimer _dispatcherTimer;
+    private readonly DateTime?[] _lastPreSwitchTimes = new DateTime?[8];
+    private readonly DateTime?[] _lastTriggerTimes = new DateTime?[8];
 
     public TimerProperties[] Timers { get; set; } = new TimerProperties[8];
 
@@ -50,39 +52,78 @@ public partial class TimerModel : ViewModelBase
         _dispatcherTimer.Start();
     }
 
+    public void ReloadFromConfig()
+    {
+        CustomConfig = Convert.ToBoolean(_config.GetValue(ConfigurationKeys.CustomConfig, bool.FalseString));
+        ForceScheduledStart = Convert.ToBoolean(_config.GetValue(ConfigurationKeys.ForceScheduledStart, bool.FalseString));
+
+        Array.Fill(_lastPreSwitchTimes, null);
+        Array.Fill(_lastTriggerTimes, null);
+
+        foreach (var timer in Timers)
+        {
+            timer.ReloadFromConfig();
+        }
+    }
+
     private void CheckTimerElapsed(object? sender, EventArgs e)
     {
         var currentTime = DateTime.Now;
         foreach (var timer in Timers)
         {
-            if (timer.IsOn
-                && timer.Time.Hours == currentTime.Hour
-                && timer.Time.Minutes == currentTime.Minute
-                && timer.ScheduleConfig.ShouldTrigger(currentTime))
+            if (!timer.IsOn)
+                continue;
+
+            var nextOccurrence = GetNextOccurrence(currentTime, timer.ScheduleConfig, timer.Time);
+            if (nextOccurrence == null)
+                continue;
+
+            var scheduledTime = nextOccurrence.Value;
+            var preSwitchTime = scheduledTime.AddMinutes(-2);
+
+            if (IsSameMinute(currentTime, preSwitchTime)
+                && !IsSameMinute(_lastPreSwitchTimes[timer.TimerId], preSwitchTime))
             {
-                ExecuteTimerTask(timer.TimerId);
+                _lastPreSwitchTimes[timer.TimerId] = preSwitchTime;
+                TryPreSwitch(timer);
             }
-            if (timer.IsOn
-                && timer.Time.Hours == currentTime.Hour
-                && timer.Time.Minutes == currentTime.Minute + 2
-                && timer.ScheduleConfig.ShouldTrigger(currentTime))
+
+            if (IsSameMinute(currentTime, scheduledTime)
+                && !IsSameMinute(_lastTriggerTimes[timer.TimerId], scheduledTime))
             {
-                SwitchConfiguration(timer.TimerId);
+                _lastTriggerTimes[timer.TimerId] = scheduledTime;
+                ExecuteTimerTask(timer.TimerId);
             }
         }
     }
 
-    private void SwitchConfiguration(int timerId)
+    private void TryPreSwitch(TimerProperties timer)
     {
-        var timer = Timers.FirstOrDefault(t => t.TimerId == timerId, null);
-        if (timer != null)
+        if (!CustomConfig)
         {
-            var config = timer.TimerConfig ?? ConfigurationManager.GetCurrentConfiguration();
-            if (config != ConfigurationManager.GetCurrentConfiguration())
-            {
-                ConfigurationManager.SwitchConfiguration(config);
-            }
+            return;
         }
+
+        var instanceId = _vm.Processor.InstanceId;
+        var targetConfig = timer.TimerConfig ?? ConfigurationManager.GetConfigNameForInstance(instanceId);
+        var currentConfig = ConfigurationManager.GetConfigNameForInstance(instanceId);
+        if (string.Equals(targetConfig, currentConfig, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (_vm.IsRunning)
+        {
+            if (!ForceScheduledStart)
+            {
+                return;
+            }
+
+            _vm.StopTask(() => ConfigurationManager.SwitchConfigurationForInstance(instanceId, targetConfig));
+            return;
+        }
+
+        ConfigurationManager.SwitchConfigurationForInstance(instanceId, targetConfig);
     }
 
     private void ExecuteTimerTask(int timerId)
@@ -91,10 +132,93 @@ public partial class TimerModel : ViewModelBase
         if (timer != null)
         {
             // Use _vm directly, no need to check ActiveTab
-            if (ForceScheduledStart && Instances.RootViewModel.IsRunning)
+            if (ForceScheduledStart && _vm.IsRunning)
                 _vm.StopTask(_vm.StartTask);
             else
                 _vm.StartTask();
+        }
+    }
+
+    private static bool IsSameMinute(DateTime now, DateTime target)
+    {
+        return now.Year == target.Year
+               && now.Month == target.Month
+               && now.Day == target.Day
+               && now.Hour == target.Hour
+               && now.Minute == target.Minute;
+    }
+
+    private static bool IsSameMinute(DateTime? value, DateTime target)
+    {
+        return value.HasValue && IsSameMinute(value.Value, target);
+    }
+
+    private static DateTime? GetNextOccurrence(DateTime now, TimerScheduleConfig schedule, TimeSpan time)
+    {
+        var currentMinute = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
+
+        switch (schedule.ScheduleType)
+        {
+            case TimerScheduleType.Daily:
+            {
+                var candidate = now.Date.Add(time);
+                if (candidate < currentMinute)
+                {
+                    candidate = candidate.AddDays(1);
+                }
+
+                return candidate;
+            }
+            case TimerScheduleType.Weekly:
+            {
+                if (schedule.SelectedDaysOfWeek.Count == 0)
+                {
+                    return null;
+                }
+
+                for (var i = 0; i < 14; i++)
+                {
+                    var date = now.Date.AddDays(i);
+                    if (!schedule.SelectedDaysOfWeek.Contains(date.DayOfWeek))
+                    {
+                        continue;
+                    }
+
+                    var candidate = date.Add(time);
+                    if (candidate >= currentMinute)
+                    {
+                        return candidate;
+                    }
+                }
+
+                return null;
+            }
+            case TimerScheduleType.Monthly:
+            {
+                if (schedule.SelectedDaysOfMonth.Count == 0)
+                {
+                    return null;
+                }
+
+                for (var i = 0; i < 366; i++)
+                {
+                    var date = now.Date.AddDays(i);
+                    if (!schedule.SelectedDaysOfMonth.Contains(date.Day))
+                    {
+                        continue;
+                    }
+
+                    var candidate = date.Add(time);
+                    if (candidate >= currentMinute)
+                    {
+                        return candidate;
+                    }
+                }
+
+                return null;
+            }
+            default:
+                return null;
         }
     }
 
@@ -112,10 +236,11 @@ public partial class TimerModel : ViewModelBase
             _isOn = _config.GetValue($"Timer.Timer{timeId + 1}", bool.FalseString) == bool.TrueString;
             _time = TimeSpan.Parse(_config.GetValue($"Timer.Timer{timeId + 1}Time", $"{timeId * 3}:0"));
             
-            var timerConfig = _config.GetValue($"Timer.Timer{timeId + 1}.Config", ConfigurationManager.GetCurrentConfiguration());
+            var defaultConfig = ConfigurationManager.GetConfigNameForInstance(_parent._vm.Processor.InstanceId);
+            var timerConfig = _config.GetValue($"Timer.Timer{timeId + 1}.Config", defaultConfig);
             if (timerConfig == null || !ConfigurationManager.Configs.Any(c => c.Name.Equals(timerConfig)))
             {
-                _timerConfig = ConfigurationManager.GetCurrentConfiguration();
+                _timerConfig = defaultConfig;
             }
             else
             {
@@ -165,7 +290,8 @@ public partial class TimerModel : ViewModelBase
             get => _timerConfig;
             set
             {
-                SetProperty(ref _timerConfig, value ?? ConfigurationManager.GetCurrentConfiguration());
+                var defaultConfig = ConfigurationManager.GetConfigNameForInstance(_parent._vm.Processor.InstanceId);
+                SetProperty(ref _timerConfig, value ?? defaultConfig);
                 _config.SetValue($"Timer.Timer{TimerId + 1}.Config", _timerConfig);
             }
         }
@@ -187,6 +313,28 @@ public partial class TimerModel : ViewModelBase
         public void UpdateScheduleConfig()
         {
             _config.SetValue($"Timer.Timer{TimerId + 1}.Schedule", _scheduleConfig.Serialize());
+            OnPropertyChanged(nameof(ScheduleDisplayText));
+        }
+
+        public void ReloadFromConfig()
+        {
+            var isOn = _config.GetValue($"Timer.Timer{TimerId + 1}", bool.FalseString) == bool.TrueString;
+            SetProperty(ref _isOn, isOn);
+
+            var time = TimeSpan.Parse(_config.GetValue($"Timer.Timer{TimerId + 1}Time", $"{TimerId * 3}:0"));
+            SetProperty(ref _time, time);
+
+            var defaultConfig = ConfigurationManager.GetConfigNameForInstance(_parent._vm.Processor.InstanceId);
+            var timerConfig = _config.GetValue($"Timer.Timer{TimerId + 1}.Config", defaultConfig);
+            if (timerConfig == null || !ConfigurationManager.Configs.Any(c => c.Name.Equals(timerConfig)))
+            {
+                timerConfig = defaultConfig;
+            }
+
+            SetProperty(ref _timerConfig, timerConfig);
+
+            var schedule = new TimerScheduleConfig(_config.GetValue($"Timer.Timer{TimerId + 1}.Schedule", string.Empty));
+            SetNewProperty(ref _scheduleConfig, schedule);
             OnPropertyChanged(nameof(ScheduleDisplayText));
         }
     }

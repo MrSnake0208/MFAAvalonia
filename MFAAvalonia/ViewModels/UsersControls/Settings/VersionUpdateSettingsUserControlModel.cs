@@ -174,7 +174,7 @@ public partial class VersionUpdateSettingsUserControlModel : ViewModelBase
 
     partial void OnDownloadSourceIndexChanged(int value)
     {
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.DownloadSourceIndex, value);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.DownloadSourceIndex, value);
     }
 
     public ObservableCollection<LocalizationViewModel> UIUpdateChannelList =>
@@ -188,7 +188,7 @@ public partial class VersionUpdateSettingsUserControlModel : ViewModelBase
 
     partial void OnUIUpdateChannelIndexChanged(int value)
     {
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.UIUpdateChannelIndex, value);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.UIUpdateChannelIndex, value);
     }
 
     public ObservableCollection<LocalizationViewModel> ResourceUpdateChannelList =>
@@ -222,17 +222,17 @@ public partial class VersionUpdateSettingsUserControlModel : ViewModelBase
 
     partial void OnEnableCheckVersionChanged(bool value)
     {
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.EnableCheckVersion, value);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.EnableCheckVersion, value);
     }
 
     partial void OnEnableAutoUpdateResourceChanged(bool value)
     {
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.EnableAutoUpdateResource, value);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.EnableAutoUpdateResource, value);
     }
 
     partial void OnEnableAutoUpdateMFAChanged(bool value)
     {
-        ConfigurationManager.Current.SetValue(ConfigurationKeys.EnableAutoUpdateMFA, value);
+        ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.EnableAutoUpdateMFA, value);
     }
     [ObservableProperty] private string _proxyAddress = ConfigurationManager.Current.GetValue(ConfigurationKeys.ProxyAddress, string.Empty);
     [ObservableProperty] private UpdateProxyType _proxyType = ConfigurationManager.Current.GetValue(ConfigurationKeys.ProxyType, UpdateProxyType.Http, UpdateProxyType.Http, new UniversalEnumConverter<UpdateProxyType>());

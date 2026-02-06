@@ -411,6 +411,14 @@ public static class LangKeys
 	public static readonly string AlphaVersion = "AlphaVersion";
 	public static readonly string UIUpdateChannel = "UIUpdateChannel";
 	public static readonly string ExportLog = "ExportLog";
+	public static readonly string ExportInstanceProfile = "ExportInstanceProfile";
+	public static readonly string DuplicateInstance = "DuplicateInstance";
+	public static readonly string ImportInstanceProfile = "ImportInstanceProfile";
+	public static readonly string ImportInstanceProfileConfirm = "ImportInstanceProfileConfirm";
+	public static readonly string InstanceActions = "InstanceActions";
+	public static readonly string InstanceProfileCopied = "InstanceProfileCopied";
+	public static readonly string InstanceProfileExported = "InstanceProfileExported";
+	public static readonly string InstanceProfileImported = "InstanceProfileImported";
 	public static readonly string ClearCache = "ClearCache";
 	public static readonly string ClearCacheSuccess = "ClearCacheSuccess";
 	public static readonly string ClearCacheFailed = "ClearCacheFailed";

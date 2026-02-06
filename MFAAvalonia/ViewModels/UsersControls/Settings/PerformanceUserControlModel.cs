@@ -93,7 +93,7 @@ public partial class PerformanceUserControlModel : ViewModelBase
                     });
                 }
                 GpuOptions.InsertRange(1, gpus);
-                ConfigurationManager.Current.SetValue(ConfigurationKeys.GPUs, GpuOptions);
+                ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.GPUs, GpuOptions);
                 MaaProcessorManager.Instance.Current.SetTasker();
             }
 #endif
@@ -116,7 +116,7 @@ public partial class PerformanceUserControlModel : ViewModelBase
                     GpuOptions.RemoveAt(1);
                 }
 
-                ConfigurationManager.Current.SetValue(ConfigurationKeys.GPUs, GpuOptions);
+                ConfigurationManager.TrySetActiveConfigValue(ConfigurationKeys.GPUs, GpuOptions);
             }
         }
 

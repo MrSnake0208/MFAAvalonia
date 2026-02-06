@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace MFAAvalonia.Configuration;
 
@@ -211,10 +212,41 @@ public static class ConfigurationKeys
         Prescript,
         Postscript,
         ContinueRunningWhenError,
-        UseSeparateScreenshotTasker
+        UseSeparateScreenshotTasker,
+        TaskQueueColumn1Width,
+        TaskQueueColumn2Width,
+        TaskQueueColumn3Width,
+        TaskQueueLeftPanelCollapsed,
+        TaskQueueRightPanelCollapsed,
+        TaskQueueDashboardLayout,
+        DashboardCardGridLayout,
+        DashboardCardGridResourceLayoutHash,
     };
 
-    public static bool IsInstanceScoped(string key) => InstanceScopedKeys.Contains(key);
+    private static readonly string[] InstanceScopedPrefixKeys =
+    [
+        TaskQueueDashboardLayout,
+        DashboardCardGridLayout,
+        DashboardCardGridResourceLayoutHash
+    ];
+
+    public static bool IsInstanceScoped(string key)
+    {
+        if (InstanceScopedKeys.Contains(key))
+        {
+            return true;
+        }
+
+        foreach (var prefix in InstanceScopedPrefixKeys)
+        {
+            if (key.StartsWith(prefix + ".", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     #endregion
 
@@ -231,6 +263,9 @@ public static class ConfigurationKeys
 
     /// <summary>实例名称模板：Instance.{id}.Name</summary>
     public const string InstanceNameTemplate = "Instance.{0}.Name";
+
+    /// <summary>实例配置模板：Instance.{id}.Config</summary>
+    public const string InstanceConfigTemplate = "Instance.{0}.Config";
 
     #endregion
 }

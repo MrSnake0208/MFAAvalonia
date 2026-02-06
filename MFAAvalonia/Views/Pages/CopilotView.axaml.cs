@@ -59,6 +59,7 @@ public partial class CopilotView : UserControl
     private TaskQueueViewModel? _currentTaskViewModel;
     private ObservableCollection<DragItemViewModel>? _currentTaskItems;
     private bool _isSettingsRenderQueued;
+    private bool _isCopilotRefreshQueued;
     public CopilotView()
     {
         // 兜底：在编译的 XAML 未刷新时（--no-build），仍确保 DataContext 正确
@@ -1014,7 +1015,32 @@ public partial class CopilotView : UserControl
         {
             QueueRenderDefaultTaskSettings();
             _ = (DataContext as CopilotViewModel)?.RefreshActiveJobAsync();
+            QueueRefreshCopilotList();
         }
+    }
+
+    private void QueueRefreshCopilotList()
+    {
+        if (_isCopilotRefreshQueued)
+        {
+            return;
+        }
+
+        _isCopilotRefreshQueued = true;
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                if (DataContext is CopilotViewModel vm)
+                {
+                    await vm.RefreshAsync();
+                }
+            }
+            finally
+            {
+                _isCopilotRefreshQueued = false;
+            }
+        }, DispatcherPriority.Background);
     }
 
     private void UpdateTopToolbarLayout(bool force = false)
@@ -1049,10 +1075,10 @@ public partial class CopilotView : UserControl
     {
         var deviceVisible = DeviceSelectorPanel?.IsVisible == true || DeviceSelectorPanelCompact?.IsVisible == true;
 
-        if (TopToolbarWide?.ColumnDefinitions.Count >= 7)
+        if (TopToolbarWide?.ColumnDefinitions.Count >= 5)
         {
-            TopToolbarWide.ColumnDefinitions[5].Width = deviceVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-            TopToolbarWide.ColumnDefinitions[4].Width = deviceVisible ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+            TopToolbarWide.ColumnDefinitions[3].Width = deviceVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+            TopToolbarWide.ColumnDefinitions[2].Width = deviceVisible ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
         }
 
         if (TopToolbarCompactRow2?.ColumnDefinitions.Count >= 3)

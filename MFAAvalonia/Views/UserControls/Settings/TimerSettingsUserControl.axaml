@@ -21,12 +21,6 @@
         <settings:TimerSettingsUserControlModel />
     </Design.DataContext>
     <StackPanel Spacing="8">
-        <TextBlock
-            FontWeight="SemiBold"
-            HorizontalAlignment="Center"
-            IsVisible="{calcBinding:Binding 'ConfigurationList > 0',
-                                            Source={x:Static helper:Instances.SettingsViewModel}}"
-            Text="{markup:I18n {x:Static helper:LangKeys.GlobalConfigTip}}" />
         <suki:GlassCard Padding="25">
             <StackPanel Spacing="20">
                 <DockPanel>
@@ -46,26 +40,6 @@
                             Foreground="{DynamicResource SukiLowText}"
                             Margin="0,12,70,0"
                             Text="{markup:I18n {x:Static helper:LangKeys.ForceScheduledStartTip}}"
-                            TextWrapping="Wrap" />
-                    </StackPanel>
-                </DockPanel>
-                <DockPanel>
-                    <ToggleSwitch
-                        Classes="Switch"
-                        DockPanel.Dock="Right"
-                        IsChecked="{Binding CustomConfig}"
-                        IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                        ToolTip.Tip="{markup:I18n {x:Static helper:LangKeys.TimerCustomConfigTip}}"
-                        VerticalAlignment="Top" />
-                    <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                        <TextBlock
-                            FontSize="16"
-                            FontWeight="DemiBold"
-                            Text="{markup:I18n {x:Static helper:LangKeys.TimerCustomConfig}}" />
-                        <TextBlock
-                            Foreground="{DynamicResource SukiLowText}"
-                            Margin="0,12,70,0"
-                            Text="{markup:I18n {x:Static helper:LangKeys.TimerCustomConfigTip}}"
                             TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>
@@ -112,26 +86,6 @@
                             <TextBlock
                                 FontSize="15"
                                 Text="{markup:I18n {x:Static helper:LangKeys.TriggerDate}}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel IsVisible="{Binding CustomConfig}">
-                        <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  DockPanel.Dock="Right"
-                                  Focusable="False"
-                                  HorizontalAlignment="Center"
-                                  IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                  ItemsSource="{Binding ConfigurationList}"
-                                  SelectedValue="{Binding TimerModels.Timers[0].TimerConfig}"
-                                  SelectedValueBinding="{Binding Name}"
-                                  ToolTip.Tip="{Binding TimerModels.Timers[0].TimerName}"
-                                  VerticalAlignment="Center"
-                                  Width="215" />
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="15"
-                                Text="{markup:I18n {x:Static helper:LangKeys.SelectedConfig}}"
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
@@ -182,26 +136,6 @@
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
-                    <DockPanel IsVisible="{Binding CustomConfig}">
-                        <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  DockPanel.Dock="Right"
-                                  Focusable="False"
-                                  HorizontalAlignment="Center"
-                                  IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                  ItemsSource="{Binding ConfigurationList}"
-                                  SelectedValue="{Binding TimerModels.Timers[1].TimerConfig}"
-                                  SelectedValueBinding="{Binding Name}"
-                                  ToolTip.Tip="{Binding TimerModels.Timers[1].TimerName}"
-                                  VerticalAlignment="Center"
-                                  Width="215" />
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="15"
-                                Text="{markup:I18n {x:Static helper:LangKeys.SelectedConfig}}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
                 </StackPanel>
             </StackPanel>
         </suki:GlassCard>
@@ -246,26 +180,6 @@
                             <TextBlock
                                 FontSize="15"
                                 Text="{markup:I18n {x:Static helper:LangKeys.TriggerDate}}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel IsVisible="{Binding CustomConfig}">
-                        <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  DockPanel.Dock="Right"
-                                  Focusable="False"
-                                  HorizontalAlignment="Center"
-                                  IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                  ItemsSource="{Binding ConfigurationList}"
-                                  SelectedValue="{Binding TimerModels.Timers[2].TimerConfig}"
-                                  SelectedValueBinding="{Binding Name}"
-                                  ToolTip.Tip="{Binding TimerModels.Timers[2].TimerName}"
-                                  VerticalAlignment="Center"
-                                  Width="215" />
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="15"
-                                Text="{markup:I18n {x:Static helper:LangKeys.SelectedConfig}}"
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
@@ -316,26 +230,6 @@
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
-                    <DockPanel IsVisible="{Binding CustomConfig}">
-                        <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  DockPanel.Dock="Right"
-                                  Focusable="False"
-                                  HorizontalAlignment="Center"
-                                  IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                  ItemsSource="{Binding ConfigurationList}"
-                                  SelectedValue="{Binding TimerModels.Timers[3].TimerConfig}"
-                                  SelectedValueBinding="{Binding Name}"
-                                  ToolTip.Tip="{Binding TimerModels.Timers[3].TimerName}"
-                                  VerticalAlignment="Center"
-                                  Width="215" />
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="15"
-                                Text="{markup:I18n {x:Static helper:LangKeys.SelectedConfig}}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
                 </StackPanel>
             </StackPanel>
         </suki:GlassCard>
@@ -380,26 +274,6 @@
                             <TextBlock
                                 FontSize="15"
                                 Text="{markup:I18n {x:Static helper:LangKeys.TriggerDate}}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel IsVisible="{Binding CustomConfig}">
-                        <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  DockPanel.Dock="Right"
-                                  Focusable="False"
-                                  HorizontalAlignment="Center"
-                                  IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                  ItemsSource="{Binding ConfigurationList}"
-                                  SelectedValue="{Binding TimerModels.Timers[4].TimerConfig}"
-                                  SelectedValueBinding="{Binding Name}"
-                                  ToolTip.Tip="{Binding TimerModels.Timers[4].TimerName}"
-                                  VerticalAlignment="Center"
-                                  Width="215" />
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="15"
-                                Text="{markup:I18n {x:Static helper:LangKeys.SelectedConfig}}"
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
@@ -450,26 +324,6 @@
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
-                    <DockPanel IsVisible="{Binding CustomConfig}">
-                        <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  DockPanel.Dock="Right"
-                                  Focusable="False"
-                                  HorizontalAlignment="Center"
-                                  IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                  ItemsSource="{Binding ConfigurationList}"
-                                  SelectedValue="{Binding TimerModels.Timers[5].TimerConfig}"
-                                  SelectedValueBinding="{Binding Name}"
-                                  ToolTip.Tip="{Binding TimerModels.Timers[5].TimerName}"
-                                  VerticalAlignment="Center"
-                                  Width="215" />
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="15"
-                                Text="{markup:I18n {x:Static helper:LangKeys.SelectedConfig}}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
                 </StackPanel>
             </StackPanel>
         </suki:GlassCard>
@@ -517,26 +371,6 @@
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
-                    <DockPanel IsVisible="{Binding CustomConfig}">
-                        <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  DockPanel.Dock="Right"
-                                  Focusable="False"
-                                  HorizontalAlignment="Center"
-                                  IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                  ItemsSource="{Binding ConfigurationList}"
-                                  SelectedValue="{Binding TimerModels.Timers[6].TimerConfig}"
-                                  SelectedValueBinding="{Binding Name}"
-                                  ToolTip.Tip="{Binding TimerModels.Timers[6].TimerName}"
-                                  VerticalAlignment="Center"
-                                  Width="215" />
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="15"
-                                Text="{markup:I18n {x:Static helper:LangKeys.SelectedConfig}}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
                 </StackPanel>
             </StackPanel>
         </suki:GlassCard>
@@ -581,26 +415,6 @@
                             <TextBlock
                                 FontSize="15"
                                 Text="{markup:I18n {x:Static helper:LangKeys.TriggerDate}}"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel IsVisible="{Binding CustomConfig}">
-                        <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  DockPanel.Dock="Right"
-                                  Focusable="False"
-                                  HorizontalAlignment="Center"
-                                  IsEnabled="{Binding Idle, Source={x:Static helper:Instances.RootViewModel}}"
-                                  ItemsSource="{Binding ConfigurationList}"
-                                  SelectedValue="{Binding TimerModels.Timers[7].TimerConfig}"
-                                  SelectedValueBinding="{Binding Name}"
-                                  ToolTip.Tip="{Binding TimerModels.Timers[7].TimerName}"
-                                  VerticalAlignment="Center"
-                                  Width="215" />
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="15"
-                                Text="{markup:I18n {x:Static helper:LangKeys.SelectedConfig}}"
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>

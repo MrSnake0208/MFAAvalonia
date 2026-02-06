@@ -68,6 +68,7 @@ public partial class TaskQueueView : UserControl
         {
             _subscribedViewModel.PropertyChanged -= OnTaskQueueViewModelPropertyChanged;
             _subscribedViewModel.SetOptionRequested -= OnSetOptionRequested;
+            _subscribedViewModel.LayoutReloadRequested -= OnLayoutReloadRequested;
         }
 
         _subscribedViewModel = newVm;
@@ -76,7 +77,13 @@ public partial class TaskQueueView : UserControl
         {
             _subscribedViewModel.PropertyChanged += OnTaskQueueViewModelPropertyChanged;
             _subscribedViewModel.SetOptionRequested += OnSetOptionRequested;
+            _subscribedViewModel.LayoutReloadRequested += OnLayoutReloadRequested;
         }
+    }
+
+    private void OnLayoutReloadRequested()
+    {
+        TaskQueueDashboardGrid?.ReloadLayoutFromConfig();
     }
 
 // private void UpdateDeviceSelectorLayout()
@@ -362,6 +369,22 @@ public partial class TaskQueueView : UserControl
                 vm.Processor.Start(tasksToRun);
             }
         }
+    }
+
+    private void OpenInstanceMenu(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control control)
+        {
+            return;
+        }
+
+        var menu = control.ContextMenu;
+        if (menu == null)
+        {
+            return;
+        }
+
+        menu.Open(control);
     }
 
     #endregion

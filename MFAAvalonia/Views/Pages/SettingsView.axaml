@@ -33,9 +33,6 @@
             <suki:SettingsLayout Name="SettingsLayout" ScrollAnimationSpeed="3" MinWidthWhetherStackSummaryShow="700" StackSummaryWidth="220">
                 <suki:SettingsLayout.Items>
                     <suki:SettingsLayoutItem
-                        Content="{extensions:ServiceProvider ServiceType={x:Type settings:ConfigurationMgrUserControl}}"
-                        Header="{markup:I18n {x:Static helper:LangKeys.SwitchConfiguration}}" />
-                    <suki:SettingsLayoutItem
                         Content="{extensions:ServiceProvider ServiceType={x:Type settings:TimerSettingsUserControl}}"
                         Header="{markup:I18n {x:Static helper:LangKeys.ScheduleSettings}}" />
                     <suki:SettingsLayoutItem

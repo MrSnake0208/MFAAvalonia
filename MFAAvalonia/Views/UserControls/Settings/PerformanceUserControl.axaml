@@ -12,11 +12,13 @@
     xmlns:settings="clr-namespace:MFAAvalonia.ViewModels.UsersControls.Settings"
     xmlns:suki="https://github.com/kikipoulet/SukiUI"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:extensions="clr-namespace:MFAAvalonia.Extensions">
+    xmlns:extensions="clr-namespace:MFAAvalonia.Extensions"
+    xmlns:calcBinding="clr-namespace:CalcBinding;assembly=CalcBindingAva">
     <Design.DataContext>
         <settings:PerformanceUserControlModel />
     </Design.DataContext>
-    <suki:GlassCard Margin="0,15,0,0" Padding="25,10,25,10">
+    <suki:GlassCard Margin="0,15,0,0" Padding="25,10,25,10"
+                    IsEnabled="{calcBinding:Binding '!IsConfigReadOnly', Source={x:Static helper:Instances.RootViewModel}}">
         <StackPanel Orientation="Vertical" Spacing="10">
             <DockPanel>
 

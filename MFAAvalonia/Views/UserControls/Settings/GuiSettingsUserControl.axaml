@@ -25,7 +25,7 @@
                       Header="{markup:I18n {x:Static helper:LangKeys.Delete}}" />
         </ContextMenu>
     </UserControl.Resources>
-    <StackPanel>
+    <StackPanel IsEnabled="{calcBinding:Binding '!IsConfigReadOnly', Source={x:Static helper:Instances.RootViewModel}}">
         <StackPanel
             HorizontalAlignment="Center"
             Orientation="Horizontal"

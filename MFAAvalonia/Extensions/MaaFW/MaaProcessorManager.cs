@@ -79,7 +79,7 @@ public sealed class MaaProcessorManager
                 {
                     _instanceNames[instanceId] = $"Instance {instanceId}";
                 }
-                SaveInstanceConfig();
+                SaveInstanceConfig(preserveExisting: true);
             }
         }
 
@@ -101,7 +101,7 @@ public sealed class MaaProcessorManager
             if (_instances.TryGetValue(instanceId, out var processor))
             {
                 Current = processor;
-                SaveInstanceConfig();
+                SaveInstanceConfig(preserveExisting: true);
                 return true;
             }
         }
@@ -127,6 +127,7 @@ public sealed class MaaProcessorManager
             var processor = vm.Processor;
             _viewModels[instanceId] = vm;
             _instances[instanceId] = processor;
+            ConfigurationManager.GetConfigNameForInstance(instanceId);
 
             if (setCurrent)
             {
@@ -187,7 +188,7 @@ public sealed class MaaProcessorManager
         lock (_lock)
         {
             _instanceNames[instanceId] = name;
-            SaveInstanceConfig();
+            SaveInstanceConfig(preserveExisting: true);
         }
     }
 
@@ -219,10 +220,7 @@ public sealed class MaaProcessorManager
                 _viewModels.Remove(instanceId);
 
                 // 关闭即销毁：清理实例配置（包含旧版小写前缀）
-                var prefix = $"Instance.{instanceId}.";
-                var legacyPrefix = $"instance.{instanceId}.";
-                ConfigurationManager.Current.RemoveKeysByPrefix(prefix, StringComparison.Ordinal);
-                ConfigurationManager.Current.RemoveKeysByPrefix(legacyPrefix, StringComparison.OrdinalIgnoreCase);
+                ConfigurationManager.RemoveInstanceKeys(instanceId);
                 GlobalConfiguration.RemoveKey(string.Format(ConfigurationKeys.InstanceNameTemplate, instanceId));
 
                 SaveInstanceConfig();
@@ -232,10 +230,48 @@ public sealed class MaaProcessorManager
         return false;
     }
 
-    private void SaveInstanceConfig()
+    private void SaveInstanceConfig(bool preserveExisting = false)
     {
-        var list = string.Join(",", _instances.Keys);
-        var order = string.Join(",", _instanceOrder);
+        static List<string> ParseIds(string value)
+        {
+            return value.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(id => id.Trim())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToList();
+        }
+
+        static void MergeIds(List<string> target, IEnumerable<string> source)
+        {
+            var seen = new HashSet<string>(target, StringComparer.OrdinalIgnoreCase);
+            foreach (var id in source)
+            {
+                if (seen.Add(id))
+                {
+                    target.Add(id);
+                }
+            }
+        }
+
+        var listIds = _instances.Keys.ToList();
+        var orderIds = _instanceOrder.ToList();
+
+        if (preserveExisting)
+        {
+            var savedList = ParseIds(GlobalConfiguration.GetValue(ConfigurationKeys.InstanceList, ""));
+            var savedOrder = ParseIds(GlobalConfiguration.GetValue(ConfigurationKeys.InstanceOrder, ""));
+            MergeIds(listIds, savedList);
+            MergeIds(orderIds, savedOrder);
+        }
+
+        if (Current != null && !listIds.Any(id => id.Equals(Current.InstanceId, StringComparison.OrdinalIgnoreCase)))
+        {
+            listIds.Add(Current.InstanceId);
+        }
+
+        MergeIds(orderIds, listIds);
+
+        var list = string.Join(",", listIds);
+        var order = string.Join(",", orderIds);
 
         GlobalConfiguration.SetValue(ConfigurationKeys.InstanceList, list);
         GlobalConfiguration.SetValue(ConfigurationKeys.InstanceOrder, order);
@@ -250,15 +286,30 @@ public sealed class MaaProcessorManager
     public void LoadInstanceConfig()
     {
         var listStr = GlobalConfiguration.GetValue(ConfigurationKeys.InstanceList, "");
+        var lastActive = GlobalConfiguration.GetValue(ConfigurationKeys.LastActiveInstance, "");
+        var listChanged = false;
 
-        if (string.IsNullOrEmpty(listStr))
+        var ids = listStr.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (ids.Count == 0)
         {
-            // 如果为空，保存当前默认状态
-            SaveInstanceConfig();
-            return;
+            if (!string.IsNullOrWhiteSpace(lastActive))
+            {
+                ids.Add(lastActive);
+                listChanged = true;
+            }
+            else
+            {
+                // 如果为空，保存当前默认状态
+                SaveInstanceConfig();
+                return;
+            }
         }
 
-        var ids = listStr.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        if (!string.IsNullOrWhiteSpace(lastActive) && !ids.Contains(lastActive))
+        {
+            ids.Add(lastActive);
+            listChanged = true;
+        }
         var loadedIds = new HashSet<string>();
 
         lock (_lock)
@@ -301,6 +352,7 @@ public sealed class MaaProcessorManager
                     _instances.Remove(key);
                     _instanceNames.Remove(key);
                 }
+                ConfigurationManager.RemoveInstanceKeys(key);
             }
 
             // 3. 恢复顺序
@@ -328,7 +380,6 @@ public sealed class MaaProcessorManager
             }
 
             // 4. 恢复激活状态
-            var lastActive = GlobalConfiguration.GetValue(ConfigurationKeys.LastActiveInstance, "");
             if (!string.IsNullOrEmpty(lastActive) && _instances.ContainsKey(lastActive))
             {
                 Current = _instances[lastActive];
@@ -336,6 +387,19 @@ public sealed class MaaProcessorManager
             else if (_instances.Count > 0)
             {
                 Current = _instances.Values.First();
+            }
+
+            foreach (var id in loadedIds)
+            {
+                ConfigurationManager.GetConfigNameForInstance(id);
+            }
+
+            ConfigurationManager.SetCurrentForInstance(Current.InstanceId);
+            ConfigurationManager.CleanupInstanceKeys(loadedIds);
+
+            if (listChanged)
+            {
+                SaveInstanceConfig();
             }
         }
     }

@@ -9,19 +9,43 @@ public static class GridLengthStorage
 {
     public static GridLength Load(string key, GridLength fallback)
     {
-        var config = ConfigurationManager.Current;
-        if (config.TryGetValue<GridLength>(key, out var value))
+        if (ConfigurationKeys.IsInstanceScoped(key))
         {
-            return value;
+            var instanceConfig = ConfigurationManager.CurrentInstance;
+            if (instanceConfig.TryGetValue<GridLength>(key, out var instanceValue))
+            {
+                return instanceValue;
+            }
+
+            var instanceRaw = instanceConfig.GetValue(key, string.Empty);
+            if (TryParse(instanceRaw, out var instanceParsed))
+            {
+                return instanceParsed;
+            }
+
+            var globalConfig = ConfigurationManager.Current;
+            if (globalConfig.TryGetValue<GridLength>(key, out var globalValue))
+            {
+                return globalValue;
+            }
+
+            var globalRaw = globalConfig.GetValue(key, string.Empty);
+            return TryParse(globalRaw, out var globalParsed) ? globalParsed : fallback;
         }
 
-        var raw = config.GetValue(key, string.Empty);
-        return TryParse(raw, out var parsed) ? parsed : fallback;
+        var config = ConfigurationManager.Current;
+        if (config.TryGetValue<GridLength>(key, out var configValue))
+        {
+            return configValue;
+        }
+
+        var configRaw = config.GetValue(key, string.Empty);
+        return TryParse(configRaw, out var configParsed) ? configParsed : fallback;
     }
 
     public static void Save(string key, GridLength value)
     {
-        ConfigurationManager.Current.SetValue(key, Serialize(value));
+        ConfigurationManager.TrySetActiveConfigValue(key, Serialize(value));
     }
 
     private static string Serialize(GridLength value)
