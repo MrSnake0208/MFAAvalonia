@@ -90,7 +90,9 @@ Two ways to fill:
 - **User**: target QQ number
 
 **Note**
-- This provider is not wired into the unified send flow yet.
+- This provider is wired into the unified send flow.
+- Send strategy: call `/send_private_msg` first, then fall back to `/send_msg` (with `message_type=private`) on failure.
+- Auth strategy: try `Authorization: Bearer <Key>` first, then automatically fall back to `access_token` query parameter.
 
 ---
 

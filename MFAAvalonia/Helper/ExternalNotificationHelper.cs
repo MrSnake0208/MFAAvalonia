@@ -12,6 +12,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -78,6 +79,15 @@ public static class ExternalNotificationHelper
                         cancellationToken
                     );
                     break;
+                case Key.OneBotKey:
+                    await OneBot.SendAsync(
+                        Instances.ExternalNotificationSettingsUserControlModel.OnebotServer,
+                        Instances.ExternalNotificationSettingsUserControlModel.OnebotKey,
+                        Instances.ExternalNotificationSettingsUserControlModel.OnebotUser,
+                        message,
+                        cancellationToken
+                    );
+                    break;
                 case Key.SmtpKey:
                     await Smtp.SendAsync(Instances.ExternalNotificationSettingsUserControlModel.SmtpServer, Instances.ExternalNotificationSettingsUserControlModel.SmtpPort, Instances.ExternalNotificationSettingsUserControlModel.SmtpUseSsl,
                         Instances.ExternalNotificationSettingsUserControlModel.SmtpRequireAuthentication, Instances.ExternalNotificationSettingsUserControlModel.SmtpFrom, Instances.ExternalNotificationSettingsUserControlModel.SmtpTo,
@@ -137,6 +147,7 @@ public static class ExternalNotificationHelper
             TelegramKey,
             DiscordKey,
             DiscordWebhookKey,
+            OneBotKey,
             SmtpKey,
             QmsgKey,
             ServerChanKey,
@@ -693,35 +704,72 @@ public static class ExternalNotificationHelper
             string info,
             CancellationToken cancellationToken = default)
         {
-            var apiEndpoint = $"{serverUrl}/send_msg";
-
             try
             {
-
-                var content = new Dictionary<string, string>
+                if (string.IsNullOrWhiteSpace(serverUrl))
                 {
-                    ["message"] = info,
-                    ["user_id"] = userQq
-                };
-
-                var request = new HttpRequestMessage(HttpMethod.Post, apiEndpoint)
-                {
-                    Content = new StringContent(JsonConvert.SerializeObject(content), Encoding.UTF8, "application/json")
-                };
-
-                request.Headers.Add("Authorization", $"Bearer {apiKey}");
-
-                using var client = VersionChecker.CreateHttpClientWithProxy();
-                var response = await client.SendAsync(request, cancellationToken);
-                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                if (response.IsSuccessStatusCode && responseBody.Contains("\"status\":ok"))
-                {
-                    LoggerHelper.Info("OneBot消息发送成功");
-                    return true;
+                    LoggerHelper.Error("OneBot发送失败: 服务地址为空");
+                    return false;
                 }
 
-                LoggerHelper.Error($"OneBot发送失败: {responseBody}");
+                if (string.IsNullOrWhiteSpace(userQq))
+                {
+                    LoggerHelper.Error("OneBot发送失败: QQ号为空");
+                    return false;
+                }
+
+                var normalizedServerUrl = serverUrl.Trim().TrimEnd('/');
+                object userIdPayload = userQq;
+                if (long.TryParse(userQq.Trim(), out var userId))
+                {
+                    userIdPayload = userId;
+                }
+                else
+                {
+                    LoggerHelper.Warning("OneBot user_id 不是纯数字，将按字符串发送");
+                }
+
+                var endpointPaths = new[] { "/send_private_msg", "/send_msg" };
+                var useAccessTokenQueryModes = string.IsNullOrWhiteSpace(apiKey)
+                    ? new[] { false }
+                    : new[] { false, true };
+
+                using var client = VersionChecker.CreateHttpClientWithProxy();
+                var lastResponse = string.Empty;
+                foreach (var endpointPath in endpointPaths)
+                {
+                    foreach (var useAccessTokenQuery in useAccessTokenQueryModes)
+                    {
+                        var apiEndpoint = BuildApiEndpoint(normalizedServerUrl, endpointPath, apiKey, useAccessTokenQuery);
+                        var content = BuildPayload(endpointPath, userIdPayload, info);
+                        var request = new HttpRequestMessage(HttpMethod.Post, apiEndpoint)
+                        {
+                            Content = new StringContent(JsonConvert.SerializeObject(content), Encoding.UTF8, "application/json")
+                        };
+
+                        if (!string.IsNullOrWhiteSpace(apiKey) && !useAccessTokenQuery)
+                        {
+                            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                        }
+
+                        using (request)
+                        {
+                            var response = await client.SendAsync(request, cancellationToken);
+                            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                            lastResponse = $"http={(int)response.StatusCode} endpoint={endpointPath} body={responseBody}";
+
+                            if (response.IsSuccessStatusCode && IsSuccessResponse(responseBody))
+                            {
+                                LoggerHelper.Info($"OneBot消息发送成功: endpoint={endpointPath}, auth={(useAccessTokenQuery ? "access_token" : "Bearer/None")}");
+                                return true;
+                            }
+
+                            LoggerHelper.Warning($"OneBot尝试失败: endpoint={endpointPath}, auth={(useAccessTokenQuery ? "access_token" : "Bearer/None")}, status={(int)response.StatusCode}");
+                        }
+                    }
+                }
+
+                LoggerHelper.Error($"OneBot发送失败: {lastResponse}");
                 return false;
             }
             catch (OperationCanceledException)
@@ -734,6 +782,71 @@ public static class ExternalNotificationHelper
                 LoggerHelper.Error($"OneBot通信异常: {ex.Message}");
                 return false;
             }
+        }
+
+        private static Dictionary<string, object> BuildPayload(string endpointPath, object userId, string info)
+        {
+            var payload = new Dictionary<string, object>
+            {
+                ["message"] = info,
+                ["user_id"] = userId,
+            };
+
+            if (string.Equals(endpointPath, "/send_msg", StringComparison.Ordinal))
+            {
+                payload["message_type"] = "private";
+            }
+
+            return payload;
+        }
+
+        private static string BuildApiEndpoint(string serverUrl, string endpointPath, string apiKey, bool useAccessTokenQuery)
+        {
+            if (!useAccessTokenQuery || string.IsNullOrWhiteSpace(apiKey))
+            {
+                return $"{serverUrl}{endpointPath}";
+            }
+
+            return $"{serverUrl}{endpointPath}?access_token={Uri.EscapeDataString(apiKey)}";
+        }
+
+        private static bool IsSuccessResponse(string responseBody)
+        {
+            if (string.IsNullOrWhiteSpace(responseBody))
+            {
+                return false;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(responseBody);
+                var root = doc.RootElement;
+                if (root.ValueKind != JsonValueKind.Object)
+                {
+                    return false;
+                }
+
+                if (root.TryGetProperty("status", out var statusProperty)
+                    && statusProperty.ValueKind == JsonValueKind.String
+                    && string.Equals(statusProperty.GetString(), "ok", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (root.TryGetProperty("retcode", out var retcodeProperty)
+                    && retcodeProperty.ValueKind == JsonValueKind.Number
+                    && retcodeProperty.TryGetInt32(out var retcode)
+                    && retcode == 0)
+                {
+                    return true;
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return false;
+            }
+
+            return false;
         }
     }
 
