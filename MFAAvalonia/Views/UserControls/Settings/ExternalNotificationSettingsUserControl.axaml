@@ -480,6 +480,19 @@
                                 VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
+                    <DockPanel>
+                        <ToggleSwitch
+                            Classes="Switch"
+                            DockPanel.Dock="Right"
+                            IsChecked="{Binding OnebotIncludeScreenshot}"
+                            VerticalAlignment="Top" />
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                Text="{markup:I18n {x:Static helper:LangKeys.ExternalNotificationOneBotIncludeScreenshot}}"
+                                VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                 </StackPanel>
             </StackPanel>
 

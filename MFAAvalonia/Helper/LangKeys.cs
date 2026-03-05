@@ -376,6 +376,7 @@ public static class LangKeys
 	public static readonly string ExternalNotificationOneBotKey = "ExternalNotificationOneBotKey";
 	public static readonly string ExternalNotificationOneBotServer = "ExternalNotificationOneBotServer";
 	public static readonly string ExternalNotificationOneBotUser = "ExternalNotificationOneBotUser";
+	public static readonly string ExternalNotificationOneBotIncludeScreenshot = "ExternalNotificationOneBotIncludeScreenshot";
 	public static readonly string ExternalNotificationServerChanSendKey = "ExternalNotificationServerChanSendKey";
 	public static readonly string CreateCustomTheme = "CreateCustomTheme";
 	public static readonly string ConfigurePrimaryAccent = "ConfigurePrimaryAccent";

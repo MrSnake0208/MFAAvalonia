@@ -1095,6 +1095,9 @@
     <data name="ExternalNotificationOneBotUser" xml:space="preserve">
         <value>用戶QQ</value>
     </data>
+    <data name="ExternalNotificationOneBotIncludeScreenshot" xml:space="preserve">
+        <value>附帶即時截圖</value>
+    </data>
     <data name="CreateCustomTheme" xml:space="preserve">
         <value>創建自定義主題</value>
     </data>

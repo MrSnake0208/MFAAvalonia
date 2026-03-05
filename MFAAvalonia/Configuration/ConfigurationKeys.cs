@@ -135,6 +135,7 @@ public static class ConfigurationKeys
     public const string ExternalNotificationOneBotServer = "ExternalNotificationOneBotServer";
     public const string ExternalNotificationOneBotKey = "ExternalNotificationOneBotKey";
     public const string ExternalNotificationOneBotUser = "ExternalNotificationOneBotUser";
+    public const string ExternalNotificationOneBotIncludeScreenshot = "ExternalNotificationOneBotIncludeScreenshot";
     public const string ExternalNotificationServerChanKey = "ExternalNotificationServerChanKey";
     public const string ExternalNotificationCustomWebhookUrl = "ExternalNotificationCustomWebhookUrl";
     public const string ExternalNotificationCustomWebhookContentType = "ExternalNotificationCustomWebhookContentType";

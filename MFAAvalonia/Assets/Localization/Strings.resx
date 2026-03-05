@@ -1104,6 +1104,9 @@
     <data name="ExternalNotificationOneBotUser" xml:space="preserve">
         <value>用户 QQ</value>
     </data>
+    <data name="ExternalNotificationOneBotIncludeScreenshot" xml:space="preserve">
+        <value>附带实时截图</value>
+    </data>
     <data name="ExternalNotificationServerChanSendKey" xml:space="preserve">
         <value>SendKey</value>
     </data>
@@ -1633,4 +1636,3 @@
         </data>
     
     </root>
-

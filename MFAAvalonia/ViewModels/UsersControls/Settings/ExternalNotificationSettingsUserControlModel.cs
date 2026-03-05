@@ -303,6 +303,9 @@ public partial class ExternalNotificationSettingsUserControlModel : ViewModelBas
     [ObservableProperty] private string _onebotUser = ConfigurationManager.Current.GetDecrypt(ConfigurationKeys.ExternalNotificationOneBotUser, string.Empty);
     partial void OnOnebotUserChanged(string value) => HandlePropertyChanged(ConfigurationKeys.ExternalNotificationOneBotUser, SimpleEncryptionHelper.Encrypt(value));
 
+    [ObservableProperty] private bool _onebotIncludeScreenshot = ConfigurationManager.Current.GetValue(ConfigurationKeys.ExternalNotificationOneBotIncludeScreenshot, true);
+    partial void OnOnebotIncludeScreenshotChanged(bool value) => HandlePropertyChanged(ConfigurationKeys.ExternalNotificationOneBotIncludeScreenshot, value);
+
     #endregion
 
     #region ServerChan

@@ -22,7 +22,7 @@ public static class ExternalNotificationHelper
 {
     #region 总调用入口
 
-    public async static Task ExternalNotificationAsync(string message, CancellationToken cancellationToken = default)
+    public async static Task ExternalNotificationAsync(string message, Func<byte[]?>? screenshotBytesProvider = null, CancellationToken cancellationToken = default)
     {
         var enabledProviders = ExternalNotificationSettingsUserControlModel.EnabledExternalNotificationProviderList;
 
@@ -80,11 +80,25 @@ public static class ExternalNotificationHelper
                     );
                     break;
                 case Key.OneBotKey:
+                    byte[]? screenshotBytes = null;
+                    if (Instances.ExternalNotificationSettingsUserControlModel.OnebotIncludeScreenshot && screenshotBytesProvider != null)
+                    {
+                        try
+                        {
+                            screenshotBytes = screenshotBytesProvider.Invoke();
+                        }
+                        catch (Exception ex)
+                        {
+                            LoggerHelper.Warning($"OneBot通知截图获取失败: {ex.Message}");
+                        }
+                    }
+
                     await OneBot.SendAsync(
                         Instances.ExternalNotificationSettingsUserControlModel.OnebotServer,
                         Instances.ExternalNotificationSettingsUserControlModel.OnebotKey,
                         Instances.ExternalNotificationSettingsUserControlModel.OnebotUser,
                         message,
+                        screenshotBytes,
                         cancellationToken
                     );
                     break;
@@ -702,6 +716,7 @@ public static class ExternalNotificationHelper
             string apiKey,
             string userQq,
             string info,
+            byte[]? imageBytes = null,
             CancellationToken cancellationToken = default)
         {
             try
@@ -729,48 +744,46 @@ public static class ExternalNotificationHelper
                     LoggerHelper.Warning("OneBot user_id 不是纯数字，将按字符串发送");
                 }
 
-                var endpointPaths = new[] { "/send_private_msg", "/send_msg" };
-                var useAccessTokenQueryModes = string.IsNullOrWhiteSpace(apiKey)
-                    ? new[] { false }
-                    : new[] { false, true };
-
                 using var client = VersionChecker.CreateHttpClientWithProxy();
-                var lastResponse = string.Empty;
-                foreach (var endpointPath in endpointPaths)
+                var sentText = await SendMessageWithFallbackAsync(
+                    client,
+                    serverUrl.Trim().TrimEnd('/'),
+                    apiKey,
+                    userIdPayload,
+                    info,
+                    "文本",
+                    true,
+                    cancellationToken
+                );
+
+                if (!sentText)
                 {
-                    foreach (var useAccessTokenQuery in useAccessTokenQueryModes)
-                    {
-                        var apiEndpoint = BuildApiEndpoint(normalizedServerUrl, endpointPath, apiKey, useAccessTokenQuery);
-                        var content = BuildPayload(endpointPath, userIdPayload, info);
-                        var request = new HttpRequestMessage(HttpMethod.Post, apiEndpoint)
-                        {
-                            Content = new StringContent(JsonConvert.SerializeObject(content), Encoding.UTF8, "application/json")
-                        };
-
-                        if (!string.IsNullOrWhiteSpace(apiKey) && !useAccessTokenQuery)
-                        {
-                            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-                        }
-
-                        using (request)
-                        {
-                            var response = await client.SendAsync(request, cancellationToken);
-                            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                            lastResponse = $"http={(int)response.StatusCode} endpoint={endpointPath} body={responseBody}";
-
-                            if (response.IsSuccessStatusCode && IsSuccessResponse(responseBody))
-                            {
-                                LoggerHelper.Info($"OneBot消息发送成功: endpoint={endpointPath}, auth={(useAccessTokenQuery ? "access_token" : "Bearer/None")}");
-                                return true;
-                            }
-
-                            LoggerHelper.Warning($"OneBot尝试失败: endpoint={endpointPath}, auth={(useAccessTokenQuery ? "access_token" : "Bearer/None")}, status={(int)response.StatusCode}");
-                        }
-                    }
+                    return false;
                 }
 
-                LoggerHelper.Error($"OneBot发送失败: {lastResponse}");
-                return false;
+                if (imageBytes == null || imageBytes.Length == 0)
+                {
+                    return true;
+                }
+
+                var imageMessage = BuildBase64ImageCqCode(imageBytes);
+                var sentImage = await SendMessageWithFallbackAsync(
+                    client,
+                    normalizedServerUrl,
+                    apiKey,
+                    userIdPayload,
+                    imageMessage,
+                    "截图",
+                    false,
+                    cancellationToken
+                );
+
+                if (!sentImage)
+                {
+                    LoggerHelper.Warning("OneBot截图消息发送失败，已降级为仅文本推送");
+                }
+
+                return true;
             }
             catch (OperationCanceledException)
             {
@@ -782,6 +795,73 @@ public static class ExternalNotificationHelper
                 LoggerHelper.Error($"OneBot通信异常: {ex.Message}");
                 return false;
             }
+        }
+
+        private static async Task<bool> SendMessageWithFallbackAsync(
+            HttpClient client,
+            string normalizedServerUrl,
+            string apiKey,
+            object userIdPayload,
+            string message,
+            string messageLabel,
+            bool logFailureAsError,
+            CancellationToken cancellationToken)
+        {
+            var endpointPaths = new[] { "/send_private_msg", "/send_msg" };
+            var useAccessTokenQueryModes = string.IsNullOrWhiteSpace(apiKey)
+                ? new[] { false }
+                : new[] { false, true };
+
+            var lastResponse = string.Empty;
+            foreach (var endpointPath in endpointPaths)
+            {
+                foreach (var useAccessTokenQuery in useAccessTokenQueryModes)
+                {
+                    var apiEndpoint = BuildApiEndpoint(normalizedServerUrl, endpointPath, apiKey, useAccessTokenQuery);
+                    var content = BuildPayload(endpointPath, userIdPayload, message);
+                    var request = new HttpRequestMessage(HttpMethod.Post, apiEndpoint)
+                    {
+                        Content = new StringContent(JsonConvert.SerializeObject(content), Encoding.UTF8, "application/json")
+                    };
+
+                    if (!string.IsNullOrWhiteSpace(apiKey) && !useAccessTokenQuery)
+                    {
+                        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                    }
+
+                    using (request)
+                    {
+                        var response = await client.SendAsync(request, cancellationToken);
+                        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                        lastResponse = $"http={(int)response.StatusCode} endpoint={endpointPath} body={responseBody}";
+
+                        if (response.IsSuccessStatusCode && IsSuccessResponse(responseBody))
+                        {
+                            LoggerHelper.Info($"OneBot{messageLabel}消息发送成功: endpoint={endpointPath}, auth={(useAccessTokenQuery ? "access_token" : "Bearer/None")}");
+                            return true;
+                        }
+
+                        LoggerHelper.Warning($"OneBot{messageLabel}消息尝试失败: endpoint={endpointPath}, auth={(useAccessTokenQuery ? "access_token" : "Bearer/None")}, status={(int)response.StatusCode}");
+                    }
+                }
+            }
+
+            if (logFailureAsError)
+            {
+                LoggerHelper.Error($"OneBot{messageLabel}消息发送失败: {lastResponse}");
+            }
+            else
+            {
+                LoggerHelper.Warning($"OneBot{messageLabel}消息发送失败: {lastResponse}");
+            }
+
+            return false;
+        }
+
+        private static string BuildBase64ImageCqCode(byte[] imageBytes)
+        {
+            var imageBase64 = Convert.ToBase64String(imageBytes);
+            return $"[CQ:image,file=base64://{imageBase64}]";
         }
 
         private static Dictionary<string, object> BuildPayload(string endpointPath, object userId, string info)

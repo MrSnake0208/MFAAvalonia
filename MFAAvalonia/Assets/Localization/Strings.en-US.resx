@@ -1095,6 +1095,9 @@
     <data name="ExternalNotificationOneBotUser" xml:space="preserve">
         <value>User QQ</value>
     </data>
+    <data name="ExternalNotificationOneBotIncludeScreenshot" xml:space="preserve">
+        <value>Include Real-time Screenshot</value>
+    </data>
     <data name="CreateCustomTheme" xml:space="preserve">
         <value>Create Custom Theme</value>
     </data>
@@ -1622,4 +1625,3 @@
             <value>Exit Program</value>
         </data>
     </root>
-

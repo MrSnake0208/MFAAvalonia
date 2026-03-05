@@ -88,11 +88,13 @@ Two ways to fill:
 - **Server**: OneBot server URL (e.g. `http://127.0.0.1:5700`)  
 - **Key**: auth key (if required)  
 - **User**: target QQ number
+- **Include Real-time Screenshot**: whether to send a real-time screenshot together with the notification (enabled by default)
 
 **Note**
 - This provider is wired into the unified send flow.
 - Send strategy: call `/send_private_msg` first, then fall back to `/send_msg` (with `message_type=private`) on failure.
 - Auth strategy: try `Authorization: Bearer <Key>` first, then automatically fall back to `access_token` query parameter.
+- Delivery strategy: send text first, then send screenshot; if image delivery fails, it degrades to text-only notification.
 
 ---
 

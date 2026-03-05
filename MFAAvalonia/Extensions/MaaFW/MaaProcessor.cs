@@ -4045,7 +4045,7 @@ public class MaaProcessor
             AddLogByKey(LangKeys.TaskFailed, (IBrush?)null);
             ExternalNotificationHelper.ExternalNotificationAsync(Instances.ExternalNotificationSettingsUserControlModel.EnabledCustom
                 ? Instances.ExternalNotificationSettingsUserControlModel.CustomFailureText
-                : LangKeys.TaskFailed.ToLocalization());
+                : LangKeys.TaskFailed.ToLocalization(), BuildRealtimeScreenshotPngBytes);
         }
         else if (status == MFATask.MFATaskStatus.STOPPED)
         {
@@ -4092,12 +4092,33 @@ public class MaaProcessor
             {
                 ExternalNotificationHelper.ExternalNotificationAsync(Instances.ExternalNotificationSettingsUserControlModel.EnabledCustom
                     ? Instances.ExternalNotificationSettingsUserControlModel.CustomSuccessText
-                    : LangKeys.TaskAllCompleted.ToLocalization());
+                    : LangKeys.TaskAllCompleted.ToLocalization(), BuildRealtimeScreenshotPngBytes);
                 HandleAfterTaskOperation();
             }
         }
         action?.Invoke();
         _startTime = null;
+    }
+
+    private byte[]? BuildRealtimeScreenshotPngBytes()
+    {
+        try
+        {
+            using var bitmap = GetLiveView(false) ?? GetLiveViewCached();
+            if (bitmap == null)
+            {
+                return null;
+            }
+
+            using var stream = new MemoryStream();
+            bitmap.Save(stream);
+            return stream.ToArray();
+        }
+        catch (Exception ex)
+        {
+            LoggerHelper.Warning($"构建OneBot通知截图失败: {ex.Message}");
+            return null;
+        }
     }
 
     public void HandleAfterTaskOperation()
