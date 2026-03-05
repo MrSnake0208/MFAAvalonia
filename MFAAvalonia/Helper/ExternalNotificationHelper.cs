@@ -22,7 +22,11 @@ public static class ExternalNotificationHelper
 {
     #region 总调用入口
 
-    public async static Task ExternalNotificationAsync(string message, Func<byte[]?>? screenshotBytesProvider = null, CancellationToken cancellationToken = default)
+    public async static Task ExternalNotificationAsync(
+        string message,
+        Func<byte[]?>? screenshotBytesProvider = null,
+        string? oneBotMessage = null,
+        CancellationToken cancellationToken = default)
     {
         var enabledProviders = ExternalNotificationSettingsUserControlModel.EnabledExternalNotificationProviderList;
 
@@ -80,6 +84,7 @@ public static class ExternalNotificationHelper
                     );
                     break;
                 case Key.OneBotKey:
+                    var oneBotText = string.IsNullOrWhiteSpace(oneBotMessage) ? message : oneBotMessage;
                     byte[]? screenshotBytes = null;
                     if (Instances.ExternalNotificationSettingsUserControlModel.OnebotIncludeScreenshot && screenshotBytesProvider != null)
                     {
@@ -97,7 +102,7 @@ public static class ExternalNotificationHelper
                         Instances.ExternalNotificationSettingsUserControlModel.OnebotServer,
                         Instances.ExternalNotificationSettingsUserControlModel.OnebotKey,
                         Instances.ExternalNotificationSettingsUserControlModel.OnebotUser,
-                        message,
+                        oneBotText,
                         screenshotBytes,
                         cancellationToken
                     );

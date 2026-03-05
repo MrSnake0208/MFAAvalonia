@@ -4061,9 +4061,10 @@ public class MaaProcessor
         }
         else
         {
+            List<DragItemViewModel> list = [];
             if (!onlyStart)
             {
-                var list = _tempTasks.Count > 0 ? _tempTasks : ViewModel?.TaskItemViewModels.ToList() ?? new List<DragItemViewModel>();
+                list = _tempTasks.Count > 0 ? _tempTasks : ViewModel?.TaskItemViewModels.ToList() ?? new List<DragItemViewModel>();
                 list.Where(t => t.IsCheckedWithNull == null && !t.IsTaskSupported).ToList().ForEach(d => d.IsCheckedWithNull = false);
 
                 if (_startTime != null)
@@ -4090,14 +4091,90 @@ public class MaaProcessor
             }
             if (!onlyStart)
             {
-                ExternalNotificationHelper.ExternalNotificationAsync(Instances.ExternalNotificationSettingsUserControlModel.EnabledCustom
+                var useCustomSuccessText = Instances.ExternalNotificationSettingsUserControlModel.EnabledCustom;
+                var successMessage = useCustomSuccessText
                     ? Instances.ExternalNotificationSettingsUserControlModel.CustomSuccessText
-                    : LangKeys.TaskAllCompleted.ToLocalization(), BuildRealtimeScreenshotPngBytes);
+                    : LangKeys.TaskAllCompleted.ToLocalization();
+                var completedAt = DateTime.Now;
+                TimeSpan? elapsedTime = _startTime != null
+                    ? completedAt - (DateTime)_startTime
+                    : null;
+                var oneBotMessage = useCustomSuccessText
+                    ? successMessage
+                    : BuildOneBotSuccessNotificationMessage(successMessage, completedAt, elapsedTime, list);
+
+                ExternalNotificationHelper.ExternalNotificationAsync(
+                    successMessage,
+                    BuildRealtimeScreenshotPngBytes,
+                    oneBotMessage: oneBotMessage);
                 HandleAfterTaskOperation();
             }
         }
         action?.Invoke();
         _startTime = null;
+    }
+
+    private static string BuildOneBotSuccessNotificationMessage(
+        string baseMessage,
+        DateTime completedAt,
+        TimeSpan? elapsedTime,
+        IReadOnlyList<DragItemViewModel> taskList)
+    {
+        var builder = new StringBuilder();
+
+        if (!string.IsNullOrWhiteSpace(baseMessage))
+        {
+            builder.AppendLine(baseMessage.Trim());
+        }
+
+        builder.AppendLine($"完成时间: {completedAt:yyyy-MM-dd HH:mm:ss}");
+
+        if (elapsedTime.HasValue)
+        {
+            var duration = elapsedTime.Value;
+            builder.AppendLine($"总耗时: {((int)duration.TotalHours):00}:{duration.Minutes:00}:{duration.Seconds:00}");
+        }
+
+        var completedTaskNames = GetCompletedTaskNames(taskList);
+        if (completedTaskNames.Count == 0)
+        {
+            builder.Append("已完成任务: 无可用任务项");
+            return builder.ToString();
+        }
+
+        builder.AppendLine($"已完成任务({completedTaskNames.Count}):");
+        for (var index = 0; index < completedTaskNames.Count; index++)
+        {
+            builder.AppendLine($"{index + 1}. {completedTaskNames[index]}");
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static List<string> GetCompletedTaskNames(IReadOnlyList<DragItemViewModel> taskList)
+    {
+        var preferredNames = taskList
+            .Where(task =>
+                !task.IsResourceOptionItem &&
+                task.IsTaskSupported &&
+                task.IsCheckedWithNull != false &&
+                !string.IsNullOrWhiteSpace(task.Name))
+            .Select(task => task.Name.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (preferredNames.Count > 0)
+        {
+            return preferredNames;
+        }
+
+        return taskList
+            .Where(task =>
+                !task.IsResourceOptionItem &&
+                !string.IsNullOrWhiteSpace(task.Name))
+            .Select(task => task.Name.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
     }
 
     private byte[]? BuildRealtimeScreenshotPngBytes()
